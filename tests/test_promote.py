@@ -23,7 +23,7 @@ class PromoteT01Tests(unittest.TestCase):
     """
 
     def test_state_tests_generated_from_table_rows(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         rules = mod.state_table_rules()
         generated = mod.generated_state_tests()
         self.assertEqual([g["rule"] for g in generated], list(rules))
@@ -32,7 +32,7 @@ class PromoteT01Tests(unittest.TestCase):
             self.assertEqual(entry["generated_from"], "governing state table")
 
     def test_rule_by_rule_review_accounts_each_rule_exactly_once(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         review = mod.review_slice_output(reviewer="named reviewer")
         rules = list(mod.state_table_rules())
         self.assertEqual(sorted(review["accounted_rules"]), sorted(rules))
@@ -42,7 +42,7 @@ class PromoteT01Tests(unittest.TestCase):
         self.assertEqual(review["second_statement_findings"], [])
 
     def test_review_records_a_second_statement_as_a_finding(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         output = mod.slice_output_with_a_second_statement()
         review = mod.review_slice_output(
             reviewer="named reviewer", slice_output=output)
@@ -55,21 +55,21 @@ class PromoteT01Tests(unittest.TestCase):
         self.assertEqual(len(review["accounted_rules"]), len(set(review["accounted_rules"])))
 
     def test_review_record_is_the_evidence_home(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         review = mod.review_slice_output(reviewer="named reviewer")
         self.assertEqual(review["record_home"], "PROMOTE slice exit record")
         self.assertTrue(review["filed"])
         self.assertFalse(review["rests_on_search_result"])
 
     def test_kill_before_the_append(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         result = mod.interrupt_before_append()
         self.assertEqual(result["verify"], "agreement")
         self.assertEqual(result["history_after"], result["history_before"])
         self.assertFalse(result["append_completed"])
 
     def test_kill_inside_the_rollback_append(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         result = mod.interrupt_inside_rollback_append()
         self.assertEqual(result["verify"], "agreement")
         self.assertEqual(result["pre_append_history_after"], result["pre_append_history_before"])
@@ -82,13 +82,13 @@ class PromoteT02Tests(unittest.TestCase):
     """PROMOTE-T02: gate pass and deployment land as one act."""
 
     def test_no_observable_moment_between_gate_pass_and_deployment(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         observed = mod.promote_with_observer()
         self.assertNotIn("gate_passed_not_deployed", observed["observable_states"])
         self.assertEqual(observed["final_state"], "deployed")
 
     def test_journal_order_audit_before_acknowledgement(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         result = mod.promote()
         kinds = [entry["kind"] for entry in result["journal"]]
         self.assertLess(kinds.index("audit"), kinds.index("acknowledgement"))
@@ -99,7 +99,7 @@ class PromoteT03Tests(unittest.TestCase):
     """PROMOTE-T03: the gate sequence runs in program order."""
 
     def test_gate_sequence_order(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         order = mod.gate_sequence_order()
         self.assertEqual(
             order,
@@ -108,7 +108,7 @@ class PromoteT03Tests(unittest.TestCase):
         )
 
     def test_cross_split_audit_is_the_third_call_point(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         first_step = mod.gate_sequence()[0]
         self.assertEqual(first_step["act"], "cross_split_audit")
         self.assertEqual(first_step["central_row"], "DATASET-T05")
@@ -119,13 +119,13 @@ class PromoteT04Tests(unittest.TestCase):
     """PROMOTE-T04: acknowledgement substance."""
 
     def test_proceed_is_the_only_satisfying_choice(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         result = mod.acknowledge("proceed")
         self.assertEqual(result["position"], "acknowledged")
         self.assertTrue(result["satisfies_gate"])
 
     def test_any_other_acknowledgement_leaves_gate_pass_held(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         for choice in ("noted", "seen", "visibility only"):
             result = mod.acknowledge(choice)
             self.assertEqual(result["position"], "gate pass held")
@@ -136,7 +136,7 @@ class PromoteT05Tests(unittest.TestCase):
     """PROMOTE-T05: confirmation record completeness, criteria 16 and 17 parts."""
 
     def test_missing_weight_position_field_is_refused(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         record = mod.complete_confirmation_record()
         del record["production_evidence_weight_position"]
         result = mod.submit_confirmation(record)
@@ -144,7 +144,7 @@ class PromoteT05Tests(unittest.TestCase):
         self.assertEqual(result["reason"], "confirmation record incomplete")
 
     def test_label_and_weight_position_fields_carry_allowed_values_exactly(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         allowed_label = mod.allowed_values("production_evidence_label_position")
         allowed_weight = mod.allowed_values("production_evidence_weight_position")
         record = mod.complete_confirmation_record()
@@ -159,14 +159,14 @@ class PromoteT06Tests(unittest.TestCase):
     """PROMOTE-T06: race and interruption tests on journal order, FF2-19."""
 
     def test_concurrent_promotions_are_decided_by_journal_order(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         result = mod.race_two_promotions()
         self.assertEqual(result["winner"], result["journal_first"])
         self.assertEqual(result["loser_outcome"], "refused by journal order")
         self.assertEqual(len(result["deployments"]), 1)
 
     def test_interruption_leaves_no_half_promotion(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         result = mod.interrupt_promotion()
         self.assertIn(result["state"], ("not promoted", "deployed"))
         self.assertEqual(result["verify"], "agreement")
@@ -176,19 +176,19 @@ class PromoteT07Tests(unittest.TestCase):
     """PROMOTE-T07: bundle bound at D-10 checked twice, no silent trimming."""
 
     def test_bound_checked_at_candidate_construction(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         result = mod.construct_candidate(bundle_size="over D-10 bound")
         self.assertEqual(result["outcome"], "refused")
         self.assertEqual(result["check_point"], "candidate construction")
 
     def test_bound_checked_again_at_bundle_writing(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         result = mod.write_bundle(bundle_size="over D-10 bound")
         self.assertEqual(result["outcome"], "refused")
         self.assertEqual(result["check_point"], "bundle writing")
 
     def test_no_silent_trimming_on_refusal(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         candidate = mod.candidate_over_bound()
         result = mod.write_bundle(candidate)
         self.assertEqual(result["outcome"], "refused")
@@ -200,7 +200,7 @@ class PromoteT08Tests(unittest.TestCase):
     """PROMOTE-T08: demotion flag record and its three disposition forms."""
 
     def test_flag_record_carries_identity_evidence_and_age_as_one_record(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         flag = mod.raise_demotion_flag(mod.confirmed_bundle())
         self.assertTrue(flag["bundle_identity"])
         self.assertTrue(flag["evidence"])
@@ -208,13 +208,13 @@ class PromoteT08Tests(unittest.TestCase):
         self.assertEqual(flag["record_count"], 1)
 
     def test_disposition_demote(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         result = mod.dispose_demotion_flag("demote")
         self.assertEqual(result["record_form"], "demote")
         self.assertEqual(result["bundle_position"], "demoted")
 
     def test_disposition_retain_closes_flag_and_stops_its_age(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         result = mod.dispose_demotion_flag("retain", reason="evidence reviewed")
         self.assertEqual(result["record_form"], "retain")
         self.assertTrue(result["reason_recorded"])
@@ -222,7 +222,7 @@ class PromoteT08Tests(unittest.TestCase):
         self.assertTrue(result["age_stopped"])
 
     def test_disposition_defer_names_the_review_point(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         result = mod.dispose_demotion_flag("defer")
         self.assertEqual(result["record_form"], "defer")
         self.assertTrue(result["review_point_named"])
@@ -232,13 +232,13 @@ class PromoteT09Tests(unittest.TestCase):
     """PROMOTE-T09: fixed text travel lint over bundle writing."""
 
     def test_lint_passes_over_bundle_writing(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         result = mod.fixed_text_travel_lint(assembly="bundle writing")
         self.assertTrue(result["passed"])
         self.assertEqual(result["texts_checked"], 3)
 
     def test_paraphrase_of_any_verbatim_text_fails_the_lint(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         for text_name in ("seal sentence", "verify sentence", "grader awareness label"):
             result = mod.fixed_text_travel_lint(
                 assembly="bundle writing", paraphrase_of=text_name)

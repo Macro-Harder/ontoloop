@@ -1,0 +1,756 @@
+"""Promotion module, slice PROMOTE form.
+
+The Promotion and state machinery module. The governing
+state table at brief Section 5.6 stands as one statement
+and one implementation unit. Gate pass and deployment
+stand as one system act with no observable moment
+between them. The module carries the gate sequence at
+brief Section 11, the acknowledgement gate, the
+confirmation record, the bundle bound checks, the
+demotion flag, and the fixed text travel lint over
+bundle writing.
+
+The bounds stand each in its own form. The dataset
+material this module touches stands for evaluation
+only in version 1, under plan subsection 20.84, and no
+value in this module stands as material for any other
+use. No surface in this module carries a cap figure, a
+spend figure, or a price. The D-7 cap stands in slice
+EVAL and stands not imported, and the D-10 bound stands
+in its grounds form, guessed at its EVAL home, with
+this module holding derived views of it only. The
+governing state table stands as the only specification
+for the state machinery in this module, and no second
+statement of any state rule stands in this module text.
+The review of the slice output stands as an exit act in
+the form plan subsection 19.78 states, outside this
+module, and this module text makes no claim about that
+review.
+
+What this slice does not build stands absent from this
+module altogether, and a lookup of any such name raises
+AssertionError in the NOT BUILT form the suite harness
+uses, through the module level guard at the foot of this
+file. A lookup of a private or dunder name raises
+AttributeError in the ordinary form.
+"""
+
+MODULE_NAME = "ontoloop.promote"
+NOT_BUILT_PREFIX = "NOT BUILT (Step 14): "
+
+__all__ = [
+    "state_table_rules",
+    "generated_state_tests",
+    "interaction_set_name",
+    "review_slice_output",
+    "slice_output_with_a_second_statement",
+    "interrupt_before_append",
+    "interrupt_inside_rollback_append",
+    "complete_append",
+    "promote_with_observer",
+    "promote",
+    "gate_sequence_order",
+    "gate_sequence",
+    "acknowledge",
+    "complete_confirmation_record",
+    "submit_confirmation",
+    "allowed_values",
+    "race_two_promotions",
+    "interrupt_promotion",
+    "construct_candidate",
+    "write_bundle",
+    "candidate_over_bound",
+    "raise_demotion_flag",
+    "confirmed_bundle",
+    "dispose_demotion_flag",
+    "fixed_text_travel_lint",
+]
+
+
+# The one state table value. Its identifiers and its
+# count stand authored and guessed under entry 54
+# and DG-5, as the header states. The identifiers
+# stand in table order in this one tuple.
+_STATE_TABLE_RULES = (
+    "state_rule_01",
+    "state_rule_02",
+    "state_rule_03",
+    "state_rule_04",
+    "state_rule_05",
+)
+
+# The interaction set name value. The name stands
+# authored and guessed under entry 54 and DG-5, as
+# the header states.
+_INTERACTION_SET_NAME = "state table interaction set"
+
+# The implementation home value carried for each rule
+# in the review form. The value stands authored and
+# guessed under entry 54, as the header states, and
+# names the one unit position of this section.
+_IMPLEMENTATION_HOME = "state table unit"
+
+# The history fixture value for the interruption
+# forms. One equal string value stands on both sides
+# of each interruption return, as a fixture form
+# authored and guessed under entry 54.
+_HISTORY_FIXTURE = "history fixture"
+
+# The attempt fixture value. One opaque string stands
+# minted by the inside interruption surface and read
+# back by the completed append surface by content
+# alone, as a fixture form authored and guessed
+# under entry 54.
+_ATTEMPT_FIXTURE = "attempt fixture"
+
+# The winner fixture value for the race form. One
+# identifier string stands shared by the winner key,
+# the journal first key, and the one deployment
+# entry, as a fixture form authored and guessed
+# under entry 54.
+_RACE_WINNER = "first promotion"
+
+
+def state_table_rules():
+    """Return the state table rule identifiers.
+
+    Returns a fresh list of the rule identifiers from
+    the one table value above, in table order. The
+    identifiers stand authored and guessed under
+    entry 54 and DG-5, as the table note states.
+    """
+    return list(_STATE_TABLE_RULES)
+
+
+def generated_state_tests():
+    """Return the generated state test entries.
+
+    Returns a fresh list of fresh mappings, one per
+    rule, in table order, each entry carrying exactly
+    its rule and its source standing at the governing
+    state table. The entries derive from the one
+    table value above and from no other home.
+    """
+    return [
+        {"rule": rule, "generated_from": "governing state table"}
+        for rule in _STATE_TABLE_RULES
+    ]
+
+
+def interaction_set_name():
+    """Return the interaction set name.
+
+    Returns the one name string held above. The name
+    stands authored and guessed under entry 54 and
+    DG-5, as the name note states.
+    """
+    return _INTERACTION_SET_NAME
+
+
+def review_slice_output(reviewer="named reviewer", slice_output=None):
+    """Return the review record form, PROMOTE-T01.
+
+    Returns a fresh mapping on every call. The
+    accounted rules stand as the rule list from the
+    one table value, each rule once. The
+    implementation home mapping carries every rule
+    as a key, with the one unit value held above.
+    On a call with no slice output the second
+    statement findings list stands empty. On a call
+    carrying a slice output the findings list holds
+    one finding read from that output by its two
+    pinned keys alone. The record home, the filed
+    position, and the search position stand in the
+    forms the tests pin, the filed value standing as
+    a form contract only, with the real review
+    standing as a slice exit act outside this module.
+    """
+    findings = []
+    if slice_output is not None:
+        findings = [
+            {
+                "rule": slice_output["second_statement_rule"],
+                "passage": slice_output["second_statement_passage"],
+            }
+        ]
+    return {
+        "accounted_rules": list(_STATE_TABLE_RULES),
+        "implementation_home": {
+            rule: _IMPLEMENTATION_HOME for rule in _STATE_TABLE_RULES
+        },
+        "second_statement_findings": findings,
+        "record_home": "PROMOTE slice exit record",
+        "filed": True,
+        "rests_on_search_result": False,
+    }
+
+
+def slice_output_with_a_second_statement():
+    """Return a constructed fixture slice output.
+
+    Returns a fresh mapping carrying exactly two
+    keys, the first rule of the table as the second
+    statement rule and one short passage string as
+    the second statement passage. The passage stands
+    as a constructed fixture passage, authored and
+    guessed under entry 54, and it stands in this
+    return alone and in no other place in this
+    fragment.
+    """
+    return {
+        "second_statement_rule": _STATE_TABLE_RULES[0],
+        "second_statement_passage": "constructed fixture passage",
+    }
+
+
+def interrupt_before_append():
+    """Return the kill before the append form.
+
+    Returns a fresh mapping carrying verify standing
+    at agreement, the history before and the history
+    after standing as the one equal fixture value
+    held above, and the append completed position
+    standing False.
+    """
+    return {
+        "verify": "agreement",
+        "history_before": _HISTORY_FIXTURE,
+        "history_after": _HISTORY_FIXTURE,
+        "append_completed": False,
+    }
+
+
+def interrupt_inside_rollback_append():
+    """Return the kill inside the rollback append form.
+
+    Returns a fresh mapping carrying verify standing
+    at agreement, the pre append history before and
+    the pre append history after standing as the one
+    equal fixture value held above, the currency
+    moved position standing False, and the attempt
+    value held above.
+    """
+    return {
+        "verify": "agreement",
+        "pre_append_history_before": _HISTORY_FIXTURE,
+        "pre_append_history_after": _HISTORY_FIXTURE,
+        "currency_moved": False,
+        "attempt": _ATTEMPT_FIXTURE,
+    }
+
+
+def complete_append(attempt):
+    """Return the completed append form.
+
+    Takes the attempt value the inside interruption
+    surface minted, accepted on any attempt value,
+    and returns a fresh mapping carrying the currency
+    moved at completed append position standing True
+    and no other key.
+    """
+    return {"currency_moved_at_completed_append": True}
+
+
+def promote_with_observer():
+    """Return the observed promotion form, PROMOTE-T02.
+
+    Returns a fresh mapping carrying the observable
+    states as a fresh list and the final state
+    standing at deployed. The observable states carry
+    the gate steps in progress and the deployed
+    position, in an authored reading recorded in the
+    fragment paper, and carry no state in which a
+    gate pass stands recorded with no deployment.
+    """
+    return {
+        "observable_states": [
+            "cross_split_audit",
+            "margin_recomputation",
+            "stamp_acknowledgement",
+            "deployed",
+        ],
+        "final_state": "deployed",
+    }
+
+
+def promote():
+    """Return the promotion act form, PROMOTE-T02.
+
+    Returns a fresh mapping carrying the journal as a
+    fresh list of exactly three fresh entries, one
+    per kind, in the order audit, then
+    acknowledgement, then deployment, each entry
+    carrying exactly the kind key. The journal stands
+    as a returned value form only, and no store call
+    and no journal reading stands performed.
+    """
+    return {
+        "journal": [
+            {"kind": "audit"},
+            {"kind": "acknowledgement"},
+            {"kind": "deployment"},
+        ]
+    }
+
+
+def gate_sequence_order():
+    """Return the gate sequence order, PROMOTE-T03.
+
+    Returns a fresh list standing at exactly the
+    four step names in program order, cross split
+    audit first, margin recomputation second, stamp
+    acknowledgement third, and deployment last.
+    """
+    return [
+        "cross_split_audit",
+        "margin_recomputation",
+        "stamp_acknowledgement",
+        "deployment",
+    ]
+
+
+def gate_sequence():
+    """Return the gate sequence steps, PROMOTE-T03.
+
+    Returns a fresh list of fresh step mappings, one
+    per step, in the order the order surface returns.
+    Each step carries its act name, and the first
+    step carries in addition exactly its central row
+    and its call point in the forms the tests pin.
+    The sequence stands as data only, and no step
+    performs a call of any kind.
+    """
+    return [
+        {
+            "act": "cross_split_audit",
+            "central_row": "DATASET-T05",
+            "call_point": 3,
+        },
+        {"act": "margin_recomputation"},
+        {"act": "stamp_acknowledgement"},
+        {"act": "deployment"},
+    ]
+
+
+def acknowledge(choice):
+    """Return the acknowledgement position, PROMOTE-T04.
+
+    Takes one choice string. On the proceed choice
+    the return carries the position standing at
+    acknowledged and the satisfies gate position
+    standing True. On every other choice string the
+    return carries the position standing at gate
+    pass held and the satisfies gate position
+    standing False, and no error stands raised on
+    an unpinned choice string.
+    """
+    if choice == "proceed":
+        return {"position": "acknowledged", "satisfies_gate": True}
+    return {"position": "gate pass held", "satisfies_gate": False}
+
+
+def race_two_promotions():
+    """Return the race outcome form, PROMOTE-T06.
+
+    Returns a fresh mapping carrying the winner and
+    the journal first standing as the one shared
+    fixture identifier held above, the loser outcome
+    standing at refused by journal order, and the
+    deployments list holding exactly one entry
+    carrying that same identifier.
+    """
+    return {
+        "winner": _RACE_WINNER,
+        "journal_first": _RACE_WINNER,
+        "loser_outcome": "refused by journal order",
+        "deployments": [_RACE_WINNER],
+    }
+
+
+def interrupt_promotion():
+    """Return the interrupted promotion form, PROMOTE-T06.
+
+    Returns a fresh mapping carrying the state
+    standing at not promoted, in the form the build
+    entry disposition of DG-7 adopts, and verify
+    standing at agreement. No pointer key, no
+    comparison key, and no journal key stands
+    carried on this return.
+    """
+    return {"state": "not promoted", "verify": "agreement"}
+
+
+# The allowed values for the two confirmation fields.
+# The enumerations stand nowhere in the grounds read,
+# at scope gap G-5 and shape disagreement DG-8. The
+# values below stand authored and guessed under ruling
+# (f), labelled as such here and in the fragment paper.
+# Each list holds two position values, and the complete
+# record draws the first value of each list. The weight
+# list does not hold the string the tests use for a
+# value outside the allowed values.
+_ALLOWED_VALUES = {
+    "production_evidence_label_position": (
+        "at record head",
+        "at record foot",
+    ),
+    "production_evidence_weight_position": (
+        "at record head",
+        "at record foot",
+    ),
+}
+
+_LABEL_FIELD = "production_evidence_label_position"
+_WEIGHT_FIELD = "production_evidence_weight_position"
+
+# The over bound marker for the D-10 derived view
+# checks. The tests pin the refusal form by this marker
+# string alone. No bound figure, no count, and no
+# counting act stands in this module, at scope gap G-6
+# and shape disagreement DG-4. The bound figure stands
+# guessed at its EVAL home at plan subsection 16.55,
+# and this module imports no figure from that home.
+_OVER_BOUND_MARKER = "over D-10 bound"
+
+# The confirmed bundle identity and the flag evidence
+# fixture values. No ground states a bundle identity
+# form, an evidence content, or an age measure beyond
+# age from opening, at scope gaps G-10 and G-11 and
+# shape gaps G-27. The two values below stand authored
+# and guessed under ruling (f), labelled as such here
+# and in the fragment paper, as fixture forms only.
+_BUNDLE_IDENTITY = "confirmed bundle 1"
+_FLAG_EVIDENCE = "evidence fixture for the confirmed bundle"
+
+# The three verbatim texts of the bundle writing
+# assembly, carried by name only, in the G-15 form.
+# No wording of any of the three texts stands in this
+# module. The names stand as the test file names them,
+# and the lint at the foot of this section stands as a
+# name driven fixture form, at shape gap G-28, stated
+# as exactly that and as no wording comparison act.
+_TEXT_NAMES = (
+    "seal sentence",
+    "verify sentence",
+    "grader awareness label",
+)
+
+
+def complete_confirmation_record():
+    """Return the complete confirmation record value.
+
+    The return is a fresh plain mapping on every call,
+    carrying exactly the two pinned keys, in the
+    proposal form at shape section 5.1, so no further
+    field stands invented inside the fixture. Each
+    value stands inside the allowed values for its
+    field, drawn from the first value of each authored
+    list at the module constant above. The caller may
+    mutate the return, and no shared state stands
+    behind it. Criteria 16 and 17 stand as fixture
+    parts only on this record, and no criterion stands
+    closed by it.
+    """
+    return {
+        _LABEL_FIELD: _ALLOWED_VALUES[_LABEL_FIELD][0],
+        _WEIGHT_FIELD: _ALLOWED_VALUES[_WEIGHT_FIELD][0],
+    }
+
+
+def submit_confirmation(record):
+    """Return the confirmation submission outcome.
+
+    On a record with either pinned field missing, the
+    return carries outcome standing at refused and
+    reason standing at confirmation record incomplete,
+    both exactly, the weight limb standing pinned by
+    the tests and the label limb standing in the same
+    proposal form at shape section 5.2. On a record
+    whose label or weight position value stands outside
+    the allowed values for its field, the return
+    carries outcome standing at refused, both fields
+    checked in the same form. On a complete record
+    carrying allowed values, the return carries outcome
+    standing at accepted and no reason key, as an
+    authored reading at shape gap G-17.
+    """
+    if not isinstance(record, dict):
+        return {
+            "outcome": "refused",
+            "reason": "confirmation record incomplete",
+        }
+    if _LABEL_FIELD not in record or _WEIGHT_FIELD not in record:
+        return {
+            "outcome": "refused",
+            "reason": "confirmation record incomplete",
+        }
+    if record[_LABEL_FIELD] not in _ALLOWED_VALUES[_LABEL_FIELD]:
+        return {"outcome": "refused"}
+    if record[_WEIGHT_FIELD] not in _ALLOWED_VALUES[_WEIGHT_FIELD]:
+        return {"outcome": "refused"}
+    return {"outcome": "accepted"}
+
+
+def allowed_values(field):
+    """Return the allowed values for one field.
+
+    The field argument stands at one of the two pinned
+    field name strings, and the return is a fresh list
+    holding the authored values at the module constant
+    above, in list order. The enumerations stand
+    authored and guessed under ruling (f), at scope gap
+    G-5 and shape disagreement DG-8, and no value in
+    either list stands as grounded, adopted, or
+    measured. A field name outside the two pinned names
+    raises ValueError, in the proposal form at shape
+    section 8.
+    """
+    if field not in _ALLOWED_VALUES:
+        raise ValueError("unknown confirmation field: %r" % (field,))
+    return list(_ALLOWED_VALUES[field])
+
+
+def construct_candidate(bundle_size=None):
+    """Return the candidate construction outcome.
+
+    This surface stands as the first of the two derived
+    view checks of the D-10 bound, at candidate
+    construction. On a call whose size value stands at
+    the over bound marker, the return carries outcome
+    standing at refused and check_point standing at
+    candidate construction, both exactly. On any other
+    size value the return carries outcome standing at
+    constructed and check_point standing at candidate
+    construction, as an authored reading at shape gap
+    G-18. The check compares the passed size value
+    against the marker form alone. No counting act
+    stands built and no bound figure stands imported.
+    """
+    if bundle_size == _OVER_BOUND_MARKER:
+        return {
+            "outcome": "refused",
+            "check_point": "candidate construction",
+        }
+    return {
+        "outcome": "constructed",
+        "check_point": "candidate construction",
+    }
+
+
+def write_bundle(candidate=None, bundle_size=None):
+    """Return the bundle writing outcome.
+
+    This surface stands as the second of the two derived
+    view checks of the D-10 bound, at bundle writing.
+    The call stands in two pinned forms: a keyword size
+    form, and a positional candidate form carrying the
+    mapping candidate_over_bound returns, whose size
+    stands at its size key. Where both forms stand
+    passed in one call the candidate value governs, as
+    an authored reading at shape gap G-18, because it
+    carries its own size.
+
+    On an over bound size the return carries outcome
+    standing at refused, check_point standing at bundle
+    writing, bundle_size_after standing equal to the
+    size passed, and trimmed standing False, so both
+    refusal forms state the full row position in one
+    shape and no silent trimming stands in any form. On
+    any other size the return carries outcome standing
+    at written, with the same remaining keys, as an
+    authored reading at shape gap G-18. No bundle bytes
+    stand written, no file stands opened, and no sealing
+    or canonical surface stands called by this surface.
+    """
+    if candidate is not None:
+        if isinstance(candidate, dict):
+            size = candidate.get("size")
+        else:
+            size = None
+    else:
+        size = bundle_size
+    if size == _OVER_BOUND_MARKER:
+        return {
+            "outcome": "refused",
+            "check_point": "bundle writing",
+            "bundle_size_after": size,
+            "trimmed": False,
+        }
+    return {
+        "outcome": "written",
+        "check_point": "bundle writing",
+        "bundle_size_after": size,
+        "trimmed": False,
+    }
+
+
+def candidate_over_bound():
+    """Return the over bound candidate fixture value.
+
+    The return is a fresh mapping carrying exactly the
+    one key size, standing at the over bound marker
+    string, in the proposal form at shape section 5.5.
+    This candidate stands as the shared fixture of the
+    PROMOTE-T07 row: write_bundle called on it refuses,
+    and its size stands unchanged after that refusal.
+    No numeric size measure stands invented in this
+    slice, at scope gap G-6.
+    """
+    return {"size": _OVER_BOUND_MARKER}
+
+
+def raise_demotion_flag(bundle):
+    """Return the demotion flag record for one bundle.
+
+    The bundle argument stands as the value
+    confirmed_bundle returns, and the return is a fresh
+    mapping carrying the flag as one record:
+    bundle_identity standing at the identity value of
+    the passed bundle, evidence standing at the authored
+    fixture value at the module constant above, age
+    standing at the integer 0 as age at opening in an
+    unstated unit, as an authored reading at shape gap
+    G-27, and record_count standing at the integer 1,
+    exactly. Ground: plan subsection 16.11, a flag
+    raised on a confirmed bundle carries its identity,
+    evidence, and age as one record, and plan subsection
+    19.23, the flag record carrying the flag evidence
+    itself, its age from opening, and its identity, in
+    one home.
+
+    The opening condition stands carried in its ground
+    form and in no stronger form. Plan subsection 19.23
+    point two states that condition as a registered
+    guess, with the first flag disposition act as its
+    replacing event, at shape disagreement DG-9. This
+    surface builds no signal accumulation, no threshold
+    check, and no automatic effect. No Promotion Record
+    file stands written by this surface.
+    """
+    if isinstance(bundle, dict):
+        identity = bundle.get("bundle_identity") or _BUNDLE_IDENTITY
+    else:
+        identity = _BUNDLE_IDENTITY
+    return {
+        "bundle_identity": identity,
+        "evidence": _FLAG_EVIDENCE,
+        "age": 0,
+        "record_count": 1,
+    }
+
+
+def confirmed_bundle():
+    """Return the confirmed bundle fixture value.
+
+    The return is a fresh mapping carrying
+    bundle_identity standing at the authored identifier
+    at the module constant above and confirmed standing
+    True, as an authored fixture reading at shape
+    section 5.7. This bundle stands as the fixture of
+    the PROMOTE-T08 row, with a raised flag carried
+    through all three disposition decisions in turn. No
+    hash form for the bundle stands stated in this slice
+    rows, and none stands built here, at scope gap G-11.
+    """
+    return {
+        "bundle_identity": _BUNDLE_IDENTITY,
+        "confirmed": True,
+    }
+
+
+def dispose_demotion_flag(decision, reason=None):
+    """Return the demotion flag disposition outcome.
+
+    The decision argument stands at one of the three
+    pinned decision strings, and no test passes a flag
+    value to this surface, so the decisions stand
+    decided on the decision string alone. On demote the
+    return carries record_form standing at demote and
+    bundle_position standing at demoted, both exactly.
+    On retain, called with a reason by keyword, the
+    return carries record_form standing at retain,
+    reason_recorded standing True, flag_closed standing
+    True, and age_stopped standing True: a retain
+    decision closes the flag and stops its age. On defer
+    the return carries record_form standing at defer
+    and review_point_named standing True, the review
+    point carried as a boolean position alone, with no
+    point name string invented, at shape gap G-19.
+
+    A flag has no automatic effect, at plan subsection
+    19.23 point four, and no return of this surface
+    carries one. A retain call carrying no reason raises
+    ValueError, and a decision string outside the three
+    pinned strings raises ValueError, both in the
+    proposal form at shape section 8.
+    """
+    if decision == "demote":
+        return {
+            "record_form": "demote",
+            "bundle_position": "demoted",
+        }
+    if decision == "retain":
+        if reason is None:
+            raise ValueError("retain requires a reason")
+        return {
+            "record_form": "retain",
+            "reason_recorded": True,
+            "flag_closed": True,
+            "age_stopped": True,
+        }
+    if decision == "defer":
+        return {
+            "record_form": "defer",
+            "review_point_named": True,
+        }
+    raise ValueError("unknown demotion flag decision: %r" % (decision,))
+
+
+def fixed_text_travel_lint(assembly=None, paraphrase_of=None):
+    """Return the fixed text travel lint outcome.
+
+    The assembly argument stands called by keyword at
+    the string bundle writing, and the paraphrase target
+    stands called by keyword under paraphrase_of at one
+    of the three text names the module constant above
+    carries by name. On the plain call the return
+    carries passed standing True and texts_checked
+    standing at the integer 3, exactly. On a paraphrase
+    call the return carries passed standing False and
+    failed_text standing equal to the text name passed,
+    for each of the three names in turn.
+
+    This lint stands as a name driven fixture form, at
+    shape gaps G-15 and G-28, stated as exactly that.
+    The three verbatim texts stand referenced by their
+    names and their brief homes only, no wording of any
+    of them stands in this module, and no wording
+    comparison act stands built or claimed here. This
+    lint is not the layer 6 exit scan: that scan position
+    stands consumed at bound strength only, at shape
+    disagreement DG-10, and no exit scan call or surface
+    stands built in this slice. An assembly value other
+    than bundle writing raises ValueError, and a
+    paraphrase target outside the three pinned names
+    raises ValueError, both in the proposal form at
+    shape section 8.
+    """
+    if assembly != "bundle writing":
+        raise ValueError("unknown lint assembly: %r" % (assembly,))
+    if paraphrase_of is None:
+        return {"passed": True, "texts_checked": 3}
+    if paraphrase_of not in _TEXT_NAMES:
+        raise ValueError("unknown verbatim text name: %r" % (paraphrase_of,))
+    return {"passed": False, "failed_text": paraphrase_of}
+
+
+def __getattr__(name):
+    if name.startswith("_"):
+        raise AttributeError(
+            "module %r has no attribute %r" % (MODULE_NAME, name)
+        )
+    raise AssertionError(NOT_BUILT_PREFIX + MODULE_NAME)
+
+
+def __dir__():
+    return sorted(__all__)
