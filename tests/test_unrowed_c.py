@@ -9,12 +9,9 @@ carry them. A comment block at each class names the subsection, the
 obligation as stated, and the transcription choice for that obligation.
 """
 
-import os
-import sys
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import harness
+from tests import harness
 
 
 # ---------------------------------------------------------------------

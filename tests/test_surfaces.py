@@ -8,12 +8,9 @@ recorded in the SURFACES test record at its first run, and a move on that
 axis breaks these rows and they are re performed against the new revision.
 """
 
-import os
-import sys
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import harness
+from tests import harness
 
 
 def check_protocol_revision_recorded(test, mod):

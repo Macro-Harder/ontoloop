@@ -7,12 +7,9 @@ surface through the shared harness, then states the real assertions from
 its row. Stage carried rows call harness.stage_carried with their reason.
 """
 
-import os
-import sys
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import harness
+from tests import harness
 
 
 class ConsumeT01Tests(unittest.TestCase):

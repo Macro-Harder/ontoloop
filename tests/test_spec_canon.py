@@ -14,10 +14,7 @@ case, the last row of the slice, and invents no identifier for it.
 
 import unittest
 
-try:
-    from tests.harness import require, stage_carried
-except ImportError:
-    from harness import require, stage_carried
+from tests.harness import require, stage_carried
 
 MODULE = "ontoloop.canonical"
 

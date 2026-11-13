@@ -8,12 +8,9 @@ the owning stage and the record that will close it, and calls
 harness.stage_carried with that reason, never skipped and never passed.
 """
 
-import os
-import sys
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import harness
+from tests import harness
 
 REASON = (
     "stage carried: POPULATED rows are real target rows on the first "

@@ -7,12 +7,9 @@ effects. Each test body begins by requiring its product surface through the
 shared harness, then states the real assertions from its row.
 """
 
-import os
-import sys
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import harness
+from tests import harness
 
 
 class OpsT01Tests(unittest.TestCase):

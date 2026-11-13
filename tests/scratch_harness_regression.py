@@ -14,10 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-try:
-    from tests.harness import require
-except ImportError:
-    from harness import require
+from tests.harness import require
 
 PACKAGE = "harness_regression_present_pkg"
 

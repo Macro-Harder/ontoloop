@@ -16,10 +16,7 @@ name through the store module fault entry point.
 
 import unittest
 
-try:
-    from tests.harness import require, stage_carried
-except ImportError:
-    from harness import require, stage_carried
+from tests.harness import require, stage_carried
 
 MODULE = "ontoloop.store"
 

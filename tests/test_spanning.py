@@ -48,11 +48,9 @@ class wordings.
 import json
 import os
 import re
-import sys
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import harness
+from tests import harness
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 MANIFEST_PARTS = ("manifest_part_a.json", "manifest_part_b.json", "manifest_part_c.json")

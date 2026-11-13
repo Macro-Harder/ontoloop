@@ -16,10 +16,7 @@ firing boundary, and reporting only outcomes the subsections state.
 
 import unittest
 
-try:
-    from tests.harness import require, stage_carried
-except ImportError:
-    from harness import require, stage_carried
+from tests.harness import require, stage_carried
 
 
 # ------------------------------------------------------------------
