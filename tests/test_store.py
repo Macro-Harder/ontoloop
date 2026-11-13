@@ -25,8 +25,18 @@ MODULE = "ontoloop.store"
 
 VERIFY_SENTENCE = (
     "Verify proved the journal chain and the manifest agree over "
-    "every record checked, and that no checked record was altered "
-    "after it was written, at local strength only."
+    "every record checked, and that the journal head and the "
+    "manifest head stand signed under the signing key, so no "
+    "checked record was altered after it was written except "
+    "under that key, at signed strength only."
+)
+
+VERIFY_HOLES = (
+    "a rewrite signed with the genuine key is not detected",
+    "the anchor covers the heads as they stood at the most "
+    "recent completed backup archive",
+    "whole home deletion is detected only where an anchor for "
+    "the store stands in an archive that survives",
 )
 
 LOCK_CONTENTION_REFUSAL = "lock contention refusal"
@@ -182,7 +192,7 @@ class TestStoreT07(unittest.TestCase):
         self.assertEqual(record["simple"]["verify_sentence"],
                          VERIFY_SENTENCE)
         self.assertEqual(record["simple"]["holes"],
-                         list(module.verify_holes()))
+                         list(VERIFY_HOLES))
 
     def test_limits_wording_stands_in_the_record_itself(self):
         module = require(MODULE)

@@ -278,6 +278,81 @@ class TestDatasetT08(unittest.TestCase):
 class TestDatasetT09(unittest.TestCase):
     """DATASET-T09: fixed text travel lint over dataset build."""
 
+    SEAL_SENTENCE = (
+        "sealed binds candidate construction, all agent facing "
+        "surfaces, and the operator as an actor through the tools, "
+        "conditional on the deployment confinement fact at Section "
+        "7.1 item 1; it does not bind the operator as a reader of "
+        "her own files; holdout content through a tool surface "
+        "requires an override on the operator door only, with a "
+        "required reason, and the override writes a permanent "
+        "access record before any content is shown; an override "
+        "spends the disclosed group whole, by disclosure, and that "
+        "group never judges a later promotion."
+    )
+
+    VERIFY_SENTENCE = (
+        "Verify proved the journal chain and the manifest agree "
+        "over every record checked, and that the journal head and "
+        "the manifest head stand signed under the signing key, so "
+        "no checked record was altered after it was written except "
+        "under that key, at signed strength only."
+    )
+
+    VERIFY_HOLES = (
+        "a rewrite signed with the genuine key is not detected",
+        "the anchor covers the heads as they stood at the most "
+        "recent completed backup archive",
+        "whole home deletion is detected only where an anchor for "
+        "the store stands in an archive that survives",
+    )
+
+    GRADER_AWARENESS_LABEL = (
+        "No bundle name was hidden in this record. Each run is "
+        "named with the bundle that produced it. The grades here "
+        "are operator grades. They are not a blind check, and they "
+        "are not separate from the bundle. Signal counts in this "
+        "record are not grades, and they stand apart from the "
+        "grades. These grades can support your decision. They "
+        "cannot confirm the bundle on their own."
+    )
+
+    def test_three_verbatim_texts_stand_in_their_landed_forms(self):
+        module = require(MODULE)
+        texts = list(module.three_verbatim_texts())
+        self.assertEqual(len(texts), 3)
+        self.assertIn(self.SEAL_SENTENCE, texts)
+        self.assertIn(self.GRADER_AWARENESS_LABEL, texts)
+        verify_texts = [
+            text for text in texts if self.VERIFY_SENTENCE in text
+        ]
+        self.assertEqual(len(verify_texts), 1)
+        for hole in self.VERIFY_HOLES:
+            self.assertIn(hole, verify_texts[0])
+        self.assertEqual(verify_texts[0].count(self.VERIFY_SENTENCE), 1)
+        for hole in self.VERIFY_HOLES:
+            self.assertEqual(verify_texts[0].count(hole), 1)
+        self.assertLess(
+            verify_texts[0].index(self.VERIFY_SENTENCE),
+            verify_texts[0].index(self.VERIFY_HOLES[0]),
+        )
+        self.assertLess(
+            verify_texts[0].index(self.VERIFY_HOLES[0]),
+            verify_texts[0].index(self.VERIFY_HOLES[1]),
+        )
+        self.assertLess(
+            verify_texts[0].index(self.VERIFY_HOLES[1]),
+            verify_texts[0].index(self.VERIFY_HOLES[2]),
+        )
+        superseded_sentence = (
+            "Verify proved the journal chain and the manifest agree "
+            "over every record checked, and that no checked record "
+            "was altered after it was written, at local strength only."
+        )
+        for text in texts:
+            self.assertNotIn(superseded_sentence, text)
+            self.assertNotIn("at local strength only", text)
+
     def test_lint_passes_over_dataset_construction(self):
         module = require(MODULE)
         result = module.fixed_text_travel_lint("dataset construction")

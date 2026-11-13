@@ -82,7 +82,7 @@ class TestSpecSealT03(unittest.TestCase):
             set(texts.keys()),
             {"seal sentence", "verify sentence", "grader awareness label"},
         )
-        self.assertEqual(texts["verify sentence"].count("{}"), 2)
+        self.assertEqual(texts["verify sentence"].count("{}"), 3)
         surfaces = module.specification_surfaces()
         self.assertTrue(surfaces)
         for surface in surfaces:
