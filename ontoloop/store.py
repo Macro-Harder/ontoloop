@@ -1,16 +1,30 @@
-"""Store and journal module, tracer slice Commit 1 form.
+"""Store and journal module, tracer slice Commit 1 and 2 form.
 
-Founding to signed verify path only. Founding mints the store
-identity, writes the genesis record, appends the golden records
-through the founding sequence (canonical encoding, hash linking,
-manifest replacement, signing, in that order), and verify runs the
-existing checks and then the signature check, returning agreement
-with the signed verify sentence only where the signature check has
-run and passed.
+Founding to signed verify path, with the Commit 2 fixture
+surfaces. Founding mints the store identity, writes the genesis
+record, appends the golden records through the founding sequence
+(canonical encoding, hash linking, manifest replacement, signing,
+in that order), and verify runs the existing checks and then the
+signature check, returning agreement with the signed verify
+sentence only where the signature check has run and passed.
 
-Entry points the tracer scope assigns to Commit 2 and to later
-STORE rows stand in NOT BUILT form behind the module level guard
-at the foot of this file.
+Commit 2 adds the varied constructors the verify discrimination
+act exercises: interrupted_store for the manifest lag state and
+for the non final tear state, and
+fully_checked_store_with_disagreement for the signature
+disagreement state. Each constructor founds its store whole
+through the founding sequence first and applies its variation
+only after that founding stands complete. Verify finds each case
+from the standing store state: the complete record beyond an
+unchanged manifest head as manifest lag, a torn line that is not
+the final line as the chain consistent prefix reading, and a
+signature value that does not verify on a fully checked store as
+disagreement.
+
+Entry points the tracer scope assigns to later STORE rows stand
+in NOT BUILT form behind the module level guard at the foot of
+this file, and interrupted_store kinds those rows name stand in
+the same form inside interrupted_store itself.
 """
 
 import hmac as _hmac
@@ -41,6 +55,15 @@ VERIFY_HOLES = (
 
 SIGNING_KEY_UNAVAILABLE = "signing key unavailable"
 SIGNATURE_OBJECT_MISSING = "signature object missing"
+
+PREFIX_READING = "chain consistent prefix"
+PREFIX_WORDING = (
+    "Chain consistency stands over the intact prefix only. "
+    "That reading supports reads only and supports no "
+    "judging use and no verify conclusion."
+)
+MANIFEST_LAG = "manifest lag"
+NON_FINAL_TEAR = "non final tear"
 
 FIXTURE_KEY = b"ontoloop-fixture-key-tracer-commit-1"
 
@@ -136,18 +159,12 @@ def _replace_manifest(store):
     }
 
 
-def _append_record(store, content, record_type):
-    if store.get("key_slot") is None:
-        return {
-            "error": SIGNING_KEY_UNAVAILABLE,
-            "appended": False,
-            "reported_appended": False,
-        }
+def _make_journal_record(store, content, record_type):
     records = store["records"]
     sequence = len(records) + 1
     predecessor = records[-1]["hash"] if records else ""
     digest, canonical = _record_hash(content, predecessor, sequence, record_type)
-    record = {
+    return {
         "content": content,
         "predecessor_hash": predecessor,
         "store_sequence": sequence,
@@ -155,10 +172,32 @@ def _append_record(store, content, record_type):
         "hash": digest,
         "canonical_bytes": canonical,
     }
-    records.append(record)
+
+
+def _append_record(store, content, record_type):
+    if store.get("key_slot") is None:
+        return {
+            "error": SIGNING_KEY_UNAVAILABLE,
+            "appended": False,
+            "reported_appended": False,
+        }
+    record = _make_journal_record(store, content, record_type)
+    store["records"].append(record)
     _replace_manifest(store)
     _sign_heads(store)
     return {"appended": True, "reported_appended": True, "record": record}
+
+
+def _append_record_interrupted(store, content, record_type):
+    if store.get("key_slot") is None:
+        return {
+            "error": SIGNING_KEY_UNAVAILABLE,
+            "appended": False,
+            "reported_appended": False,
+        }
+    record = _make_journal_record(store, content, record_type)
+    store["records"].append(record)
+    return {"appended": False, "reported_appended": False, "record": record}
 
 
 def append_record(store, content, record_type="record"):
@@ -214,6 +253,38 @@ def golden_record_store():
     return store
 
 
+def interrupted_store(kind):
+    if kind == MANIFEST_LAG:
+        store = golden_record_store()
+        _append_record_interrupted(
+            store,
+            {"record_type": "golden record", "payload": "golden record 2"},
+            "golden record",
+        )
+        return store
+    if kind == NON_FINAL_TEAR:
+        store = golden_record_store()
+        _append_record(
+            store,
+            {"record_type": "golden record", "payload": "golden record 2"},
+            "golden record",
+        )
+        record = store["records"][1]
+        canonical = record["canonical_bytes"]
+        record["canonical_bytes"] = canonical[: len(canonical) // 2]
+        return store
+    raise AssertionError(NOT_BUILT_PREFIX + MODULE_NAME)
+
+
+def fully_checked_store_with_disagreement():
+    store = golden_record_store()
+    signature_object = store["signature_object"]
+    signature = signature_object["signature"]
+    first = "0" if signature[0] != "0" else "1"
+    signature_object["signature"] = first + signature[1:]
+    return store
+
+
 def verify(store):
     if not isinstance(store, dict):
         return {"output": "unverifiable", "case": "store missing"}
@@ -233,6 +304,18 @@ def verify(store):
             return {"output": "disagreement", "form": "disagreement form"}
         if record.get("predecessor_hash") != predecessor:
             return {"output": "disagreement", "form": "disagreement form"}
+        canonical_bytes = record.get("canonical_bytes")
+        if canonical_bytes is not None and (
+            _hash_sha256(canonical_bytes) != record.get("hash")
+        ):
+            if index < len(records):
+                return {
+                    "reading": PREFIX_READING,
+                    "wording": PREFIX_WORDING,
+                    "supports": "reads only",
+                    "supports_judging_use": False,
+                }
+            raise AssertionError(NOT_BUILT_PREFIX + MODULE_NAME)
         digest, _canon = _record_hash(
             record.get("content"), predecessor, index, record.get("record_type")
         )
@@ -242,8 +325,13 @@ def verify(store):
     head_hash = records[-1]["hash"]
     if manifest.get("record_count") != len(records):
         count = manifest.get("record_count") or 0
-        if 0 < count < len(records) and manifest.get("head_hash") == records[count - 1]["hash"]:
-            return {"output": "unverifiable", "case": "manifest lag"}
+        if (
+            0 < count < len(records)
+            and manifest.get("head_hash") == records[count - 1]["hash"]
+            and manifest.get("head_store_sequence")
+            == records[count - 1]["store_sequence"]
+        ):
+            return {"output": "unverifiable", "case": MANIFEST_LAG}
         return {"output": "disagreement", "form": "disagreement form"}
     if manifest.get("head_hash") != head_hash:
         return {"output": "disagreement", "form": "disagreement form"}

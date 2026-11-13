@@ -1,11 +1,15 @@
-"""Sealing and verify module, tracer slice Commit 1 form.
+"""Sealing and verify module, tracer slice Commit 2 form.
 
 Owns, in the narrow form the founding to signed verify path needs:
 SHA-256 hashing, manifest construction and manifest hashing, the
 signature object construction, signing at founding, the anchor
-staging object construction, and the verify computation on its
-agreement path with the signature check in the form plan
-subsection 20.87 point six states.
+staging object construction, and the verify computation with the
+signature check in the form plan subsection 20.87 point six
+states, together with the Commit 2 discrimination branches that
+point six places among the existing checks before the signature
+check: the manifest lag classification, the chain consistent
+prefix reading for a non final tear, and the disagreement
+classification in its reserved form.
 
 The fixed verify sentence below stands in subsection 20.87 point
 one words verbatim, and the three holes beside it stand in point
@@ -13,13 +17,11 @@ two words verbatim. The sentence is returned only on agreement,
 and only where the signature check has run and passed.
 
 Entry points this slice assigns to later commits, including the
-SPEC-SEAL test surface of this module and the verify
-discrimination branches for the manifest lag case, the non final
-tear prefix reading, and chain and manifest disagreement, are not
-provided in this form. A lookup of a public name this module does
-not yet provide raises AssertionError in the NOT BUILT form the
-suite harness uses. A lookup of a private or dunder name raises
-AttributeError in the ordinary form.
+SPEC-SEAL test surface of this module, are not provided in this
+form. A lookup of a public name this module does not yet provide
+raises AssertionError in the NOT BUILT form the suite harness
+uses. A lookup of a private or dunder name raises AttributeError
+in the ordinary form.
 """
 
 import hashlib
@@ -48,6 +50,16 @@ VERIFY_HOLES = (
 
 SIGNING_KEY_UNAVAILABLE = "signing key unavailable"
 SIGNATURE_OBJECT_MISSING = "signature object missing"
+MANIFEST_LAG = "manifest lag"
+DISAGREEMENT_FORM = "disagreement form"
+
+PREFIX_READING = "chain consistent prefix"
+PREFIX_WORDING = (
+    "Chain consistency stands over the intact prefix only. "
+    "That reading supports reads only and supports no "
+    "judging use and no verify conclusion."
+)
+PREFIX_SUPPORTS = "reads only"
 
 JOURNAL_RECORD_KIND = "journal record"
 MANIFEST_KIND = "manifest"
@@ -59,6 +71,11 @@ __all__ = [
     "VERIFY_HOLES",
     "SIGNING_KEY_UNAVAILABLE",
     "SIGNATURE_OBJECT_MISSING",
+    "MANIFEST_LAG",
+    "DISAGREEMENT_FORM",
+    "PREFIX_READING",
+    "PREFIX_WORDING",
+    "PREFIX_SUPPORTS",
     "JOURNAL_RECORD_KIND",
     "MANIFEST_KIND",
     "SIGNATURE_KIND",
@@ -396,19 +413,25 @@ def sign_store(store):
     return {"signature_object": signature_object, "anchor": anchor}
 
 
-def _recomputed_head(records):
-    """Recompute the chain, returning its head hash or None.
+def _chain_check(records):
+    """Recompute the chain, returning its standing in full.
 
-    A None return means the recomputation did not stand: a record
-    hash or a predecessor link disagreed with the standing bytes.
-    The classification of that finding is a later commit branch
-    and is not produced in this form.
+    The returned mapping carries consistent True and the head hash
+    where every record recomputes from its canonical bytes, every
+    predecessor link agrees, and every store sequence stands in
+    its place. Where a record does not stand, the mapping carries
+    consistent False and fail_index, the index of the first record
+    that does not stand. Every record before fail_index stands
+    recomputed and linked, so the records before a failure at a
+    non final index form a chain consistent prefix by
+    construction, and a failure with no index at or after it is a
+    failure at the final line.
     """
     previous_hash = None
     head = None
     for index, record in enumerate(records):
         if not isinstance(record, dict):
-            return None
+            return {"consistent": False, "fail_index": index}
         stored_hash = record.get("hash")
         canonical = record.get("canonical_bytes")
         if canonical is not None:
@@ -421,42 +444,114 @@ def _recomputed_head(records):
                 record.get("record_type"),
             )
         else:
-            return None
+            return {"consistent": False, "fail_index": index}
         if stored_hash is not None and recomputed != stored_hash:
-            return None
+            return {"consistent": False, "fail_index": index}
         if index > 0 and record.get("predecessor_hash") != previous_hash:
-            return None
+            return {"consistent": False, "fail_index": index}
+        if "store_sequence" in record and (
+            record.get("store_sequence") != index + 1
+        ):
+            return {"consistent": False, "fail_index": index}
         previous_hash = recomputed
         head = recomputed
-    return head
+    return {"consistent": True, "head": head}
+
+
+def _recomputed_head(records):
+    """Return the recomputed head hash, or None where it fails."""
+    check = _chain_check(records)
+    if not check["consistent"]:
+        return None
+    return check["head"]
+
+
+def _disagreement():
+    return {"output": "disagreement", "form": DISAGREEMENT_FORM}
+
+
+def _prefix_reading():
+    return {
+        "reading": PREFIX_READING,
+        "wording": PREFIX_WORDING,
+        "supports": PREFIX_SUPPORTS,
+        "supports_judging_use": False,
+    }
+
+
+def _manifest_lag(records, manifest):
+    """Return True only for the specific manifest lag finding.
+
+    The finding is a mechanically complete record standing beyond
+    the manifest head: the chain recomputes whole over every
+    record, and the manifest head hash, record count, and head
+    store sequence still describe an earlier record in that same
+    chain, in full. A manifest that disagrees with the chain in
+    any other way is not this finding.
+    """
+    count = manifest.get("record_count")
+    if not isinstance(count, int) or isinstance(count, bool):
+        return False
+    if count <= 0 or count >= len(records):
+        return False
+    described = records[count - 1]
+    if not isinstance(described, dict):
+        return False
+    if manifest.get("head_hash") != described.get("hash"):
+        return False
+    if manifest.get("head_store_sequence") != described.get(
+        "store_sequence"
+    ):
+        return False
+    return True
 
 
 def verify(store):
-    """Run verify over a store value, Commit 1 agreement form.
+    """Run verify over a store value, Commit 2 discrimination form.
 
-    Existing checks run first: the founding object stands, the
-    chain recomputes from the canonical bytes, and the manifest
-    agrees with the chain. The signature check then runs only
-    where the store stands fully checked and its chain and
-    manifest agree, in the form subsection 20.87 point six states:
+    Existing checks run first, in their governed order, and the
+    signature check runs only where the store stands fully checked
+    and its chain and manifest agree, in the form subsection 20.87
+    point six states. Point six lists those existing checks as
+    chain and manifest agreement, founding object, version window,
+    torn lines, manifest lag, and the chain consistent prefix
+    reading. The classifications this form produces among them:
 
-    a missing signature object returns unverifiable naming the
-    case signature object missing; a key that cannot be obtained
-    returns unverifiable naming the case signing key unavailable,
-    with no chain only agreement in its place; a signature that
-    does not verify returns disagreement. On agreement the result
-    carries the output, the signed verify sentence in its verbatim
-    form, and the three holes beside it, and on no other output
-    does any sentence stand in the result.
+    a first chain failure at a non final record returns the chain
+    consistent prefix reading over the records before it, in its
+    governed wording, which never uses the verify sentence,
+    supports reads only, and supports no judging use; a
+    mechanically complete record standing beyond the manifest
+    head, the manifest otherwise describing an earlier head in
+    full, returns unverifiable naming the case manifest lag,
+    classified here before the signature check and distinct from
+    every disagreement; a founding object identity the manifest
+    carries that differs from the store founding identity, a
+    manifest that disagrees with a fully recomputed chain in any
+    way that is not the lag finding, a signature object whose
+    fields differ from the recomputed object, and a signature that
+    does not verify each return disagreement in the disagreement
+    form, and on disagreement the store takes the suspect position
+    at brief Section 6, with its refusals governing until a named
+    operator act clears it; a missing signature object returns
+    unverifiable naming the case signature object missing; a key
+    that cannot be obtained returns unverifiable naming the case
+    signing key unavailable, with no chain only agreement in its
+    place. On agreement the result carries the output, the signed
+    verify sentence in its verbatim form, and the three holes
+    beside it, and on no other output does any sentence stand in
+    the result.
 
-    The classification branches for a chain or manifest finding
-    that is not agreement, including the manifest lag case and the
-    chain consistent prefix reading, are Commit 2 branches in this
-    module. Where such a finding stands in this form, verify
-    raises AssertionError in the NOT BUILT form rather than
-    producing a Commit 2 result. A bytes input is the SPEC-SEAL
-    example store form, which is not built in this slice, and
-    raises the same NOT BUILT form.
+    Findings no Commit 2 test class asserts stay in the NOT BUILT
+    form in this module: a chain failure at the final record (the
+    torn final line case), a store with no records or no manifest,
+    and a store with no founding object identity raise
+    AssertionError in the NOT BUILT form. A bytes input is the
+    SPEC-SEAL example store form, which is not built in this
+    slice, and raises the same NOT BUILT form. The version window
+    check stands deferred with its slices, as the tracer scope
+    states, because no store this slice founds carries a version
+    outside the window its founding mints.
     """
     if isinstance(store, (bytes, bytearray, str)):
         raise _not_built()
@@ -464,22 +559,35 @@ def verify(store):
     manifest = _field(store, "manifest")
     if not records or not isinstance(manifest, dict):
         raise _not_built()
-    founding = _field(store, "founding_object_identity")
+    store_founding = _field(store, "founding_object_identity")
+    founding = store_founding
     if founding is None:
         founding = manifest.get("founding_object_identity")
     if founding is None:
         raise _not_built()
-    head = _recomputed_head(records)
-    if head is None:
+    chain = _chain_check(records)
+    if not chain["consistent"]:
+        fail_index = chain["fail_index"]
+        if fail_index < len(records) - 1:
+            return _prefix_reading()
         raise _not_built()
-    if manifest.get("head_hash") != head:
-        raise _not_built()
-    if manifest.get("record_count") != len(records):
-        raise _not_built()
+    head = chain["head"]
+    if store_founding is not None and (
+        manifest.get("founding_object_identity") != store_founding
+    ):
+        return _disagreement()
     last = records[-1]
-    if isinstance(last, dict) and "store_sequence" in last:
-        if manifest.get("head_store_sequence") != last["store_sequence"]:
-            raise _not_built()
+    manifest_agrees = (
+        manifest.get("head_hash") == head
+        and manifest.get("record_count") == len(records)
+        and manifest.get("head_store_sequence")
+        == (last.get("store_sequence") if isinstance(last, dict)
+            else None)
+    )
+    if not manifest_agrees:
+        if _manifest_lag(records, manifest):
+            return {"output": "unverifiable", "case": MANIFEST_LAG}
+        return _disagreement()
     signature_object = _field(store, "signature_object", "signature")
     if signature_object is None:
         return {
@@ -507,9 +615,9 @@ def verify(store):
     )
     standing_fields = _signature_fields(signature_object)
     if standing_fields != recomputed_object:
-        return {"output": "disagreement"}
+        return _disagreement()
     if not verify_signature(signature_object, key):
-        return {"output": "disagreement"}
+        return _disagreement()
     return {
         "output": "agreement",
         "sentence": VERIFY_SENTENCE,
