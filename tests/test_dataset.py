@@ -341,6 +341,30 @@ class TestDatasetT09(unittest.TestCase):
             verify_texts[0].index(self.VERIFY_HOLES[1]),
             verify_texts[0].index(self.VERIFY_HOLES[2]),
         )
+        from ontoloop.sealing import VERIFY_HOLES as SEALING_HOLES
+        from ontoloop.sealing import VERIFY_SENTENCE as SEALING_SENTENCE
+
+        self.assertEqual(SEALING_SENTENCE, self.VERIFY_SENTENCE)
+        self.assertEqual(list(SEALING_HOLES), list(self.VERIFY_HOLES))
+        expected_verify_text = (
+            SEALING_SENTENCE + " " + "; ".join(SEALING_HOLES) + "."
+        )
+        self.assertEqual(verify_texts[0], expected_verify_text)
+        self.assertNotIn(SEALING_SENTENCE, texts)
+        for hole in SEALING_HOLES:
+            self.assertNotIn(hole, texts)
+        two_hole_pairs = (
+            (SEALING_HOLES[0], SEALING_HOLES[1]),
+            (SEALING_HOLES[0], SEALING_HOLES[2]),
+            (SEALING_HOLES[1], SEALING_HOLES[2]),
+        )
+        for pair in two_hole_pairs:
+            two_hole_text = (
+                SEALING_SENTENCE + " " + "; ".join(pair) + "."
+            )
+            self.assertNotIn(two_hole_text, texts)
+            for text in texts:
+                self.assertNotIn(two_hole_text, text)
         superseded_sentence = (
             "Verify proved the journal chain and the manifest agree "
             "over every record checked, and that no checked record "
