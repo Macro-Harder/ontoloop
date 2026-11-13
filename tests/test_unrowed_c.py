@@ -1,0 +1,247 @@
+"""Unrowed obligations discharged by this seat, F-C2 ruling at section 5
+of design/steps/step-13-content-retrace.md.
+
+Each obligation below is written as a suite test under a recorded
+transcription decision homed at its plan subsection, counted in the suite
+manifest under the subsection rather than a row identifier. No identifier
+is invented for any of them, and the refreshed list is not edited to
+carry them. A comment block at each class names the subsection, the
+obligation as stated, and the transcription choice for that obligation.
+"""
+
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import harness
+
+
+# ---------------------------------------------------------------------
+# Transcription decision, unrowed obligation at plan subsection 19.86.
+# Subsection: 19.86, holdout content through instruction items.
+# Obligation as stated in the F-C2 ruling: Step 13 rows this test as its
+# own test rows, covering a verbatim case, a near verbatim case, and a
+# clean instruction case, at both occasions, candidate construction and
+# promotion: the verbatim and near verbatim content test over the
+# instruction text field of every instruction item in a candidate bundle
+# against the sealed holdout, refusal in the cross split audit refusal
+# form where the test fires, and no clearance claim covering instruction
+# items until a promotion record carries the test result.
+# Transcription choice: seven suite tests, three cases at two occasions
+# plus the clearance claim method
+# test_no_clearance_claim_until_a_promotion_record_carries_the_result,
+# in one case class in this module, manifest entry keyed "19.86"
+# recording the same count of seven with the method names. The
+# candidate construction occasion tests require the dataset surface that
+# assembles the candidate bundle, the promotion occasion tests require
+# the promotion surface, and each firing case asserts refusal in the
+# cross split audit refusal form at that occasion.
+# ---------------------------------------------------------------------
+
+
+class Unrowed1986Tests(unittest.TestCase):
+    """Subsection 19.86: instruction item content against the sealed holdout."""
+
+    def assert_fired_item_recorded_in_the_audit_record(self, result):
+        self.assertEqual(result["items_tested"], result["instruction_item_count"])
+        self.assertGreater(result["instruction_item_count"], 0)
+        self.assertEqual(result["field_scope"], "instruction text field")
+        self.assertFalse(result["wider_material_compared"])
+        record = result["audit_record"]
+        self.assertEqual(record["home"], "cross split audit record for the candidate")
+        self.assertTrue(record["fired_item"])
+        self.assertEqual(record["fired_item"], result["fired_item"])
+        self.assertTrue(record["test_result_recorded"])
+        self.assertEqual(record["test_result"], result["test_result"])
+
+    def test_verbatim_case_at_candidate_construction(self):
+        mod = harness.require("dataset")
+        bundle = mod.candidate_with_instruction_item(kind="verbatim holdout content")
+        result = mod.test_instruction_items_against_holdout(bundle, occasion="candidate construction")
+        self.assertTrue(result["fired"])
+        self.assertEqual(result["refusal_form"], "cross split audit refusal")
+        self.assertFalse(result["bundle_proceeds"])
+        self.assert_fired_item_recorded_in_the_audit_record(result)
+
+    def test_near_verbatim_case_at_candidate_construction(self):
+        mod = harness.require("dataset")
+        bundle = mod.candidate_with_instruction_item(kind="near verbatim holdout content")
+        result = mod.test_instruction_items_against_holdout(bundle, occasion="candidate construction")
+        self.assertTrue(result["fired"])
+        self.assertEqual(result["refusal_form"], "cross split audit refusal")
+        self.assertFalse(result["bundle_proceeds"])
+        self.assert_fired_item_recorded_in_the_audit_record(result)
+
+    def test_clean_case_at_candidate_construction(self):
+        mod = harness.require("dataset")
+        bundle = mod.candidate_with_instruction_item(kind="clean instruction")
+        result = mod.test_instruction_items_against_holdout(bundle, occasion="candidate construction")
+        self.assertFalse(result["fired"])
+        self.assertEqual(result["items_tested"], result["instruction_item_count"])
+        self.assertGreater(result["instruction_item_count"], 0)
+        self.assertEqual(result["field_scope"], "instruction text field")
+        self.assertFalse(result["wider_material_compared"])
+
+    def test_verbatim_case_at_promotion(self):
+        mod = harness.require("promotion")
+        bundle = mod.candidate_with_instruction_item(kind="verbatim holdout content")
+        result = mod.test_instruction_items_against_holdout(bundle, occasion="promotion")
+        self.assertTrue(result["fired"])
+        self.assertEqual(result["refusal_form"], "cross split audit refusal")
+        self.assertFalse(result["promotion_proceeds"])
+        self.assert_fired_item_recorded_in_the_audit_record(result)
+        partial = mod.test_instruction_items_against_holdout(
+            bundle, occasion="promotion", after_partial_scoring=True)
+        self.assertTrue(partial["fired"])
+        self.assertEqual(partial["refusal_form"], "cross split audit refusal")
+        self.assertFalse(partial["promotion_proceeds"])
+        self.assertEqual(partial["charging_form"],
+                         "standing charging form for a refusal after partial scoring")
+        self.assertTrue(partial["charged_under_the_standing_charging_rules"])
+        self.assert_fired_item_recorded_in_the_audit_record(partial)
+
+    def test_near_verbatim_case_at_promotion(self):
+        mod = harness.require("promotion")
+        bundle = mod.candidate_with_instruction_item(kind="near verbatim holdout content")
+        result = mod.test_instruction_items_against_holdout(bundle, occasion="promotion")
+        self.assertTrue(result["fired"])
+        self.assertEqual(result["refusal_form"], "cross split audit refusal")
+        self.assertFalse(result["promotion_proceeds"])
+        self.assert_fired_item_recorded_in_the_audit_record(result)
+
+    def test_clean_case_at_promotion(self):
+        mod = harness.require("promotion")
+        bundle = mod.candidate_with_instruction_item(kind="clean instruction")
+        result = mod.test_instruction_items_against_holdout(bundle, occasion="promotion")
+        self.assertFalse(result["fired"])
+        self.assertEqual(result["items_tested"], result["instruction_item_count"])
+        self.assertGreater(result["instruction_item_count"], 0)
+        self.assertEqual(result["field_scope"], "instruction text field")
+        self.assertFalse(result["wider_material_compared"])
+        self.assertTrue(result["test_result_carried_on_promotion_record"])
+
+    def test_no_clearance_claim_until_a_promotion_record_carries_the_result(self):
+        mod = harness.require("promotion")
+        claim = mod.clearance_claim_covering_instruction_items(promotion_record=None)
+        self.assertFalse(claim["claim_stands"])
+        record = mod.promotion_record_carrying_instruction_test_result()
+        claim = mod.clearance_claim_covering_instruction_items(promotion_record=record)
+        self.assertTrue(claim["claim_stands"])
+
+
+# ---------------------------------------------------------------------
+# Transcription decision, unrowed obligation at plan subsection 19.87.
+# Subsection: 19.87, the provisional bundle comparison basis.
+# Obligation as stated in the F-C2 ruling: Step 13 rows this rule: a
+# provisional record with the comparison present, the outcome mix and
+# the correction position for the provisional period set against the
+# same figures for the displaced bundle over its last comparable
+# period; a provisional record with no comparison and a confirmation
+# barred in that state; and a record whose comparison basis is stated
+# by name with the reason it was chosen, where no comparable displaced
+# period stands.
+# Transcription choice: three suite tests, one per case the subsection
+# states, in one case class in this module, manifest entry keyed
+# "19.87". Each test requires the promotion surface, which owns the
+# provisional record and the confirmation bar.
+# ---------------------------------------------------------------------
+
+
+class Unrowed1987Tests(unittest.TestCase):
+    """Subsection 19.87: the provisional bundle comparison basis."""
+
+    def test_provisional_record_with_the_comparison_present(self):
+        mod = harness.require("promotion")
+        record = mod.provisional_record(with_comparison=True)
+        comparison = record["comparison"]
+        provisional = comparison["provisional_period"]
+        displaced = comparison["displaced_period"]
+        for figure in ("outcome_mix", "correction_position"):
+            self.assertIn(figure, provisional)
+            self.assertIn(figure, displaced)
+            self.assertTrue(provisional[figure], figure)
+            self.assertTrue(displaced[figure], figure)
+            self.assertEqual(sorted(provisional[figure]), sorted(displaced[figure]), figure)
+        self.assertEqual(comparison["figures_set_against"],
+                         ["outcome mix", "correction position"])
+        self.assertEqual(displaced["standing"],
+                         "last comparable period of the displaced bundle")
+        self.assertTrue(record["comparison_in_same_view_as_run_count_and_coverage"])
+        self.assertIn("attributed run count", record["comparison_view_contents"])
+        self.assertIn("outcome and signal coverage figures",
+                      record["comparison_view_contents"])
+        self.assertIn("outcome mix", record["comparison_view_contents"])
+        self.assertIn("correction position", record["comparison_view_contents"])
+
+    def test_provisional_record_with_no_comparison_bars_confirmation(self):
+        mod = harness.require("promotion")
+        record = mod.provisional_record(with_comparison=False)
+        self.assertIsNone(record["comparison"])
+        result = mod.confirm_provisional(record)
+        self.assertEqual(result["outcome"], "barred")
+        self.assertEqual(result["bar_reason"], "no comparison in the provisional record")
+
+    def test_comparison_basis_stated_by_name_with_its_reason(self):
+        mod = harness.require("promotion")
+        record = mod.provisional_record(comparable_displaced_period=False)
+        self.assertTrue(record["comparison_basis_named"])
+        self.assertTrue(record["comparison_basis_reason_recorded"])
+        self.assertNotEqual(record["comparison_basis"], "")
+
+
+# ---------------------------------------------------------------------
+# Transcription decision, unrowed obligation at plan subsection 20.18.
+# Subsection: 20.18, the determinism check at subsection 18.7.
+# Obligation as stated in the F-C2 ruling: one CORE test row added at
+# section 6.5 under this subsection, carrying both limbs of the
+# determinism check at subsection 18.7: the source limb, scanning the
+# core source for use of the builtin hash function for grouping,
+# ordering, or assignment, and for any construction whose output order
+# is the iteration order of a set; and the run limb, running one core
+# computation twice over the same inputs with the set valued inputs
+# constructed in a different order on the second run and comparing the
+# two outputs in full; the row failing on a build that performs either
+# barred practice, a failure recorded with the limb and the computation
+# that failed it, and the CORE exit not standing passed on an
+# undisposed failure.
+# Transcription choice: one case class in this module with one test per
+# limb and one test for the failure recording and CORE exit limb,
+# manifest entry keyed "20.18". The tests require the core surface,
+# which is the surface the check scans and runs.
+# ---------------------------------------------------------------------
+
+
+class Unrowed2018Tests(unittest.TestCase):
+    """Subsection 20.18: the determinism check, both limbs at subsection 18.7."""
+
+    def test_source_limb_scans_for_barred_practices(self):
+        mod = harness.require("core")
+        scan = mod.determinism_source_scan()
+        self.assertEqual(scan["limb"], "source")
+        self.assertEqual(scan["builtin_hash_uses_for_grouping_ordering_assignment"], [])
+        self.assertEqual(scan["set_iteration_order_constructions"], [])
+        self.assertTrue(scan["whole_core_source_scanned"])
+
+    def test_run_limb_compares_two_runs_in_full(self):
+        mod = harness.require("core")
+        result = mod.determinism_run_check()
+        self.assertEqual(result["limb"], "run")
+        self.assertNotEqual(result["first_input_order"], result["second_input_order"])
+        self.assertEqual(result["first_output"], result["second_output"])
+        self.assertTrue(result["compared_in_full"])
+
+    def test_failure_is_recorded_with_limb_and_computation_and_blocks_core_exit(self):
+        mod = harness.require("core")
+        for limb in ("source", "run"):
+            failure = mod.determinism_check_with_barred_practice(limb=limb)
+            self.assertTrue(failure["row_failed"], limb)
+            self.assertEqual(failure["recorded_limb"], limb)
+            self.assertTrue(failure["recorded_computation"], limb)
+            self.assertFalse(mod.core_exit_passes(undisposed_failure=failure), limb)
+        disposed = mod.dispose_determinism_failure(failure)
+        self.assertTrue(mod.core_exit_passes(undisposed_failure=None, disposed=[disposed]))
+
+
+if __name__ == "__main__":
+    unittest.main()

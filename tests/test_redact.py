@@ -1,0 +1,356 @@
+"""Slice REDACT, list section 2.9, plan section 6.5 and section 13.2.
+
+Failure and boundary perspective: these tests prize the refusal and
+boundary outcomes the rows state: no unredacted journal record at any
+moment, the depth 3 boundary at layer 4 with its two distinguished
+outcomes, the queue defect firing boundaries of Example C, whole
+assembly refusal at the exit scan, and the posture flag behaviour of
+REDACT-T08 in its subsection 16.59 amended form.
+
+Standing rule for REDACT-T08: its tests are written on its flag
+behaviour only, in the amended two flag form: the store level
+posture state and the per build flag. No test in this file is
+written on the weakened ingest quantity figure limb of that row,
+which stands marked not stated in the plan and mapped in form only.
+
+Transcription decision: the rows state no product API names. The
+suite names the product surface for this slice as the module
+ontoloop.redact, with function names taken from the behaviour
+wording of each row. The DATASET and REPORT call points of
+REDACT-T08 are exercised through the flag values the redact module
+supplies to those build points, as the amended row states the
+derivation. Fields a row does not state are not invented.
+"""
+
+import unittest
+
+try:
+    from tests.harness import require, stage_carried
+except ImportError:
+    from harness import require, stage_carried
+
+MODULE = "ontoloop.redact"
+
+SIX_LAYERS = (1, 2, 3, 4, 5, 6)
+FOUR_ASSEMBLIES = (
+    "export",
+    "bundle writing",
+    "dataset construction",
+    "report construction",
+)
+
+
+class TestRedactT01(unittest.TestCase):
+    """REDACT-T01: no journal record in unredacted form, ever."""
+
+    def test_journal_bytes_hold_no_unredacted_definite_hit(self):
+        module = require(MODULE)
+        journal = module.journal_after_definite_hit_appends()
+        for shape in module.secret_bearing_shapes():
+            self.assertNotIn(shape["raw_bytes"], journal["bytes"])
+
+    def test_scan_runs_after_the_appends_themselves(self):
+        module = require(MODULE)
+        journal = module.journal_after_definite_hit_appends()
+        self.assertEqual(journal["scan_point"], "after appends")
+
+
+class TestRedactT02(unittest.TestCase):
+    """REDACT-T02: one shared classification rule per layer."""
+
+    def test_classification_follows_the_one_shared_rule_per_layer(self):
+        module = require(MODULE)
+        result = module.classify_corpus_shapes()
+        for layer in SIX_LAYERS:
+            self.assertEqual(
+                result["layers"][layer]["rule"],
+                module.shared_rule(layer),
+            )
+
+    def test_per_layer_firing_records_for_all_six_layers_one_engine(self):
+        module = require(MODULE)
+        result = module.classify_corpus_shapes()
+        self.assertEqual(result["engine_count"], 1)
+        for layer in SIX_LAYERS:
+            self.assertIn(layer, result["firing_records"])
+
+
+class TestRedactT03(unittest.TestCase):
+    """REDACT-T03: placeholders typed, stable, run scoped."""
+
+    def test_placeholders_are_typed(self):
+        module = require(MODULE)
+        run = module.run_with_definite_hit("run one")
+        for placeholder in run["placeholders"]:
+            self.assertTrue(placeholder["type"])
+
+    def test_placeholders_are_stable_within_a_run(self):
+        module = require(MODULE)
+        run = module.run_with_definite_hit("run one")
+        first = run["placeholder_for_hit"]
+        again = module.placeholder_for_same_hit(run)
+        self.assertEqual(first, again)
+
+    def test_placeholders_are_never_reused_across_runs(self):
+        module = require(MODULE)
+        one = module.run_with_definite_hit("run one")
+        two = module.run_with_definite_hit("run two")
+        self.assertNotEqual(
+            one["placeholder_for_hit"], two["placeholder_for_hit"]
+        )
+        self.assertEqual(one["scope"], "run one")
+        self.assertEqual(two["scope"], "run two")
+
+
+class TestRedactT04(unittest.TestCase):
+    """REDACT-T04: layer 4 decoding to depth 3, two outcomes split."""
+
+    def test_decoding_runs_to_depth_3(self):
+        module = require(MODULE)
+        candidate = module.decoded_candidate("raised at depth 3")
+        self.assertEqual(candidate["decoding_depth_reached"], 3)
+        self.assertTrue(candidate["decoding_round_fields"])
+
+    def test_depth_out_on_a_raised_candidate_is_an_uncertain_hit(self):
+        module = require(MODULE)
+        candidate = module.decoded_candidate("depth runs out raised")
+        self.assertEqual(candidate["outcome"], "uncertain hit")
+
+    def test_depth_limited_pass_where_no_layer_raised_the_value(self):
+        module = require(MODULE)
+        candidate = module.decoded_candidate("depth runs out unraised")
+        self.assertEqual(candidate["outcome"], "depth limited pass")
+        self.assertNotEqual(candidate["outcome"], "uncertain hit")
+
+
+class TestRedactT05(unittest.TestCase):
+    """REDACT-T05: queue defect boundaries, Example C, guessed."""
+
+    def test_30_over_120_fires(self):
+        module = require(MODULE)
+        result = module.queue_defect_check(30, 120)
+        self.assertTrue(result["fires"])
+
+    def test_20_over_120_does_not_fire(self):
+        module = require(MODULE)
+        result = module.queue_defect_check(20, 120)
+        self.assertFalse(result["fires"])
+
+    def test_30_over_10000_growth_test_is_the_operative_check(self):
+        module = require(MODULE)
+        result = module.queue_defect_check(30, 10000)
+        self.assertEqual(result["operative_check"], "growth test")
+        self.assertTrue(result["uses_cumulative_divisor"])
+
+    def test_every_figure_is_labelled_guessed(self):
+        module = require(MODULE)
+        result = module.queue_defect_check(30, 120)
+        self.assertEqual(result["source_class"], "guessed")
+
+
+class TestRedactT06(unittest.TestCase):
+    """REDACT-T06: exit scan refuses whole, and refuses no scan."""
+
+    def test_each_governed_assembly_is_scanned(self):
+        module = require(MODULE)
+        result = module.exit_scan_over_assemblies()
+        self.assertEqual(set(result["assemblies"]), set(FOUR_ASSEMBLIES))
+
+    def test_assembly_with_an_uncleared_hit_is_refused_whole(self):
+        module = require(MODULE)
+        outcome = module.exit_scan(module.assembly_with_planted_hit())
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_a_scan_that_cannot_run_refuses_the_exit_in_form(self):
+        module = require(MODULE)
+        outcome = module.exit_scan(module.assembly_scan_cannot_run())
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["form"], "no exit scan result, no exit")
+
+
+class TestRedactT07(unittest.TestCase):
+    """REDACT-T07: clearing routes, refusal state, BQ-43 adopted."""
+
+    def test_clearing_by_rescan_lands_its_record(self):
+        module = require(MODULE)
+        outcome = module.clear_by_rescan(module.uncertain_hit_case())
+        self.assertTrue(outcome["record_landed"])
+        self.assertTrue(outcome["strength_condition_met"])
+
+    def test_clearing_by_operator_decision_lands_its_record(self):
+        module = require(MODULE)
+        outcome = module.clear_by_operator_decision(
+            module.uncertain_hit_case()
+        )
+        self.assertTrue(outcome["record_landed"])
+        self.assertTrue(outcome["decision_recorded"])
+
+    def test_refusal_state_reopening_and_bound_expiry_behave(self):
+        module = require(MODULE)
+        outcome = module.refusal_state_lifecycle()
+        self.assertTrue(outcome["refusal_state_held"])
+        self.assertTrue(outcome["reopening_behaves"])
+        self.assertTrue(outcome["bound_expiry_behaves"])
+
+    def test_bq43_marking_carried_at_all_three_named_places(self):
+        module = require(MODULE)
+        places = module.bq43_marking_places()
+        self.assertEqual(
+            set(places),
+            {"act bar", "intake accounting use", "clearing bound"},
+        )
+        for marking in places.values():
+            self.assertEqual(marking["form"], "adopted")
+            self.assertEqual(
+                marking["quarantine"], "build exclusion"
+            )
+
+    def test_no_redaction_parameter_below_the_floor(self):
+        module = require(MODULE)
+        floor = module.redaction_floor()
+        for parameter in module.redaction_parameters():
+            self.assertGreaterEqual(parameter["value"], floor)
+
+
+class TestRedactT08(unittest.TestCase):
+    """REDACT-T08, Amendment 1, subsection 16.59 amended form.
+
+    Flag behaviour only: the store level posture state and the per
+    build flag. No test here touches the quantity figure limb.
+    Fixture: the authored weaken, ingest, restore, build sequence.
+    """
+
+    def test_store_level_state_set_by_the_weakening_act_itself(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        at_weaken = module.posture_state_at(sequence, "after weaken")
+        self.assertTrue(at_weaken["store_level_state_set"])
+
+    def test_store_level_state_set_before_any_restore(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        at_weaken = module.posture_state_at(sequence, "after weaken")
+        at_restore = module.posture_state_at(sequence, "after restore")
+        self.assertTrue(at_weaken["store_level_state_set"])
+        self.assertTrue(at_restore["store_level_state_set"])
+
+    def test_restoring_the_layer_does_not_discharge_the_state(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        at_restore = module.posture_state_at(sequence, "after restore")
+        self.assertTrue(at_restore["store_level_state_set"])
+        self.assertFalse(at_restore["discharged"])
+
+    def test_the_state_is_not_a_toggle_and_has_no_off_act(self):
+        module = require(MODULE)
+        state = module.store_level_posture_state()
+        self.assertFalse(state["is_toggle"])
+        self.assertIsNone(state["off_act"])
+
+    def test_dataset_build_with_weakened_material_carries_the_flag(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        build = module.dataset_build_for_sequence(sequence)
+        self.assertTrue(build["per_build_flag"])
+
+    def test_loop_report_carries_the_flag_in_the_builds_view(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        build = module.dataset_build_for_sequence(sequence)
+        report = module.loop_report_for_build(build)
+        self.assertTrue(report["per_build_flag"])
+        self.assertEqual(report["flag_view"], report["build_view"])
+
+    def test_control_build_carries_no_flag_while_state_stands_on(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        control = module.control_build_in_same_store(sequence)
+        self.assertFalse(control["per_build_flag"])
+        self.assertTrue(control["store_level_state_may_stand"])
+
+    def test_store_level_state_is_never_printed_on_an_artifact(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        build = module.dataset_build_for_sequence(sequence)
+        report = module.loop_report_for_build(build)
+        for artifact in (build, report):
+            self.assertNotIn("store_level_state", artifact["printed"])
+
+    def test_flag_is_derived_from_ingest_posture_stamps_alone(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        build = module.dataset_build_for_sequence(sequence)
+        stamps = module.ingest_posture_stamps(build["material"])
+        self.assertEqual(
+            build["per_build_flag"],
+            module.per_build_flag_from_stamps(stamps),
+        )
+        self.assertEqual(build["posture_computations"], 1)
+
+    def test_state_stands_on_before_the_purge_completes(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        before = module.posture_state_at(sequence, "before purge")
+        self.assertTrue(before["store_level_state_set"])
+        self.assertFalse(before["discharged"])
+
+    def test_discharge_after_every_weakened_record_is_purged(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        after = module.posture_after_tombstone_and_purge(sequence)
+        self.assertTrue(after["discharge_recorded"])
+        self.assertFalse(after["store_level_state_set"])
+
+    def test_discharge_is_by_material_and_in_no_other_way(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        partial = module.posture_after_partial_purge(sequence)
+        self.assertTrue(partial["store_level_state_set"])
+        self.assertFalse(partial["discharged"])
+
+    def test_omitted_flag_for_weakened_material_fails_the_row(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        build = module.dataset_build_for_sequence(sequence)
+        stripped = dict(build)
+        stripped["per_build_flag"] = False
+        defects = module.check_posture_travel(build, stripped)
+        self.assertTrue(defects)
+
+    def test_weakening_act_without_the_state_set_fails_at_the_act(self):
+        module = require(MODULE)
+        act = module.weakening_act_record(without_state=True)
+        defects = module.check_weakening_act(act)
+        self.assertTrue(defects)
+        self.assertEqual(defects[0]["point"], "the act")
+
+    def test_restore_obligation_reads_the_store_level_state(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        obligation = module.restore_obligation_for_sequence(sequence)
+        self.assertTrue(obligation["reads_store_level_posture_state"])
+        self.assertEqual(
+            obligation["state_read"], "store level posture state"
+        )
+
+    def test_discharge_recorded_in_posture_record_at_build_point(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        check = module.discharge_check_at(sequence, "dataset build point")
+        self.assertTrue(check["check_ran"])
+        self.assertEqual(check["record_home"], "store posture record")
+        self.assertTrue(check["discharge_recorded_in_store_posture_record"])
+
+    def test_discharge_recorded_in_posture_record_at_purge_end(self):
+        module = require(MODULE)
+        sequence = module.posture_fixture_sequence()
+        check = module.discharge_check_at(sequence, "purge completion")
+        self.assertTrue(check["check_ran"])
+        self.assertEqual(check["record_home"], "store posture record")
+        self.assertTrue(check["discharge_recorded_in_store_posture_record"])
+
+
+if __name__ == "__main__":
+    unittest.main()
