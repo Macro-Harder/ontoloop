@@ -235,15 +235,32 @@ class TestCoreT06(unittest.TestCase):
     def test_agentic_form_owed_where_the_named_reader_is_an_agent(self):
         module = require(MODULE)
         defects = module.owing_form_defects()
-        agent_rows = [
-            name
-            for name, row in module.error_catalogue().items()
-            if row.get("named_reader") == "agent"
-        ]
+        catalogue = module.error_catalogue()
+        self.assertTrue(catalogue)
+        agent_rows = []
+        owing_by_name = {}
+        for name, catalogue_row in catalogue.items():
+            result = module.check_owing_forms(dict(catalogue_row))
+            self.assertIn("owing_statement", result, name)
+            owing = result["owing_statement"]
+            self.assertIsNotNone(owing, name)
+            self.assertEqual(owing.get("name"), name, name)
+            self.assertIn(
+                owing.get("named_reader"), ("agent", "operator"), name
+            )
+            owing_by_name[name] = owing
+            if owing.get("named_reader") == "agent":
+                agent_rows.append(name)
+        self.assertEqual(set(owing_by_name), set(catalogue))
         self.assertTrue(agent_rows)
         for name in agent_rows:
-            row = module.error_catalogue()[name]
-            self.assertTrue(row.get("agentic_form"), name)
+            owing = owing_by_name[name]
+            self.assertTrue(owing.get("agentic_form"), name)
+            self.assertIs(
+                module.check_owing_forms(dict(owing))["passed"],
+                True,
+                name,
+            )
             self.assertNotIn(name, defects)
 
     def test_advanced_form_owed_where_wording_states_a_figure_bound_or_reason(self):
