@@ -194,7 +194,7 @@ def aggregate_example(example):
     # meets the stated ValueError form of this surface.
     try:
         example_unknown = example not in _EXAMPLE_SCORES
-    except TypeError:
+    except (TypeError, ValueError):
         example_unknown = True
     if example_unknown:
         raise ValueError("unknown example: %r" % (example,))
@@ -293,7 +293,7 @@ def _student_t_multiplier(groups):
     # meets the stated ValueError form of this surface.
     try:
         count_unknown = groups not in _STUDENT_T_MULTIPLIERS
-    except TypeError:
+    except (TypeError, ValueError):
         count_unknown = True
     if count_unknown:
         raise ValueError("unknown group count: %r" % (groups,))

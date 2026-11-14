@@ -1806,7 +1806,10 @@ def check_store_security_record(record):
         defects.append(_record_defect("advanced figures missing"))
         advanced_figures = {}
     for figure in figure_list:
-        entry = advanced_figures.get(figure)
+        try:
+            entry = advanced_figures.get(figure)
+        except (TypeError, ValueError):
+            entry = None
         if not isinstance(entry, dict):
             defects.append(
                 _record_defect("advanced counterpart missing")
