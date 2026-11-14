@@ -1630,6 +1630,39 @@ def append_record(store, content, record_type="record"):
                     "appended": False,
                     "reported_appended": False,
                 }
+            # Fix round 13, ruling 438: an append over a last
+            # record whose hash stands in any form other than
+            # a standing hash value, a string of 64 lowercase
+            # hexadecimal digits, stands refused in the same
+            # governed refusal form, with no record built and
+            # no heads signed.
+            if isinstance(last_record, dict):
+                last_hash = last_record.get("hash")
+                if not (
+                    isinstance(last_hash, str)
+                    and len(last_hash) == 64
+                    and all(
+                        char in "0123456789abcdef"
+                        for char in last_hash
+                    )
+                ):
+                    return {
+                        "error": "predecessor hash not standing",
+                        "appended": False,
+                        "reported_appended": False,
+                    }
+                # Fix round 13, ruling 440: an append over a
+                # last record whose canonical_bytes key stands
+                # deleted, or whose canonical bytes field
+                # stands as None, stands refused in the same
+                # governed refusal form, with no record built
+                # and no heads signed.
+                if last_record.get("canonical_bytes") is None:
+                    return {
+                        "error": "last record canonical bytes erased",
+                        "appended": False,
+                        "reported_appended": False,
+                    }
         old_manifest = store.get("manifest")
         old_signature = store.get("signature_object")
         old_anchor = store.get("anchor_staging_copy")

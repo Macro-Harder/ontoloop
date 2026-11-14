@@ -566,6 +566,20 @@ def _chain_check(records):
                 )
             except Exception:
                 return {"consistent": False, "fail_index": index}
+            # Fix round 13, ruling 439: a record standing with
+            # its canonical_bytes key deleted, or with that
+            # field standing as None, stands as a disagreement
+            # in the same form as every other erased journal
+            # record field, carrying a content_mismatch item,
+            # where the field based recomputation above stands.
+            # Where that recomputation itself refuses the
+            # standing form, the record keeps the standing
+            # governed form returned in the except branch.
+            return {
+                "consistent": False,
+                "fail_index": index,
+                "failed_checks": ["content_mismatch"],
+            }
         else:
             return {"consistent": False, "fail_index": index}
         # Fix round 12, ruling 393: a stored hash standing as
