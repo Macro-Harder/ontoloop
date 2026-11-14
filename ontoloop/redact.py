@@ -66,8 +66,10 @@ __all__ = [
 ]
 
 
+import array
 import base64
 import binascii
+import collections
 import math
 import re
 import types
@@ -721,7 +723,10 @@ def _material_items(material, _path=None):
     Each item carries field, the field name the
     material stated for it or None, and text, its text
     form. A byte string decodes as UTF-8 with any
-    undecodable byte replaced. A mapping contributes
+    undecodable byte replaced, and a memoryview value
+    stands read in that same decode limb, as the byte
+    content it views, at the top level, as a mapping
+    value, and as a sequence element. A mapping contributes
     one item per entry, in entry order, keyed by its
     field name. A sequence contributes one item per
     element, in order. Any other value contributes its
@@ -735,7 +740,7 @@ def _material_items(material, _path=None):
     """
     if material is None:
         return []
-    if isinstance(material, (bytes, bytearray)):
+    if isinstance(material, (bytes, bytearray, memoryview)):
         return [
             {"field": None, "text": bytes(material).decode(
                 "utf-8", "replace")}
@@ -746,7 +751,7 @@ def _material_items(material, _path=None):
         items = []
         for key in material:
             value = material[key]
-            if isinstance(value, (bytes, bytearray)):
+            if isinstance(value, (bytes, bytearray, memoryview)):
                 text = bytes(value).decode("utf-8", "replace")
             elif isinstance(value, str):
                 text = value
@@ -1564,6 +1569,70 @@ def assembly_scan_cannot_run():
     return {"assembly_state": "scan cannot run"}
 
 
+_MAPPING_FORMS = (
+    dict,
+    types.MappingProxyType,
+    collections.UserDict,
+    collections.ChainMap,
+)
+
+_SEQUENCE_FORMS = (
+    list,
+    tuple,
+    set,
+    frozenset,
+    collections.deque,
+    collections.UserList,
+)
+
+_VIEW_TYPES = (
+    type({}.keys()),
+    type({}.values()),
+    type({}.items()),
+)
+
+
+def _is_mapping_form(value):
+    """Return True where a value stands in a walked mapping form."""
+    return isinstance(value, _MAPPING_FORMS)
+
+
+def _mapping_pairs(value):
+    """Return the key and value pairs of a walked mapping form.
+
+    A plain mapping, a mapping proxy, and a UserDict each
+    contribute one pair per key, in key order. A ChainMap
+    contributes the pairs of every map it chains, in chain
+    order, so content standing in a shadowed map still
+    stands gathered, in the safe direction.
+    """
+    if isinstance(value, collections.ChainMap):
+        pairs = []
+        for mapping in value.maps:
+            for key in mapping:
+                pairs.append((key, mapping[key]))
+        return pairs
+    pairs = []
+    for key in value:
+        pairs.append((key, value[key]))
+    return pairs
+
+
+def _assembly_state_value(assembly):
+    """Return the assembly_state value of a top level assembly.
+
+    The state read reads a top level assembly standing in
+    any mapping form the gathering acts walk, in the same
+    form as a plain mapping: a plain mapping, a mapping
+    proxy, a UserDict, and a ChainMap each answer the read
+    through their mapping form. An assembly in no mapping
+    form carries no state value for this read.
+    """
+    if _is_mapping_form(assembly):
+        return assembly.get("assembly_state")
+    return None
+
+
 def _assembly_content(assembly, _path=None, _top=True,
                       _skip_top_state=False):
     """Return the scannable content items of an assembly.
@@ -1602,13 +1671,33 @@ def _assembly_content(assembly, _path=None, _top=True,
     views, and a value standing as a mapping proxy
     stands gathered as the mapping it views, in the
     same content forms as their underlying byte and
-    mapping values.
+    mapping values. The gathering acts walk the non
+    consuming standard wrapper and view container forms
+    in the same forms: a deque as the sequence it stands
+    as, a mapping view as the entries it views, an array
+    as the content it holds, a byte array in its byte
+    content form and any other array through its elements,
+    and a UserDict, a UserList, a UserString, and a
+    ChainMap as the mapping, sequence, and string forms
+    they wrap, under the same cycle guard discipline as
+    the walked forms.
     """
     if isinstance(assembly, (str, bytes, bytearray)):
         return [assembly]
+    if isinstance(assembly, collections.UserString):
+        return [str(assembly)]
     if isinstance(assembly, memoryview):
         return [assembly.tobytes()]
-    if isinstance(assembly, (dict, types.MappingProxyType)):
+    if isinstance(assembly, array.array):
+        if assembly.typecode in ("b", "B"):
+            return [assembly.tobytes()]
+        if assembly.typecode == "u":
+            return [assembly.tounicode()]
+        content = []
+        for element in assembly:
+            content.extend(_assembly_content(element, _path, False))
+        return content
+    if isinstance(assembly, _VIEW_TYPES):
         if _path is None:
             _path = set()
         marker = id(assembly)
@@ -1617,16 +1706,32 @@ def _assembly_content(assembly, _path=None, _top=True,
         _path.add(marker)
         try:
             content = []
-            for key in assembly:
-                if _top and _skip_top_state and key == "assembly_state":
-                    continue
+            for entry in assembly:
                 content.extend(
-                    _assembly_content(assembly[key], _path, False)
+                    _assembly_content(entry, _path, False)
                 )
             return content
         finally:
             _path.discard(marker)
-    if isinstance(assembly, (list, tuple, set, frozenset)):
+    if _is_mapping_form(assembly):
+        if _path is None:
+            _path = set()
+        marker = id(assembly)
+        if marker in _path:
+            raise _CycleDetected()
+        _path.add(marker)
+        try:
+            content = []
+            for key, value in _mapping_pairs(assembly):
+                if _top and _skip_top_state and key == "assembly_state":
+                    continue
+                content.extend(
+                    _assembly_content(value, _path, False)
+                )
+            return content
+        finally:
+            _path.discard(marker)
+    if isinstance(assembly, _SEQUENCE_FORMS):
         if _path is None:
             _path = set()
         marker = id(assembly)
@@ -1679,9 +1784,19 @@ def _assembly_key_content(assembly, _path=None, _top=True):
     assembly carrying no such value content still
     fails closed. A mapping proxy value stands walked
     as the mapping it views, its keys and the keys
-    inside its values gathering in the same form.
+    inside its values gathering in the same form. The
+    wrapper and view forms of _assembly_content stand
+    walked here in the same forms: a UserDict and a
+    ChainMap as the mappings they wrap, their keys
+    gathering beside their values, a deque and a
+    UserList as the sequences they stand as, walked for
+    the keys inside their elements, and a mapping view
+    as the entries it views, a keys view gathering its
+    keys as key content, a values view walked for the
+    keys inside its values, and an items view gathering
+    each key beside the keys inside its value.
     """
-    if isinstance(assembly, (dict, types.MappingProxyType)):
+    if _is_mapping_form(assembly):
         if _path is None:
             _path = set()
         marker = id(assembly)
@@ -1690,22 +1805,52 @@ def _assembly_key_content(assembly, _path=None, _top=True):
         _path.add(marker)
         try:
             content = []
-            for key in assembly:
+            for key, value in _mapping_pairs(assembly):
                 if _top and key == "assembly_state":
                     content.extend(
                         _assembly_key_content(
-                            assembly[key], _path, False
+                            value, _path, False
                         )
                     )
                     continue
                 content.extend(_assembly_content(key, _path, False))
                 content.extend(
-                    _assembly_key_content(assembly[key], _path, False)
+                    _assembly_key_content(value, _path, False)
                 )
             return content
         finally:
             _path.discard(marker)
-    if isinstance(assembly, (list, tuple, set, frozenset)):
+    if isinstance(assembly, _VIEW_TYPES):
+        if _path is None:
+            _path = set()
+        marker = id(assembly)
+        if marker in _path:
+            raise _CycleDetected()
+        _path.add(marker)
+        try:
+            content = []
+            if isinstance(assembly, type({}.keys())):
+                for entry in assembly:
+                    content.extend(
+                        _assembly_content(entry, _path, False)
+                    )
+            elif isinstance(assembly, type({}.values())):
+                for entry in assembly:
+                    content.extend(
+                        _assembly_key_content(entry, _path, False)
+                    )
+            else:
+                for key, value in assembly:
+                    content.extend(
+                        _assembly_content(key, _path, False)
+                    )
+                    content.extend(
+                        _assembly_key_content(value, _path, False)
+                    )
+            return content
+        finally:
+            _path.discard(marker)
+    if isinstance(assembly, _SEQUENCE_FORMS):
         if _path is None:
             _path = set()
         marker = id(assembly)
@@ -1805,9 +1950,7 @@ def exit_scan(assembly):
     }
     if assembly is None:
         return dict(cannot_run)
-    state = None
-    if isinstance(assembly, dict):
-        state = assembly.get("assembly_state")
+    state = _assembly_state_value(assembly)
     if state == "scan cannot run":
         return dict(cannot_run)
     try:

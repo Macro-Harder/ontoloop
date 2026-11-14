@@ -114,6 +114,48 @@ _RUN_RECORDS = []
 _LOAD_REFUSAL_RECORDS = []
 
 
+def _residual_content_mapping(value):
+    """Return the content mapping of a residual value, or None.
+
+    A residual value stands in none of the named type
+    forms the tagged encoding states. Where the value
+    carries its content in instance attributes or in
+    slot values, this act returns a fresh mapping of
+    that content, keyed by attribute or slot name, so
+    the encoding reads the content of the value and
+    not only its string form. Where the value carries
+    no such content, the act returns None, and the
+    encoding states its governed no content form or
+    its content bearing string form, as
+    _tagged_digest_form states.
+    """
+    mapping = {}
+    try:
+        stored = vars(value)
+    except TypeError:
+        stored = None
+    if isinstance(stored, dict):
+        for key in stored:
+            mapping[key] = stored[key]
+    for cls in type(value).__mro__:
+        slots = cls.__dict__.get("__slots__")
+        if not slots:
+            continue
+        names = (slots,) if isinstance(slots, str) else slots
+        for name in names:
+            if name in ("__dict__", "__weakref__"):
+                continue
+            if name in mapping:
+                continue
+            try:
+                mapping[name] = getattr(value, name)
+            except AttributeError:
+                continue
+    if mapping:
+        return mapping
+    return None
+
+
 def _tagged_digest_form(value):
     """Return the tagged canonical encoding of one value.
 
@@ -135,7 +177,20 @@ def _tagged_digest_form(value):
     explicit stack, so deep finite nesting encodes to
     its full depth, and a container standing on its
     own encoding path raises ValueError naming the
-    cyclic value, in the canonical family form.
+    cyclic value, in the canonical family form. The
+    byte like family, bytes, bytearray, and
+    memoryview, encodes under one bytes tag at every
+    depth. A residual value, standing in none of the
+    named type forms, encodes in a governed form: a
+    value carrying its content in instance attributes
+    or slot values encodes under its type name over
+    the tagged encoding of that content, a value
+    whose type states a content bearing string form
+    of its own encodes over that string form, and a
+    value stating no content in any of those forms
+    encodes under its type name in a no content form
+    carrying no process address, so its encoding
+    stands the same in every process.
     """
     results = []
     path = set()
@@ -152,6 +207,15 @@ def _tagged_digest_form(value):
             kind = "frozenset"
         elif isinstance(current, set):
             kind = "set"
+        elif (
+            current is not None
+            and not isinstance(
+                current,
+                (bool, int, float, str, bytes, bytearray, memoryview),
+            )
+            and _residual_content_mapping(current) is not None
+        ):
+            kind = "attrs"
         else:
             kind = None
         if kind is None:
@@ -176,11 +240,22 @@ def _tagged_digest_form(value):
                     b"bytes:" + str(len(raw)).encode("ascii") + b":" + raw + b";"
                 )
             else:
-                raw = str(current).encode("utf-8")
-                results.append(
-                    b"other:" + type(current).__name__.encode("utf-8")
-                    + b":" + str(len(raw)).encode("ascii") + b":" + raw + b";"
-                )
+                if (
+                    type(current).__str__ is object.__str__
+                    and type(current).__repr__ is object.__repr__
+                ):
+                    results.append(
+                        b"other:"
+                        + type(current).__name__.encode("utf-8")
+                        + b":nocontent;"
+                    )
+                else:
+                    raw = str(current).encode("utf-8")
+                    results.append(
+                        b"other:" + type(current).__name__.encode("utf-8")
+                        + b":" + str(len(raw)).encode("ascii")
+                        + b":" + raw + b";"
+                    )
             continue
         if not expanded:
             marker = id(current)
@@ -192,6 +267,8 @@ def _tagged_digest_form(value):
                 for key in current:
                     children.append(key)
                     children.append(current[key])
+            elif kind == "attrs":
+                children = [_residual_content_mapping(current)]
             else:
                 children = list(current)
             stack.append((current, True, len(children)))
@@ -210,6 +287,11 @@ def _tagged_digest_form(value):
                 entries.append(parts[index] + b"=" + parts[index + 1])
             entries.sort()
             results.append(b"dict:{" + b",".join(entries) + b"}")
+        elif kind == "attrs":
+            results.append(
+                b"object:" + type(current).__name__.encode("utf-8")
+                + b"=" + parts[0] + b";"
+            )
         elif kind in ("set", "frozenset"):
             parts.sort()
             results.append(
@@ -229,9 +311,11 @@ def _material_digest(material):
     the material that distinguishes its type as well
     as its content, in the form the service layer
     digest helper governs for such encodings in this
-    scope: byte material over its bytes, string
-    material over its UTF-8 encoding, and any other
-    material over the tagged canonical encoding
+    scope: byte like material, standing as bytes, as
+    a bytearray, or as a memoryview, over its bytes in
+    the one form the byte like family states at every
+    depth, string material over its UTF-8 encoding, and
+    any other material over the tagged canonical encoding
     _tagged_digest_form states, carried behind a
     marker no string or byte limb carries, so a
     scalar, a sequence, a tuple, a set, and a mapping
@@ -244,8 +328,8 @@ def _material_digest(material):
     """
     import hashlib
 
-    if isinstance(material, bytes):
-        payload = material
+    if isinstance(material, (bytes, bytearray, memoryview)):
+        payload = bytes(material)
     elif isinstance(material, str):
         payload = material.encode("utf-8")
     else:
@@ -257,18 +341,219 @@ def _material_digest(material):
 
 
 def _bundle_copy(bundle):
-    """Return a deep copy of a bundle object.
+    """Return a structural copy of a bundle object.
 
     The copy stands apart from the object passed at
     every level, so a mutation of either object, at
     its top level or in a nested mapping or list,
     reaches nothing in the other. Immutable bundle
     values, the string form every governed caller
-    passes, copy to themselves in substance.
+    passes, copy to themselves in substance. The copy
+    act walks its containers on an explicit stack, so
+    a deeply nested bundle copies to its full depth
+    with no recursion, and a part shared across the
+    bundle in alias or in a cycle stands copied once,
+    the copy carrying the sharing in its own form, as
+    the standing deep copy act carried it. The act
+    reads the wrapper and view forms in their readable
+    substance: a mapping proxy copies as a fresh
+    mapping of its entries, a UserDict as a fresh
+    mapping of its entries, a ChainMap as a fresh
+    ChainMap of copies of its maps, a UserList and a
+    deque as fresh sequences of copies of their
+    elements, a UserString as a fresh UserString of
+    its text, an array as a fresh array of its
+    typecode, and a memoryview as an independent
+    mutable byte copy, a bytearray, of the content it
+    views, so a copied part shares no mutable state
+    with the caller part in either direction. A value
+    standing in none of these forms copies through
+    the standard deep copy act.
     """
-    import copy
+    import array as _array_module
+    import collections as _collections
+    import copy as _copy_module
+    import types as _types_module
 
-    return copy.deepcopy(bundle)
+    def _is_atom(value):
+        return value is None or isinstance(
+            value, (bool, int, float, complex, str, bytes)
+        )
+
+    def _tuple_form(original, parts):
+        if type(original) is tuple:
+            return tuple(parts)
+        if hasattr(original, "_fields"):
+            return type(original)(*parts)
+        try:
+            return type(original)(parts)
+        except Exception:
+            return tuple(parts)
+
+    memo = {}
+    in_progress = set()
+    results = []
+    stack = [(bundle, False, None, None, 0)]
+    while stack:
+        current, expanded, kind, placeholder, child_count = stack.pop()
+        if expanded:
+            if child_count:
+                parts = results[len(results) - child_count:]
+                del results[len(results) - child_count:]
+            else:
+                parts = []
+            if kind == "mapping":
+                for index in range(0, len(parts), 2):
+                    placeholder[parts[index]] = parts[index + 1]
+                results.append(placeholder)
+            elif kind == "chainmap":
+                placeholder.maps = list(parts)
+                results.append(placeholder)
+            elif kind == "sequence":
+                placeholder.extend(parts)
+                results.append(placeholder)
+            elif kind == "set":
+                placeholder.update(parts)
+                results.append(placeholder)
+            elif kind == "tuple":
+                in_progress.discard(id(current))
+                if id(current) in memo:
+                    results.append(memo[id(current)])
+                else:
+                    built = _tuple_form(current, parts)
+                    memo[id(current)] = built
+                    results.append(built)
+            elif kind == "frozenset":
+                in_progress.discard(id(current))
+                if id(current) in memo:
+                    results.append(memo[id(current)])
+                else:
+                    built = frozenset(parts)
+                    memo[id(current)] = built
+                    results.append(built)
+            continue
+        if id(current) in memo:
+            results.append(memo[id(current)])
+            continue
+        if id(current) in in_progress:
+            parts = []
+            for child in list(current):
+                if id(child) in memo:
+                    parts.append(memo[id(child)])
+                elif _is_atom(child):
+                    parts.append(child)
+                else:
+                    raise ValueError("cyclic value in bundle copy")
+            if isinstance(current, frozenset):
+                built = frozenset(parts)
+            else:
+                built = _tuple_form(current, parts)
+            memo[id(current)] = built
+            results.append(built)
+            continue
+        if _is_atom(current):
+            results.append(current)
+            continue
+        if isinstance(current, bytearray):
+            built = bytearray(current)
+            memo[id(current)] = built
+            results.append(built)
+            continue
+        if isinstance(current, memoryview):
+            built = bytearray(current.tobytes())
+            memo[id(current)] = built
+            results.append(built)
+            continue
+        if isinstance(current, _array_module.array):
+            built = _array_module.array(current.typecode, current)
+            memo[id(current)] = built
+            results.append(built)
+            continue
+        if isinstance(current, _collections.ChainMap):
+            placeholder = _collections.ChainMap({})
+            memo[id(current)] = placeholder
+            children = list(current.maps)
+            stack.append((current, True, "chainmap", placeholder,
+                          len(children)))
+            for child in reversed(children):
+                stack.append((child, False, None, None, 0))
+            continue
+        if isinstance(
+            current,
+            (dict, _types_module.MappingProxyType,
+             _collections.UserDict),
+        ):
+            if isinstance(current, _types_module.MappingProxyType):
+                placeholder = {}
+            elif isinstance(current, _collections.UserDict):
+                placeholder = _collections.UserDict()
+            else:
+                try:
+                    placeholder = type(current)()
+                except Exception:
+                    placeholder = {}
+            memo[id(current)] = placeholder
+            children = []
+            for key in current:
+                children.append(key)
+                children.append(current[key])
+            stack.append((current, True, "mapping", placeholder,
+                          len(children)))
+            for child in reversed(children):
+                stack.append((child, False, None, None, 0))
+            continue
+        if isinstance(
+            current, (list, _collections.deque, _collections.UserList)
+        ):
+            if isinstance(current, _collections.deque):
+                placeholder = _collections.deque()
+            elif isinstance(current, _collections.UserList):
+                placeholder = _collections.UserList()
+            else:
+                try:
+                    placeholder = type(current)()
+                except Exception:
+                    placeholder = []
+            memo[id(current)] = placeholder
+            children = list(current)
+            stack.append((current, True, "sequence", placeholder,
+                          len(children)))
+            for child in reversed(children):
+                stack.append((child, False, None, None, 0))
+            continue
+        if isinstance(current, _collections.UserString):
+            built = _collections.UserString(str(current))
+            memo[id(current)] = built
+            results.append(built)
+            continue
+        if isinstance(current, set):
+            placeholder = set()
+            memo[id(current)] = placeholder
+            children = list(current)
+            stack.append((current, True, "set", placeholder,
+                          len(children)))
+            for child in reversed(children):
+                stack.append((child, False, None, None, 0))
+            continue
+        if isinstance(current, tuple):
+            in_progress.add(id(current))
+            children = list(current)
+            stack.append((current, True, "tuple", None, len(children)))
+            for child in reversed(children):
+                stack.append((child, False, None, None, 0))
+            continue
+        if isinstance(current, frozenset):
+            in_progress.add(id(current))
+            children = list(current)
+            stack.append((current, True, "frozenset", None,
+                          len(children)))
+            for child in reversed(children):
+                stack.append((child, False, None, None, 0))
+            continue
+        built = _copy_module.deepcopy(current)
+        memo[id(current)] = built
+        results.append(built)
+    return results[0]
 
 
 def record_promotion(workflow, bundle):

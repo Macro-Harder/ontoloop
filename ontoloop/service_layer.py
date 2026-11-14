@@ -146,6 +146,48 @@ _OUTPUT_PATHS = ("error", "log", "progress", "support", "telemetry")
 _FLOWS = ("grading", "ingest", "confirmation")
 
 
+def _residual_content_mapping(value):
+    """Return the content mapping of a residual value, or None.
+
+    A residual value stands in none of the named type
+    forms the tagged encoding states. Where the value
+    carries its content in instance attributes or in
+    slot values, this act returns a fresh mapping of
+    that content, keyed by attribute or slot name, so
+    the encoding reads the content of the value and
+    not only its string form. Where the value carries
+    no such content, the act returns None, and the
+    encoding states its governed no content form or
+    its content bearing string form, as
+    _tagged_digest_form states.
+    """
+    mapping = {}
+    try:
+        stored = vars(value)
+    except TypeError:
+        stored = None
+    if isinstance(stored, dict):
+        for key in stored:
+            mapping[key] = stored[key]
+    for cls in type(value).__mro__:
+        slots = cls.__dict__.get("__slots__")
+        if not slots:
+            continue
+        names = (slots,) if isinstance(slots, str) else slots
+        for name in names:
+            if name in ("__dict__", "__weakref__"):
+                continue
+            if name in mapping:
+                continue
+            try:
+                mapping[name] = getattr(value, name)
+            except AttributeError:
+                continue
+    if mapping:
+        return mapping
+    return None
+
+
 def _tagged_digest_form(value):
     """Return the tagged canonical encoding of one value.
 
@@ -167,7 +209,20 @@ def _tagged_digest_form(value):
     explicit stack, so deep finite nesting encodes to
     its full depth, and a container standing on its
     own encoding path raises ValueError naming the
-    cyclic value, in the canonical family form.
+    cyclic value, in the canonical family form. The
+    byte like family, bytes, bytearray, and
+    memoryview, encodes under one bytes tag at every
+    depth. A residual value, standing in none of the
+    named type forms, encodes in a governed form: a
+    value carrying its content in instance attributes
+    or slot values encodes under its type name over
+    the tagged encoding of that content, a value
+    whose type states a content bearing string form
+    of its own encodes over that string form, and a
+    value stating no content in any of those forms
+    encodes under its type name in a no content form
+    carrying no process address, so its encoding
+    stands the same in every process.
     """
     results = []
     path = set()
@@ -184,6 +239,15 @@ def _tagged_digest_form(value):
             kind = "frozenset"
         elif isinstance(current, set):
             kind = "set"
+        elif (
+            current is not None
+            and not isinstance(
+                current,
+                (bool, int, float, str, bytes, bytearray, memoryview),
+            )
+            and _residual_content_mapping(current) is not None
+        ):
+            kind = "attrs"
         else:
             kind = None
         if kind is None:
@@ -208,11 +272,22 @@ def _tagged_digest_form(value):
                     b"bytes:" + str(len(raw)).encode("ascii") + b":" + raw + b";"
                 )
             else:
-                raw = str(current).encode("utf-8")
-                results.append(
-                    b"other:" + type(current).__name__.encode("utf-8")
-                    + b":" + str(len(raw)).encode("ascii") + b":" + raw + b";"
-                )
+                if (
+                    type(current).__str__ is object.__str__
+                    and type(current).__repr__ is object.__repr__
+                ):
+                    results.append(
+                        b"other:"
+                        + type(current).__name__.encode("utf-8")
+                        + b":nocontent;"
+                    )
+                else:
+                    raw = str(current).encode("utf-8")
+                    results.append(
+                        b"other:" + type(current).__name__.encode("utf-8")
+                        + b":" + str(len(raw)).encode("ascii")
+                        + b":" + raw + b";"
+                    )
             continue
         if not expanded:
             marker = id(current)
@@ -224,6 +299,8 @@ def _tagged_digest_form(value):
                 for key in current:
                     children.append(key)
                     children.append(current[key])
+            elif kind == "attrs":
+                children = [_residual_content_mapping(current)]
             else:
                 children = list(current)
             stack.append((current, True, len(children)))
@@ -242,6 +319,11 @@ def _tagged_digest_form(value):
                 entries.append(parts[index] + b"=" + parts[index + 1])
             entries.sort()
             results.append(b"dict:{" + b",".join(entries) + b"}")
+        elif kind == "attrs":
+            results.append(
+                b"object:" + type(current).__name__.encode("utf-8")
+                + b"=" + parts[0] + b";"
+            )
         elif kind in ("set", "frozenset"):
             parts.sort()
             results.append(
@@ -261,9 +343,11 @@ def _ingest_material_digest(material):
     the material that distinguishes its type as well
     as its content, in the form the consumption module
     digest helper governs for such encodings in this
-    scope: byte material over its bytes, string
-    material over its UTF-8 encoding, and any other
-    material over the tagged canonical encoding
+    scope: byte like material, standing as bytes, as
+    a bytearray, or as a memoryview, over its bytes in
+    the one form the byte like family states at every
+    depth, string material over its UTF-8 encoding, and
+    any other material over the tagged canonical encoding
     _tagged_digest_form states, carried behind a
     marker no string or byte limb carries, so a
     scalar, a sequence, a tuple, a set, and a mapping
@@ -280,8 +364,8 @@ def _ingest_material_digest(material):
     """
     import hashlib
 
-    if isinstance(material, bytes):
-        payload = material
+    if isinstance(material, (bytes, bytearray, memoryview)):
+        payload = bytes(material)
     elif isinstance(material, str):
         payload = material.encode("utf-8")
     else:
