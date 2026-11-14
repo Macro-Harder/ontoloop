@@ -491,6 +491,161 @@ class TestStoreFixR5(unittest.TestCase):
                           result.get("failed_checks", []))
 
 
+class TestStoreFixR6(unittest.TestCase):
+    """Fix round 6 STORE and sealing cures, written test first.
+
+    Covers ruling 94 (a malformed signature object returns a
+    governed verify output, disagreement, with no exception
+    escaping at the signature fields extraction) and ruling
+    95 (malformed record forms return a governed verify
+    output at the chain check recomputation acts, with no
+    exception escaping: the byte hash act over a standing
+    canonical_bytes value that is not bytes, and the field
+    based hash recomputation over a record carrying a float
+    or a set the canonical layer refuses).
+    """
+
+    def test_signature_object_missing_a_signed_field_returns_disagreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        for field in ("store_identity", "founding_object_identity",
+                      "journal_head_hash", "manifest_hash"):
+            store = module.golden_record_store()
+            signature_object = dict(store["signature_object"])
+            del signature_object[field]
+            store["signature_object"] = signature_object
+            for result in (module.verify(store), sealing.verify(store)):
+                self.assertEqual(result.get("output"), "disagreement")
+
+    def test_signature_object_in_scalar_form_returns_disagreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        for value in (5, True):
+            store = module.golden_record_store()
+            store["signature_object"] = value
+            for result in (module.verify(store), sealing.verify(store)):
+                self.assertEqual(result.get("output"), "disagreement")
+
+    def test_signature_object_in_short_sequence_form_returns_disagreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        for value in ([], ["a", "b"]):
+            store = module.golden_record_store()
+            store["signature_object"] = value
+            for result in (module.verify(store), sealing.verify(store)):
+                self.assertEqual(result.get("output"), "disagreement")
+
+    def test_signature_fields_entry_malformed_returns_disagreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        for fields in (["a", "b", "c"], 5):
+            store = module.golden_record_store()
+            signature_object = dict(store["signature_object"])
+            signature_object["fields"] = fields
+            store["signature_object"] = signature_object
+            for result in (module.verify(store), sealing.verify(store)):
+                self.assertEqual(result.get("output"), "disagreement")
+
+    def test_signature_genuine_forms_still_return_agreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        store = module.golden_record_store()
+        for result in (module.verify(store), sealing.verify(store)):
+            self.assertEqual(result.get("output"), "agreement")
+        store = module.golden_record_store()
+        genuine = store["signature_object"]
+        store["signature_object"] = {
+            "fields": [
+                genuine["store_identity"],
+                genuine["founding_object_identity"],
+                genuine["journal_head_hash"],
+                genuine["manifest_hash"],
+            ],
+            "signature": genuine["signature"],
+        }
+        for result in (module.verify(store), sealing.verify(store)):
+            self.assertEqual(result.get("output"), "agreement")
+
+    def test_signature_object_with_wrong_values_still_returns_disagreement(self):
+        module = require(MODULE)
+        store = module.golden_record_store()
+        signature_object = dict(store["signature_object"])
+        signature_object["journal_head_hash"] = "0" * 64
+        store["signature_object"] = signature_object
+        self.assertEqual(module.verify(store).get("output"),
+                         "disagreement")
+
+    def test_canonical_bytes_in_non_bytes_form_returns_unverifiable(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        for value in ("a string", {"a": 1}, 1.5):
+            store = module.golden_record_store()
+            store["records"][-1]["canonical_bytes"] = value
+            for result in (module.verify(store), sealing.verify(store)):
+                self.assertEqual(result.get("output"), "unverifiable")
+                self.assertEqual(result.get("case"), "torn final line")
+
+    def test_canonical_bytes_as_bytearray_still_returns_agreement(self):
+        module = require(MODULE)
+        store = module.golden_record_store()
+        record = store["records"][-1]
+        record["canonical_bytes"] = bytearray(record["canonical_bytes"])
+        self.assertEqual(module.verify(store).get("output"), "agreement")
+
+    def test_no_canonical_bytes_float_field_returns_unverifiable(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        for field in ("content", "predecessor_hash", "record_type",
+                      "store_sequence"):
+            store = module.golden_record_store()
+            record = store["records"][-1]
+            record["canonical_bytes"] = None
+            record[field] = 1.5
+            for result in (module.verify(store), sealing.verify(store)):
+                self.assertEqual(result.get("output"), "unverifiable")
+                self.assertEqual(result.get("case"), "torn final line")
+
+    def test_no_canonical_bytes_nested_float_content_returns_unverifiable(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        store = module.golden_record_store()
+        record = store["records"][-1]
+        record["canonical_bytes"] = None
+        record["content"] = {"nested": {"value": 1.5}}
+        for result in (module.verify(store), sealing.verify(store)):
+            self.assertEqual(result.get("output"), "unverifiable")
+            self.assertEqual(result.get("case"), "torn final line")
+
+    def test_no_canonical_bytes_float_at_first_record_returns_unverifiable(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        store = module.golden_record_store()
+        record = store["records"][0]
+        record["canonical_bytes"] = None
+        record["content"] = 1.5
+        for result in (module.verify(store), sealing.verify(store)):
+            self.assertEqual(result.get("output"), "unverifiable")
+            self.assertEqual(result.get("case"), "no intact record")
+
+    def test_no_canonical_bytes_set_content_returns_unverifiable(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        store = module.golden_record_store()
+        record = store["records"][-1]
+        record["canonical_bytes"] = None
+        record["content"] = {"values": {1, 2}}
+        for result in (module.verify(store), sealing.verify(store)):
+            self.assertEqual(result.get("output"), "unverifiable")
+            self.assertEqual(result.get("case"), "torn final line")
+
+    def test_unmutated_store_still_returns_agreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        store = module.golden_record_store()
+        for result in (module.verify(store), sealing.verify(store)):
+            self.assertEqual(result.get("output"), "agreement")
+
+
 class TestStoreT05(unittest.TestCase):
     """STORE-T05: sync and write failures, platform refusal kept."""
 

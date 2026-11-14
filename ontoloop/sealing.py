@@ -516,7 +516,13 @@ def _chain_check(records):
     content in a form the canonical layer states as a sequence
     or a byte string, a tuple, bytes, or a bytearray, stands
     judged as the form its own encoding decodes to, while every
-    scalar position keeps the exact in type test whole.
+    scalar position keeps the exact in type test whole. Where a
+    recomputation act itself refuses the standing form, the
+    byte hash over a canonical_bytes value that is not bytes or
+    the field based recomputation over a field the canonical
+    layer refuses, the record stands as not consistent at its
+    own index, so the caller classifies it in the standing
+    governed forms with no exception escaping.
     """
     previous_hash = None
     head = None
@@ -526,7 +532,10 @@ def _chain_check(records):
         stored_hash = record.get("hash")
         canonical = record.get("canonical_bytes")
         if canonical is not None:
-            recomputed = sha256_hex(canonical)
+            try:
+                recomputed = sha256_hex(canonical)
+            except Exception:
+                return {"consistent": False, "fail_index": index}
             try:
                 decoded = _decode_canonical(canonical, JOURNAL_RECORD_KIND)
             except Exception:
@@ -548,12 +557,15 @@ def _chain_check(records):
                         "failed_checks": ["content_mismatch"],
                     }
         elif "content" in record:
-            recomputed = hash_journal_record(
-                record.get("content"),
-                record.get("predecessor_hash"),
-                record.get("store_sequence"),
-                record.get("record_type"),
-            )
+            try:
+                recomputed = hash_journal_record(
+                    record.get("content"),
+                    record.get("predecessor_hash"),
+                    record.get("store_sequence"),
+                    record.get("record_type"),
+                )
+            except Exception:
+                return {"consistent": False, "fail_index": index}
         else:
             return {"consistent": False, "fail_index": index}
         if stored_hash is not None and recomputed != stored_hash:
@@ -755,12 +767,15 @@ def verify(store):
     recomputed_object = build_signature_object(
         store_identity, founding, head, recomputed_manifest_hash
     )
-    standing_fields = _signature_fields(signature_object)
+    try:
+        standing_fields = _signature_fields(signature_object)
+    except Exception:
+        return _disagreement()
     if standing_fields != recomputed_object:
         return _disagreement()
     try:
         signature_verifies = verify_signature(signature_object, key)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, KeyError, IndexError):
         return _disagreement()
     if not signature_verifies:
         return _disagreement()
