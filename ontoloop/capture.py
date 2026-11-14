@@ -40,6 +40,8 @@ __all__ = [
 ]
 
 
+import collections
+import collections.abc
 import hashlib
 
 
@@ -592,6 +594,38 @@ _JOURNAL_LINE_CAP_BYTES = 64 * 1024
 _TEXT_FIELD_CAP_BYTES = 32 * 1024
 
 
+def _byte_form_container(value):
+    """Return True where a value stands in a walked container form.
+
+    The walked forms stand as the concrete dict, list,
+    tuple, set, and frozenset forms, the deque form,
+    the UserList form, the wrapper mapping forms, and
+    the abstract sequence, abstract set, and abstract
+    mapping forms. The wrapper mapping forms and the
+    abstract mapping form stand read through the
+    abstract mapping test, which the UserDict, ChainMap,
+    and mapping proxy forms each meet, and the UserList
+    form stands read through the abstract sequence
+    test, which that form meets. The deque form stands
+    named on its own beside them.
+    """
+    return isinstance(
+        value,
+        (
+            dict,
+            list,
+            tuple,
+            set,
+            frozenset,
+            collections.deque,
+            collections.UserList,
+            collections.abc.Mapping,
+            collections.abc.Sequence,
+            collections.abc.Set,
+        ),
+    )
+
+
 def _value_byte_form(value, _path=None):
     """Return the byte form of one payload value, in substance.
 
@@ -604,15 +638,23 @@ def _value_byte_form(value, _path=None):
     forms of the content it carries at any position
     inside it, so a memoryview nested inside a list
     standing as a mapping value stands measured in
-    substance in the same way. Any other value
-    stands in the UTF-8 byte form of its string form.
+    substance in the same way. The container forms
+    stand as the forms _byte_form_container names:
+    beside the concrete forms, a value standing in a
+    deque form, a UserList form, a wrapper mapping
+    form, the abstract sequence form, the abstract
+    set form, or the abstract mapping form stands
+    read in substance at any position inside a walked
+    container, under the same cycle guard discipline
+    as the concrete forms. Any other value stands in
+    the UTF-8 byte form of its string form.
     It reads recursively.
     """
     if isinstance(value, (bytes, bytearray, memoryview)):
         return bytes(value)
     if isinstance(value, str):
         return value.encode("utf-8")
-    if isinstance(value, (dict, list, tuple, set, frozenset)):
+    if _byte_form_container(value):
         if _path is None:
             _path = set()
         marker = id(value)
@@ -620,7 +662,7 @@ def _value_byte_form(value, _path=None):
             return b""
         _path.add(marker)
         try:
-            if isinstance(value, dict):
+            if isinstance(value, collections.abc.Mapping):
                 parts = []
                 for key in value:
                     parts.append(_value_byte_form(key, _path))
@@ -669,7 +711,13 @@ def _measure_payload(payload):
     sizes beside the value fields: a key stands
     measured as a field of the journal line its entry
     writes, so a key whose byte form passes a cap
-    refuses the payload in the same standing. The
+    refuses the payload in the same standing. Each
+    mapping key stands counted in its byte form
+    toward the journal line size as well, beside the
+    value fields and with the separator counting
+    above standing as it stands, so a payload whose
+    keys and values together pass the journal line
+    cap refuses in the same standing. The
     return carries both measured sizes and the
     refusal standing: refused where either size
     passes its cap, a payload at a cap standing
@@ -681,11 +729,10 @@ def _measure_payload(payload):
         line_size += len(fields) - 1
     field_size = max([len(field) for field in fields], default=0)
     if isinstance(payload, dict):
-        key_size = max(
-            [len(_value_byte_form(key)) for key in payload],
-            default=0,
-        )
+        key_forms = [_value_byte_form(key) for key in payload]
+        key_size = max([len(form) for form in key_forms], default=0)
         field_size = max(field_size, key_size)
+        line_size += sum(len(form) for form in key_forms)
     refused = (
         line_size > _JOURNAL_LINE_CAP_BYTES
         or field_size > _TEXT_FIELD_CAP_BYTES
@@ -709,12 +756,15 @@ def capture_payload(case):
     case name strings the Step 13 tests name stand as
     fixture payload constructors in the form the suite
     uses elsewhere: the string at cap builds the
-    two field payload whose fields stand at the text
-    field cap and one byte under it, measuring exactly
-    at the journal line cap with its separator byte,
-    and the string over cap builds the two field
-    payload with both fields at the text field cap,
-    measuring one byte over the journal line cap. Both
+    two field payload whose first field stands at the
+    text field cap and whose second field stands
+    sized so the payload measures exactly at the
+    journal line cap, counting each key in its byte
+    form beside the value fields and counting its
+    separator byte, and the string over cap builds
+    the same payload with its second field one byte
+    larger, measuring one byte over the journal line
+    cap in the same counting. Both
     fixture payloads pass through the same measurement
     act as any real payload, and no outcome stands
     stored against either name.
@@ -738,15 +788,19 @@ def capture_payload(case):
     the caps surface of this module. A payload in no
     stated form raises ValueError.
     """
-    if case == "at cap":
+    if case == "at cap" or case == "over cap":
+        fixture_key_bytes = len("first") + len("second")
+        second_at_cap = (
+            _JOURNAL_LINE_CAP_BYTES
+            - _TEXT_FIELD_CAP_BYTES
+            - fixture_key_bytes
+            - 1
+        )
+        if case == "over cap":
+            second_at_cap += 1
         payload = {
             "first": "a" * _TEXT_FIELD_CAP_BYTES,
-            "second": "b" * (_TEXT_FIELD_CAP_BYTES - 1),
-        }
-    elif case == "over cap":
-        payload = {
-            "first": "a" * _TEXT_FIELD_CAP_BYTES,
-            "second": "b" * _TEXT_FIELD_CAP_BYTES,
+            "second": "b" * second_at_cap,
         }
     else:
         payload = case
