@@ -77,10 +77,33 @@ def _field_names(record_type):
     ]
 
 
+def _field_value(record_type, schema_version, field):
+    """Return a payload value shaped for one field.
+
+    The value stands formed from the field name, the
+    record type, and the schema version of the record
+    it stands in, so no two fields of a record carry
+    one identical placeholder and a field stands
+    answered in a form its name states: a version
+    field carries the schema version itself, an
+    identity field carries an identity formed from
+    the type and the version, and every other field
+    carries a value naming its field, its type, and
+    its version.
+    """
+    lowered = field.lower()
+    slug = lowered.replace(" ", "-")
+    if "version" in lowered:
+        return schema_version
+    if "identity" in lowered or lowered.endswith(" id"):
+        return "golden-" + record_type.lower() + "-" + str(schema_version) + "-" + slug
+    return slug + " value for " + record_type + " version " + str(schema_version)
+
+
 def _set_record(record_type, schema_version):
     payload = {}
     for field in _field_names(record_type):
-        payload[field] = "golden fixture value"
+        payload[field] = _field_value(record_type, schema_version, field)
     return {
         "record_identity": (
             "golden-" + record_type.lower() + "-" + str(schema_version)
@@ -123,12 +146,12 @@ def golden_record_sets():
     golden word form in this section, and the payload
     carries the per type field names the landed
     dictionary inventory states for that type, in
-    inventory order, each field carrying the one authored
-    placeholder value this section states, every field
-    value standing authored and guessed under entry 89
-    ruling 3 in the shape act DG-3 position, no governing
-    text stating a value for any field of any type beyond
-    the CORE fixture Run form. The envelope form of a set
+    inventory order, each field carrying a value shaped
+    for its field from the field name, the record type,
+    and the schema version, in the form the field value
+    act of this module states, no governing text stating
+    a value for any field of any type beyond the CORE
+    fixture Run form. The envelope form of a set
     record stands in the shape act DG-4 position as
     ungrounded; this section authored completion carries
     no store sequence, no prior record hash link, no
@@ -158,27 +181,49 @@ def golden_record_sets():
 def re_read(record):
     """Return the re reading result for one record.
 
-    The result carries exactly the two keys the
-    GOLDEN-T01 tests read: read, standing True, and
-    record, standing equal to the record passed in. The
-    re reading stands under the current schema version
-    in the row form: every record in the sets carries a
-    schema version inside the reader window the landed
-    CORE position presents, by the construction at
-    golden_record_sets, so the shape act DG-5 tension
-    with CORE closed schema checking does not arise on
-    the sets, in the bound the shape act states at its
-    section 3.4. The act is a reading: it returns the
-    record passed in, the same object, with no
-    conversion, migration, or rewrite inside it, in the
-    shape act section 3.5 form. Whether the governed act
-    validates the record under closed schema checking at
-    all, and what it returns on a failure, stands pinned
-    by no test and stated in no text, at shape act DG-5;
-    this section performs no such validation and carries
-    no failure form, and that position stands recorded
-    as authored completion in this section paper.
+    The record stands checked under the current schema
+    version on every call, in four limbs. The record
+    must stand as a mapping carrying the four envelope
+    keys, record identity, record type, schema version,
+    and payload. Its record type must stand among the
+    record types the dictionary inventory states. Its
+    schema version must stand inside the reader window
+    the landed CORE position presents, lower edge to
+    reader version inclusive. Its payload must stand
+    as a mapping whose keys stand exactly as the field
+    names the inventory states for its record type.
+    A record passing every limb returns read True with
+    the record itself. A record failing any limb
+    returns read False with the record and a refusal
+    naming the limb that refused it, in the case names
+    this act states: not a record mapping, envelope key
+    missing, record type unlisted, schema version
+    outside the reader window, and payload keys not
+    the fields of the record type. No record stands
+    reported as read on a limb this act did not run.
     """
+    def refusal(case):
+        return {
+            "read": False,
+            "record": record,
+            "refusal": {"case": case},
+        }
+
+    if not isinstance(record, dict):
+        return refusal("not a record mapping")
+    for key in ("record_identity", "record_type",
+                "schema_version", "payload"):
+        if key not in record:
+            return refusal("envelope key missing: " + key)
+    if record["record_type"] not in _record_types():
+        return refusal("record type unlisted")
+    if record["schema_version"] not in _schema_versions():
+        return refusal("schema version outside the reader window")
+    payload = record["payload"]
+    if not isinstance(payload, dict):
+        return refusal("payload keys not the fields of the record type")
+    if sorted(payload.keys()) != sorted(_field_names(record["record_type"])):
+        return refusal("payload keys not the fields of the record type")
     return {"read": True, "record": record}
 
 
@@ -317,39 +362,77 @@ def _spanning_rows():
     ]
 
 
-def run_spanning_suite():
+def run_spanning_suite(rows=None):
     """Return the spanning group regression suite result.
 
-    The result stands in the test pinned form of shape act
-    section 5.1, no key more: the ordinary run standing,
-    the two shape entries in their grounded forms at shape
-    act sections 5.2 and 5.3 (external task identity
-    grouping holds across the signature version change,
-    standing True; signature based groups merge across
-    that change in no case, standing False), the pool
-    stamp consequences standing checked over the grounded
-    consequence set at shape act section 5.4 as the rows
-    exercise it, the fixture rows, the evidence home in
-    the plan subsections 18.28 and 18.82 point one form,
-    and the migration runs, one entry standing authored
-    and guessed in count under entry 89 ruling 3, each
-    entry carrying only its citation in the by pointer
-    form, no further field standing stated for it in any
-    text. A fresh result, with fresh nested values, stands
+    The result stands computed from the fixture rows at
+    every call. Where the caller passes rows, those rows
+    stand grouped in place of the standing fixture rows,
+    and every result value below stands derived from the
+    rows in hand, so rows contradicting a shape change
+    the result for that shape. The grouping act groups
+    the rows by group identity. External task identity
+    grouping across the signature version change stands
+    where one group identity spans more than one
+    signature version and carries one pool stamp across
+    all of its rows. Signature based groups stand merged
+    across the change where two distinct group identities
+    on opposite sides of the change share one pool stamp,
+    the shared stamp standing as the merge sign. The pool
+    stamp consequences stand checked where every row
+    carries a pool stamp and an outcome and every group
+    spanning the change carries exactly one pool stamp
+    across its rows. The evidence home and migration run
+    positions stand in the forms the shape act states.
+    A fresh result, with fresh nested values, stands
     returned on every call.
     """
+    if rows is None:
+        rows = _spanning_rows()
+    else:
+        rows = [dict(row) for row in rows]
+    by_identity = {}
+    for row in rows:
+        by_identity.setdefault(row.get("group_identity"), []).append(row)
+    grouped_across = False
+    for identity, group in by_identity.items():
+        versions = {row.get("signature_version") for row in group}
+        stamps = {row.get("pool_stamp") for row in group}
+        if len(versions) > 1 and len(stamps) == 1:
+            grouped_across = True
+    merged_across = False
+    identities = list(by_identity.keys())
+    for first_index in range(len(identities)):
+        for second_index in range(first_index + 1, len(identities)):
+            first = by_identity[identities[first_index]]
+            second = by_identity[identities[second_index]]
+            first_versions = {row.get("signature_version") for row in first}
+            second_versions = {row.get("signature_version") for row in second}
+            first_stamps = {row.get("pool_stamp") for row in first}
+            second_stamps = {row.get("pool_stamp") for row in second}
+            if first_stamps & second_stamps and first_versions != second_versions:
+                merged_across = True
+    pool_checked = True
+    for row in rows:
+        if "pool_stamp" not in row or "outcome" not in row:
+            pool_checked = False
+    for identity, group in by_identity.items():
+        versions = {row.get("signature_version") for row in group}
+        stamps = {row.get("pool_stamp") for row in group}
+        if len(versions) > 1 and len(stamps) != 1:
+            pool_checked = False
     return {
         "ran_in_ordinary_run": True,
         "shapes": {
             "external task identity grouping": {
-                "grouped_across_signature_version_change": True,
+                "grouped_across_signature_version_change": grouped_across,
             },
             "signature based groups": {
-                "merged_across_signature_version_change": False,
+                "merged_across_signature_version_change": merged_across,
             },
         },
-        "pool_stamp_consequences_checked": True,
-        "rows": _spanning_rows(),
+        "pool_stamp_consequences_checked": pool_checked,
+        "rows": rows,
         "evidence_home": {
             "counted_record": "suite result record",
             "stands_under_one_counted_row": True,

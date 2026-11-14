@@ -53,7 +53,7 @@ class Unrowed1986Tests(unittest.TestCase):
         self.assertEqual(record["test_result"], result["test_result"])
 
     def test_verbatim_case_at_candidate_construction(self):
-        mod = harness.require("dataset")
+        mod = harness.require("ontoloop.dataset")
         bundle = mod.candidate_with_instruction_item(kind="verbatim holdout content")
         result = mod.test_instruction_items_against_holdout(bundle, occasion="candidate construction")
         self.assertTrue(result["fired"])
@@ -62,7 +62,7 @@ class Unrowed1986Tests(unittest.TestCase):
         self.assert_fired_item_recorded_in_the_audit_record(result)
 
     def test_near_verbatim_case_at_candidate_construction(self):
-        mod = harness.require("dataset")
+        mod = harness.require("ontoloop.dataset")
         bundle = mod.candidate_with_instruction_item(kind="near verbatim holdout content")
         result = mod.test_instruction_items_against_holdout(bundle, occasion="candidate construction")
         self.assertTrue(result["fired"])
@@ -71,7 +71,7 @@ class Unrowed1986Tests(unittest.TestCase):
         self.assert_fired_item_recorded_in_the_audit_record(result)
 
     def test_clean_case_at_candidate_construction(self):
-        mod = harness.require("dataset")
+        mod = harness.require("ontoloop.dataset")
         bundle = mod.candidate_with_instruction_item(kind="clean instruction")
         result = mod.test_instruction_items_against_holdout(bundle, occasion="candidate construction")
         self.assertFalse(result["fired"])
@@ -81,7 +81,7 @@ class Unrowed1986Tests(unittest.TestCase):
         self.assertFalse(result["wider_material_compared"])
 
     def test_verbatim_case_at_promotion(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         bundle = mod.candidate_with_instruction_item(kind="verbatim holdout content")
         result = mod.test_instruction_items_against_holdout(bundle, occasion="promotion")
         self.assertTrue(result["fired"])
@@ -99,7 +99,7 @@ class Unrowed1986Tests(unittest.TestCase):
         self.assert_fired_item_recorded_in_the_audit_record(partial)
 
     def test_near_verbatim_case_at_promotion(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         bundle = mod.candidate_with_instruction_item(kind="near verbatim holdout content")
         result = mod.test_instruction_items_against_holdout(bundle, occasion="promotion")
         self.assertTrue(result["fired"])
@@ -108,7 +108,7 @@ class Unrowed1986Tests(unittest.TestCase):
         self.assert_fired_item_recorded_in_the_audit_record(result)
 
     def test_clean_case_at_promotion(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         bundle = mod.candidate_with_instruction_item(kind="clean instruction")
         result = mod.test_instruction_items_against_holdout(bundle, occasion="promotion")
         self.assertFalse(result["fired"])
@@ -119,7 +119,7 @@ class Unrowed1986Tests(unittest.TestCase):
         self.assertTrue(result["test_result_carried_on_promotion_record"])
 
     def test_no_clearance_claim_until_a_promotion_record_carries_the_result(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         claim = mod.clearance_claim_covering_instruction_items(promotion_record=None)
         self.assertFalse(claim["claim_stands"])
         record = mod.promotion_record_carrying_instruction_test_result()
@@ -149,7 +149,7 @@ class Unrowed1987Tests(unittest.TestCase):
     """Subsection 19.87: the provisional bundle comparison basis."""
 
     def test_provisional_record_with_the_comparison_present(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         record = mod.provisional_record(with_comparison=True)
         comparison = record["comparison"]
         provisional = comparison["provisional_period"]
@@ -172,7 +172,7 @@ class Unrowed1987Tests(unittest.TestCase):
         self.assertIn("correction position", record["comparison_view_contents"])
 
     def test_provisional_record_with_no_comparison_bars_confirmation(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         record = mod.provisional_record(with_comparison=False)
         self.assertIsNone(record["comparison"])
         result = mod.confirm_provisional(record)
@@ -180,7 +180,7 @@ class Unrowed1987Tests(unittest.TestCase):
         self.assertEqual(result["bar_reason"], "no comparison in the provisional record")
 
     def test_comparison_basis_stated_by_name_with_its_reason(self):
-        mod = harness.require("promotion")
+        mod = harness.require("ontoloop.promote")
         record = mod.provisional_record(comparable_displaced_period=False)
         self.assertTrue(record["comparison_basis_named"])
         self.assertTrue(record["comparison_basis_reason_recorded"])
@@ -213,7 +213,7 @@ class Unrowed2018Tests(unittest.TestCase):
     """Subsection 20.18: the determinism check, both limbs at subsection 18.7."""
 
     def test_source_limb_scans_for_barred_practices(self):
-        mod = harness.require("core")
+        mod = harness.require("ontoloop.core")
         scan = mod.determinism_source_scan()
         self.assertEqual(scan["limb"], "source")
         self.assertEqual(scan["builtin_hash_uses_for_grouping_ordering_assignment"], [])
@@ -221,7 +221,7 @@ class Unrowed2018Tests(unittest.TestCase):
         self.assertTrue(scan["whole_core_source_scanned"])
 
     def test_run_limb_compares_two_runs_in_full(self):
-        mod = harness.require("core")
+        mod = harness.require("ontoloop.core")
         result = mod.determinism_run_check()
         self.assertEqual(result["limb"], "run")
         self.assertNotEqual(result["first_input_order"], result["second_input_order"])
@@ -229,7 +229,7 @@ class Unrowed2018Tests(unittest.TestCase):
         self.assertTrue(result["compared_in_full"])
 
     def test_failure_is_recorded_with_limb_and_computation_and_blocks_core_exit(self):
-        mod = harness.require("core")
+        mod = harness.require("ontoloop.core")
         for limb in ("source", "run"):
             failure = mod.determinism_check_with_barred_practice(limb=limb)
             self.assertTrue(failure["row_failed"], limb)

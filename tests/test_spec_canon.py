@@ -98,14 +98,20 @@ class TestSpecCanonT03(unittest.TestCase):
         stage_carried(
             "SPEC-CANON-T03 evidence home is stage record evidence: "
             "recording a golden byte change as a specification change "
-            "is a stage act, not a fixture result."
+            "is a stage act, not a fixture result. Owning stage: the "
+            "SPEC-CANON specification slice exit. Closing record: the "
+            "stage record recording the golden byte change as a "
+            "specification change at that slice exit."
         )
 
     def test_change_moves_the_canonical_form_version(self):
         stage_carried(
             "SPEC-CANON-T03 evidence home is stage record evidence: "
             "the canonical form version move is read from the stage "
-            "record for the specification change."
+            "record for the specification change. Owning stage: the "
+            "SPEC-CANON specification slice exit. Closing record: "
+            "the stage record of the specification change that moves "
+            "the canonical form version at that slice exit."
         )
 
 
@@ -152,7 +158,9 @@ class TestSpecCanonT04(unittest.TestCase):
             refused = False
             try:
                 produced = module.canonical_form(record, kind)
-            except Exception:
+            except Exception as exc:
+                if "NOT BUILT" in str(exc):
+                    raise
                 refused = True
             else:
                 refused = not isinstance(produced, bytes)

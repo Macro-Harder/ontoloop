@@ -298,7 +298,11 @@ class ConsumeT10Tests(unittest.TestCase):
             "CONSUME-T10 evidence stands in two entries owed at each "
             "occasion, the inventory search entry in the audit record of "
             "the owning stage and the audit entry at the inventory record; "
-            "both are stage records of stages that have not run. Where "
+            "both are stage records of stages that have not run, the "
+            "owning occasions being the Step 15 audit occasion, closing "
+            "on the Step 15 audit record for this occasion, and the "
+            "Step 19 finished product audit occasion, closing on the "
+            "Step 19 finished product audit record. Where "
             "the two entries disagree on the inventory version searched, "
             "on a route class covered, or on a path or payload found, "
             "neither entry discharges the act and the audit at that "
@@ -312,7 +316,10 @@ class ConsumeT10Tests(unittest.TestCase):
             "names, that limit stands recorded in the same audit record "
             "with its reason, the row stands not passed for that "
             "occasion, and no listed paths only check passes the row at "
-            "any occasion."
+            "any occasion. The audit record named here is, for the "
+            "Step 15 occasion, the Step 15 audit record for this "
+            "occasion, and for the later occasion the Step 19 finished "
+            "product audit record."
         )
 
 

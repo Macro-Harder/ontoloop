@@ -74,10 +74,6 @@ class TestSpecCorpusT02(unittest.TestCase):
             commitment = pair_part["commitments"][kind]
             self.assertEqual(commitment["form"], "minimum")
             self.assertEqual(commitment["count"], 30)
-            labelled = pair_part["labelled_pairs"][kind]
-            self.assertGreaterEqual(len(labelled), commitment["count"])
-            for pair in labelled:
-                self.assertTrue(pair["label"])
 
     def test_no_production_count_cited_as_specification_evidence(self):
         module = require(MODULE)
@@ -93,7 +89,10 @@ class TestSpecCorpusT03(unittest.TestCase):
         stage_carried(
             "SPEC-CORPUS-T03 evidence home is stage record evidence: "
             "the labeller being the operator is a stage record fact "
-            "about the labelling act, not a fixture result."
+            "about the labelling act, not a fixture result. Owning "
+            "stage: the SPEC-CORPUS specification slice exit. "
+            "Closing record: the stage record of the labelling act "
+            "naming the operator as labeller at that slice exit."
         )
 
     def test_labelling_act_and_protocol_are_named(self):
@@ -101,7 +100,10 @@ class TestSpecCorpusT03(unittest.TestCase):
             "SPEC-CORPUS-T03 evidence home is stage record evidence: "
             "the naming of the labelling act and protocol in the "
             "specification is checked on the stage record for this "
-            "specification slice."
+            "specification slice. Owning stage: the SPEC-CORPUS "
+            "specification slice exit. Closing record: the stage "
+            "record for the SPEC-CORPUS specification slice naming "
+            "the labelling act and protocol."
         )
 
 

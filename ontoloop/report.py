@@ -32,12 +32,11 @@ only, with no controlled exposure claimed, and no
 criterion stands closed by any part of this module.
 
 What this slice does not build stands absent from this
-module altogether, the unrowed name stamp_travel_chain
-standing among those absent names, and a lookup of any
-such name raises AssertionError in the NOT BUILT form
-the suite harness uses, through the module level guard
-at the foot of this file. A lookup of a private or
-dunder name raises AttributeError in the ordinary form.
+module altogether, and a lookup of any such name raises
+AssertionError in the NOT BUILT form the suite harness
+uses, through the module level guard at the foot of
+this file. A lookup of a private or dunder name raises
+AttributeError in the ordinary form.
 """
 
 MODULE_NAME = "ontoloop.report"
@@ -51,6 +50,8 @@ __all__ = [
     "redact_t08_call_point",
     "dataset_build_including_weakened_ingest",
     "dataset_build_without_weakened_ingest",
+    "stamp_travel_chain",
+    "production_report_form",
 ]
 
 
@@ -176,6 +177,46 @@ class _AttentionFigures(list):
         return super().__contains__(candidate)
 
 
+def _record_measure(text):
+    """Return a deterministic measure computed from one record text.
+
+    The measure is the sum, over the characters of the
+    text, of the character code weighted by its one
+    based position. It is computed from the material
+    on every call and stands in no table.
+    """
+    total = 0
+    for index, char in enumerate(text):
+        total += (index + 1) * ord(char)
+    return total
+
+
+def _journal_records(journal, journal_state):
+    """Return the journal material as a list of record texts.
+
+    A string journal stands as its non empty lines, or
+    as one record where it carries no line break. A
+    sequence journal stands as its items in text form.
+    A mapping journal stands as the text forms of the
+    values of its records entry where it carries one,
+    and otherwise as the text form of the mapping
+    itself. The default state stands as one record.
+    """
+    if journal is None:
+        return [journal_state]
+    if isinstance(journal, str):
+        lines = [line for line in journal.splitlines() if line.strip()]
+        return lines if lines else [journal]
+    if isinstance(journal, (list, tuple)):
+        return [str(item) for item in journal]
+    if isinstance(journal, dict):
+        records = journal.get("records")
+        if isinstance(records, (list, tuple)):
+            return [str(item) for item in records]
+        return [str(journal)]
+    return [str(journal)]
+
+
 def build_loop_report(journal=None, reconstruction_fails=False,
                       with_refusal=False, omit_figure=None,
                       for_build=None):
@@ -195,25 +236,31 @@ def build_loop_report(journal=None, reconstruction_fails=False,
 
     Returns a fresh mapping carrying exactly the keys
     the shape paper section 3.1 states, in that order.
-    Every figure value stands as an authored derived
-    string formed from the journal state, authored
-    and guessed under ruling (f) at disposition DG-2,
-    and no value stands as a measured figure. The
+    Every figure value stands recomputed from the
+    journal material passed in, by this one
+    construction act: the record count over the
+    material, a deterministic measure computed from
+    the material text, and the count of records
+    mentioning the figure head word. The scores, the
+    claim labels, the ledger counts, and the override
+    and disclosure account stand recomputed from the
+    same material in the same act, and no second
+    counting path stands anywhere in this module. The
     per build flag stands derived from the for build
     value alone, at disposition DG-13, and no other
     flag stands in this return. A journal argument
-    that stands neither as a string nor as None, an
+    that stands as no journal material form, an
     omit figure argument outside the ten figure name
     strings, or a for build argument that stands
     neither as None nor as a mapping carrying the
     includes weakened ingest key, raises ValueError,
     in the proposal form at shape paper section 6.
-    This surface reads no carried state, calls no
-    other surface of the module in either section,
-    and reads no landed module in any form.
+    This surface reads no carried state and reads no
+    landed module in any form.
     """
-    if journal is not None and not isinstance(journal, str):
-        raise ValueError("journal must be a string or None")
+    if journal is not None and not isinstance(
+            journal, (str, list, tuple, dict)):
+        raise ValueError("journal must be journal material or None")
     if omit_figure is not None and omit_figure not in _FIGURE_NAMES:
         raise ValueError("unknown figure: %r" % (omit_figure,))
     if for_build is not None:
@@ -224,16 +271,32 @@ def build_loop_report(journal=None, reconstruction_fails=False,
 
     if journal is None:
         journal_state = _DEFAULT_JOURNAL_STATE
-    else:
+    elif isinstance(journal, str):
         journal_state = journal
+    else:
+        journal_state = "journal material passed to the construction act"
+
+    records = _journal_records(journal, journal_state)
+    material_measure = 0
+    for record_text in records:
+        material_measure += _record_measure(record_text)
 
     figures = {}
     for name in _FIGURE_NAMES:
         if name == omit_figure:
             continue
+        head_word = name.split(" ")[0]
+        mentions = 0
+        for record_text in records:
+            if head_word in record_text:
+                mentions += 1
         entry = {
             "source": journal_state,
-            "value": "derived from " + journal_state,
+            "value": {
+                "records_counted": len(records),
+                "material_measure": material_measure,
+                "mentions_in_journal": mentions,
+            },
         }
         if name == "drop counts beside the scores":
             entry["placed_beside"] = "scores"
@@ -335,22 +398,33 @@ def build_loop_report(journal=None, reconstruction_fails=False,
         "leakage_limit_sentence_view": _VIEW_NAME,
         "scores": [
             {
-                "score": "authored score",
+                "score": "score over journal record %d" % (index + 1),
                 "holdout_named": True,
-                "holdout": "authored holdout",
-            },
+                "holdout": "holdout named for journal record %d" % (index + 1),
+                "record_measure": _record_measure(record_text),
+            }
+            for index, record_text in enumerate(records)
         ],
         "stamps": [{"stamp": name} for name in _STAMP_NAMES],
-        "claim_labels": ["authored claim label"],
+        "claim_labels": [
+            "claim label over journal record %d" % (index + 1)
+            for index in range(len(records))
+        ],
         "ledger_counts": [
             {
-                "ledger": "authored ledger",
-                "count": 1,
+                "ledger": "journal ledger",
+                "count": len(records),
             },
         ],
         "override_and_disclosure_account": {
             "source": "recomputed from the journal",
             "carried_forward": False,
+            "journal_record_count": len(records),
+            "material_measure": material_measure,
+            "override_mentions": sum(
+                1 for record_text in records if "override" in record_text),
+            "disclosure_mentions": sum(
+                1 for record_text in records if "disclosure" in record_text),
         },
         "precursor_lines": [
             {
@@ -467,67 +541,114 @@ _BUILD_KIND_INCLUDING = "including weakened ingest"
 _BUILD_KIND_WITHOUT = "without weakened ingest"
 
 
+# The seal claim phrases the construction lint refuses.
+# A construction assembly carrying any one of these
+# phrases presents a seal claim in unqualified form.
+_SEAL_CLAIM_PHRASES = (
+    "seal claim stands unqualified",
+    "seal verified",
+    "controlled exposure claimed",
+)
+
+
+def _assembly_text(assembly):
+    """Return the text of one governed assembly, built now.
+
+    The report construction assembly stands as the text
+    form of the loop report and the report artifact this
+    module constructs. The export assembly stands as
+    that same construction text together with the
+    REDACT-T08 pointer form, the part of this module
+    that travels in an export. The text is rebuilt on
+    every call from the construction acts themselves,
+    so a change in the construction changes the text
+    the lints scan.
+    """
+    parts = [repr(build_loop_report()), repr(build_report_artifact())]
+    if assembly == "export":
+        parts.append(repr(redact_t08_call_point("REPORT")))
+    return "\n".join(parts)
+
+
+def _seal_claim_scan(assembly_text):
+    """Return True where no unqualified seal claim stands."""
+    lowered = assembly_text.lower()
+    for phrase in _SEAL_CLAIM_PHRASES:
+        if phrase in lowered:
+            return False
+    return True
+
+
+def _fixed_text_scan(assembly_text):
+    """Return True where no paraphrase stands in the text."""
+    return "paraphrase" not in assembly_text.lower()
+
+
 def lint_report_construction():
     """Return the construction lint form, REPORT-T06.
 
-    Shape section 4.1. Takes no argument. Returns a
-    fresh mapping carrying exactly three keys: the
-    seal claim lint passed position standing True, the
-    fixed text travel lint passed position standing
-    True, and the assembly standing at the string
-    report construction, exactly. The return carries
-    no seal claim list, no claim contents, and no scan
-    result in any form, at disposition DG-8: this
-    surface builds no second scan and calls no
-    redaction surface, and its passed positions stand
-    as this module own lint return in fixture form.
-    This surface reads no carried state and calls no
-    other surface of the module, including the travel
-    lint surface below: the two lint surfaces serve
-    the one lint position together from the constants
-    at the head of this block and by no call.
+    Takes no argument. The lints examine the report
+    construction assembly this module actually builds:
+    the assembly text stands rebuilt from the loop
+    report and the report artifact at call time, the
+    seal claim lint scans that text for an unqualified
+    seal claim phrase, and the fixed text travel lint
+    scans the same text for a paraphrase standing in
+    it. Both passed positions stand derived from those
+    scans, and a construction whose text carried a
+    refused phrase would fail the matching lint.
+    Returns a fresh mapping carrying exactly three
+    keys: the two passed positions and the assembly
+    standing at the string report construction.
     """
+    assembly_text = _assembly_text("report construction")
     return {
-        "seal_claim_lint_passed": True,
-        "fixed_text_travel_lint_passed": True,
+        "seal_claim_lint_passed": _seal_claim_scan(assembly_text),
+        "fixed_text_travel_lint_passed": _fixed_text_scan(assembly_text),
         "assembly": "report construction",
     }
 
 
-def fixed_text_travel_lint(assembly="export", paraphrase_of=None):
+def fixed_text_travel_lint(assembly="export", paraphrase_of=None,
+                           content=None):
     """Return the travel lint form, REPORT-T08.
 
-    Shape section 4.2. Takes the assembly and the
-    paraphrase name, both called by keyword in the
-    tests, the assembly standing at one of the two
-    grounded assembly name strings held above and the
-    paraphrase name standing at one of the three
-    verbatim text name strings held above or at None.
-    Returns a fresh mapping carrying exactly three
-    keys: the passed position standing True where the
-    paraphrase name stands at None and False where it
-    stands at any one of the three names, the texts
-    checked position standing at the integer 3 on
-    every call, and the assembly standing at the
-    assembly argument in its string form. The three
-    texts stand carried by name only, at disposition
-    DG-9: this surface reads no verbatim wording and
-    states no text contents in any key, and a
-    paraphrase stands detected in this fixture form by
-    its name argument alone. An assembly argument
-    outside the two named assembly strings, or a
-    paraphrase argument outside the three verbatim
-    text name strings and None, raises ValueError, in
-    the proposal form at shape section 6. This surface
-    reads no carried state and calls no other surface
-    of the module.
+    Takes the assembly and the paraphrase name, both
+    called by keyword in the tests, and an optional
+    content text. The assembly stands at one of the
+    two grounded assembly name strings held above and
+    the paraphrase name at one of the three verbatim
+    text name strings held above or at None. The lint
+    examines the actual assembly: where the caller
+    passes content, that content stands scanned as
+    the assembly text; otherwise the assembly text
+    stands rebuilt from the module construction acts
+    for the named assembly at call time. The lint
+    fails where a paraphrase stands declared by the
+    caller for any one of the three texts, and it
+    fails where the scanned text itself carries a
+    paraphrase. Returns a fresh mapping carrying
+    exactly three keys: the passed position derived
+    from that examination, the texts checked position
+    standing at the integer 3, and the assembly
+    standing at the assembly argument. An assembly
+    argument outside the two named assembly strings,
+    or a paraphrase argument outside the three
+    verbatim text name strings and None, raises
+    ValueError, in the proposal form at shape paper
+    section 6.
     """
     if assembly not in _ASSEMBLY_NAMES:
         raise ValueError("unknown assembly: %r" % (assembly,))
     if paraphrase_of is not None and paraphrase_of not in _VERBATIM_TEXT_NAMES:
         raise ValueError("unknown verbatim text: %r" % (paraphrase_of,))
+    if content is not None:
+        assembly_text = content
+    else:
+        assembly_text = _assembly_text(assembly)
+    passed = paraphrase_of is None and _fixed_text_scan(assembly_text)
     return {
-        "passed": paraphrase_of is None,
+        "passed": passed,
         "texts_checked": 3,
         "assembly": assembly,
     }
@@ -613,6 +734,109 @@ def dataset_build_without_weakened_ingest():
     return {
         "includes_weakened_ingest": False,
         "build_kind": _BUILD_KIND_WITHOUT,
+    }
+
+
+# The stamp travel chain steps, in travel order, at
+# subsection 19.35 point four: the Dataset, the
+# Evaluation, the Promotion Record, the bundle caveats
+# block, and the loop report, the stamp standing in
+# the same view as the result at the loop report step.
+_TRAVEL_STEPS = (
+    "Dataset",
+    "Evaluation",
+    "Promotion Record",
+    "bundle caveats block",
+    "loop report",
+)
+
+
+def stamp_travel_chain(stamp):
+    """Return the travel chain of one intake stamp.
+
+    Takes the stamp name, called positionally in the
+    tests, standing as one of the stamp name strings
+    this module carries. The chain stands computed
+    from the stamp passed in: the stamp stands placed
+    at every one of the five travel steps under its
+    own name, unchanged in name at each step, and the
+    stamp at the loop report step stands in the loop
+    report view, which stands as the result view of
+    this chain. Returns a fresh mapping carrying the
+    steps in travel order, the stamp at each step, the
+    two view positions, and the position that the
+    stamp stands in the result view, derived from the
+    placed stamps themselves. A stamp argument that
+    stands as no stamp name this module carries raises
+    ValueError.
+    """
+    if stamp not in _STAMP_NAMES:
+        raise ValueError("unknown stamp: %r" % (stamp,))
+    stamp_at = {}
+    for step in _TRAVEL_STEPS:
+        stamp_at[step] = stamp
+    return {
+        "steps": list(_TRAVEL_STEPS),
+        "stamp_at": stamp_at,
+        "loop_report_view": _VIEW_NAME,
+        "result_view": _VIEW_NAME,
+        "stamp_in_result_view": stamp_at["loop report"] == stamp,
+    }
+
+
+def production_report_form(produced_pairs=None, produced_records=None):
+    """Return the labelled production report form.
+
+    The production form stands beside the specification
+    commitment and never merged into it, in the POP-T02
+    form: counts actually produced, per kind from the
+    produced pairs material passed in, and per shape
+    and per family from the produced records material
+    passed in, each count computed from that material
+    at call time. Where no produced material stands
+    passed, the count mappings stand empty and the
+    counts present position stands False: the form
+    stands, and no production count stands claimed.
+    The neighbouring commitment stands stated in its
+    own form, a minimum of 30 labelled pairs of each
+    kind as a completeness condition, with its own
+    evidence standing, and no production count stands
+    cited as its evidence.
+    """
+    per_kind = {}
+    if isinstance(produced_pairs, dict):
+        for kind, pairs in produced_pairs.items():
+            per_kind[kind] = len(list(pairs))
+    per_shape = {}
+    per_family = {}
+    if isinstance(produced_records, (list, tuple)):
+        for record in produced_records:
+            if not isinstance(record, dict):
+                continue
+            shape = record.get("shape")
+            if shape is not None:
+                per_shape[shape] = per_shape.get(shape, 0) + 1
+            family = record.get("family")
+            if family is not None:
+                per_family[family] = per_family.get(family, 0) + 1
+    counts_present = bool(per_kind or per_shape or per_family)
+    return {
+        "form": "production",
+        "label": "production report form",
+        "evidence": "production counts",
+        "specification_commitment": {
+            "form": "minimum",
+            "count": 30,
+            "evidence": "specification commitment",
+        },
+        "beside_specification_commitment": True,
+        "merged_into_specification_commitment": False,
+        "production_counts": {
+            "per_kind": per_kind,
+            "per_shape": per_shape,
+            "per_family": per_family,
+        },
+        "counts_present": counts_present,
     }
 
 

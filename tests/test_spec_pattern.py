@@ -99,7 +99,10 @@ class TestSpecPatternT03(unittest.TestCase):
             "SPEC-PATTERN-T03 evidence home is stage record evidence: "
             "whether any persistent record fixture cites version 1 as "
             "specified before the slice exit lands is read from the "
-            "stage record at the slice exit, not from a fixture."
+            "stage record at the slice exit, not from a fixture. "
+            "Owning stage: the SPEC-PATTERN specification slice exit. "
+            "Closing record: the stage record at the SPEC-PATTERN "
+            "slice exit, the event being that slice exit landing."
         )
 
 

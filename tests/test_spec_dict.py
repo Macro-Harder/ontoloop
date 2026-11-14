@@ -144,14 +144,20 @@ class TestSpecDictT03(unittest.TestCase):
         stage_carried(
             "SPEC-DICT-T03 evidence home is stage record evidence: the "
             "re performance list and its signing by the audit performer "
-            "seat are stage acts, not fixture results."
+            "seat are stage acts, not fixture results. Owning stage: "
+            "the SPEC-DICT specification slice exit. Closing record: "
+            "the stage record of the re performance list signing by "
+            "the audit performer seat at that slice exit."
         )
 
     def test_no_trace_row_cites_the_list_before_that_signing(self):
         stage_carried(
             "SPEC-DICT-T03 evidence home is stage record evidence: "
             "citation order against the signing is read from the stage "
-            "record, not from a fixture."
+            "record, not from a fixture. Owning stage: the SPEC-DICT "
+            "specification slice exit. Closing record: the stage "
+            "record of the re performance list signing by the audit "
+            "performer seat, against which citation order is read."
         )
 
 

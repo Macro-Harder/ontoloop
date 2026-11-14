@@ -201,7 +201,7 @@ class MeaningCheckBase:
 class SpanT01DeduplicationMeaningTests(MeaningCheckBase, unittest.TestCase):
     """SPAN-T01: deduplication parameter or rule, dataset path."""
 
-    MODULE = "dataset"
+    MODULE = "ontoloop.dataset"
     SUITE_ID = "SPAN-T01"
     AFFECTED_CLASS = "deduplication parameter or rule"
     FIXTURE = "grouped fixture store with exact duplicate runs at the dedup threshold"
@@ -210,7 +210,7 @@ class SpanT01DeduplicationMeaningTests(MeaningCheckBase, unittest.TestCase):
 class SpanT02ClusteringMeaningTests(MeaningCheckBase, unittest.TestCase):
     """SPAN-T02: clustering parameter or rule, dataset path."""
 
-    MODULE = "dataset"
+    MODULE = "ontoloop.dataset"
     SUITE_ID = "SPAN-T02"
     AFFECTED_CLASS = "clustering parameter or rule"
     FIXTURE = "grouped fixture store with near verbatim pairs at the cluster boundary"
@@ -219,7 +219,7 @@ class SpanT02ClusteringMeaningTests(MeaningCheckBase, unittest.TestCase):
 class SpanT03NormalisationMeaningTests(MeaningCheckBase, unittest.TestCase):
     """SPAN-T03: normalisation parameter or rule, capture path."""
 
-    MODULE = "capture"
+    MODULE = "ontoloop.capture"
     SUITE_ID = "SPAN-T03"
     AFFECTED_CLASS = "normalisation parameter or rule"
     FIXTURE = "Example A varied by normalisation sensitive field forms"
@@ -228,7 +228,7 @@ class SpanT03NormalisationMeaningTests(MeaningCheckBase, unittest.TestCase):
 class SpanT04FilteringMeaningTests(MeaningCheckBase, unittest.TestCase):
     """SPAN-T04: filtering parameter or rule, dataset path."""
 
-    MODULE = "dataset"
+    MODULE = "ontoloop.dataset"
     SUITE_ID = "SPAN-T04"
     AFFECTED_CLASS = "filtering parameter or rule"
     FIXTURE = "grouped fixture store with runs at the eligibility filter boundary"
@@ -237,7 +237,7 @@ class SpanT04FilteringMeaningTests(MeaningCheckBase, unittest.TestCase):
 class SpanT05RedactionMeaningTests(MeaningCheckBase, unittest.TestCase):
     """SPAN-T05: redaction parameter or rule, capture path."""
 
-    MODULE = "redact"
+    MODULE = "ontoloop.redact"
     SUITE_ID = "SPAN-T05"
     AFFECTED_CLASS = "redaction parameter or rule"
     FIXTURE = "labelled secret bearing shapes per family at the classification boundary"
@@ -246,7 +246,7 @@ class SpanT05RedactionMeaningTests(MeaningCheckBase, unittest.TestCase):
 class SpanT06TruncationMeaningTests(MeaningCheckBase, unittest.TestCase):
     """SPAN-T06: truncation parameter or rule, capture path."""
 
-    MODULE = "capture"
+    MODULE = "ontoloop.capture"
     SUITE_ID = "SPAN-T06"
     AFFECTED_CLASS = "truncation parameter or rule"
     FIXTURE = "payloads at and over the capture caps of row CAPTURE-T05"
@@ -264,7 +264,7 @@ class SpanT07TypeMappingMeaningTests(MeaningCheckBase, unittest.TestCase):
 class SpanT08NewEnumMeaningTests(MeaningCheckBase, unittest.TestCase):
     """SPAN-T08: new enum value absorbed by a default branch, evaluation path."""
 
-    MODULE = "evaluation"
+    MODULE = "ontoloop.eval"
     SUITE_ID = "SPAN-T08"
     AFFECTED_CLASS = "new enum value absorbed by a default branch"
     FIXTURE = "Example D cases carrying a value the default branch would absorb"
@@ -296,7 +296,7 @@ class MeaningChangeRecordTests(unittest.TestCase):
     """The discharge route at plan subsection 19.101 points two to four."""
 
     def test_entry_names_change_classes_checks_results_classification_and_seat(self):
-        mod = harness.require("golden_span")
+        mod = harness.require("ontoloop.golden_span")
         entry = mod.latest_meaning_change_entry()
         for field in ("change", "affected_classes", "checks_run",
                       "result_of_each_check", "classification", "discharging_seat"):
@@ -318,14 +318,14 @@ class MeaningChangeRecordTests(unittest.TestCase):
             self.assertTrue(value)
 
     def test_bar_stands_until_such_an_entry_stands(self):
-        mod = harness.require("golden_span")
+        mod = harness.require("ontoloop.golden_span")
         state = mod.discharge_state(entry=None)
         self.assertFalse(state["discharged"])
         self.assertTrue(state["bar_stands"])
         self.assertFalse(state["change_passed_as_no_change"])
 
     def test_entry_covering_every_affected_class_discharges_the_bar(self):
-        mod = harness.require("golden_span")
+        mod = harness.require("ontoloop.golden_span")
         checks = ["SPAN-T%02d" % number for number in range(1, 9)]
         entry = dict(mod.latest_meaning_change_entry())
         entry["affected_classes"] = list(AFFECTED_CLASSES)
@@ -338,7 +338,7 @@ class MeaningChangeRecordTests(unittest.TestCase):
         self.assertFalse(state["bar_stands"])
 
     def test_entry_missing_an_affected_class_leaves_the_bar_standing(self):
-        mod = harness.require("golden_span")
+        mod = harness.require("ontoloop.golden_span")
         checks = ["SPAN-T%02d" % number for number in range(1, 9)]
         entry = dict(mod.latest_meaning_change_entry())
         entry["affected_classes"] = list(AFFECTED_CLASSES[:-1])
@@ -352,7 +352,7 @@ class MeaningChangeRecordTests(unittest.TestCase):
         self.assertFalse(state["change_passed_as_no_change"])
 
     def test_loop_report_prints_the_classification_by_pointer_only(self):
-        mod = harness.require("golden_span")
+        mod = harness.require("ontoloop.golden_span")
         entry = mod.latest_meaning_change_entry()
         printed = mod.loop_report_classification(entry)
         self.assertEqual(printed["form"], "pointer")
