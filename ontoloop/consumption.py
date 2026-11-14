@@ -371,9 +371,19 @@ def _bundle_copy(bundle):
     standing in none of these forms copies through
     the standard deep copy act, and an enum member
     standing anywhere inside such a value, including
-    inside a WeakSet, stands
+    inside a WeakSet, a WeakKeyDictionary, a
+    WeakValueDictionary, a weak reference, a partial
+    application, or a function closure cell, stands
     under the same refusal as a member standing in a
-    walked position. An enum member stands
+    walked position. A dictionary view standing at
+    any position copies as a fresh list of copies of
+    the material it carries, an items view as a fresh
+    list of copies of its pairs, and a mapping proxy
+    standing inside such a fallback value copies as a
+    fresh mapping of copies of its entries, in the
+    form the walked positions give those shapes, so
+    no ungoverned exception escapes the act on those
+    forms. An enum member stands
     as a governed form of its own: a member carrying
     mutable instance state stands refused with a
     ValueError, and a member carrying no mutable
@@ -382,14 +392,22 @@ def _bundle_copy(bundle):
     state where it stands as an exact atom, as None,
     as a decimal, a fraction, a date, a time, a
     timedelta, or a range value, as a UUID, a
-    timezone, or a pure path value, as an enum member
+    timezone, or a pure path value, as a tzinfo value
+    of any form, a ZoneInfo value among them, as an
+    IPv4Address or IPv6Network value, as a compiled
+    pattern value, as a slice value, as an enum member
     carrying no mutable instance state, or as a tuple
     or frozenset whose elements all carry no mutable
     state under this same reading. An accepted shape
     carrying a non empty instance attribute mapping
-    carries no mutable state only where every value
-    in that mapping itself carries no mutable state
-    under this same reading. A container or wrapper part carrying
+    or slot state declared by its subclass carries
+    no mutable state only where every value in that
+    mapping and in that slot state itself carries no
+    mutable state under this same reading, and a date
+    or time value carrying a tzinfo carries no
+    mutable state only where the tzinfo it carries
+    itself carries no mutable state under this same
+    reading. A container or wrapper part carrying
     instance attribute state copies that state apart
     in both directions, its attribute mapping copied
     by this same act, with its type and its entries,
@@ -404,15 +422,20 @@ def _bundle_copy(bundle):
     """
     import array as _array_module
     import collections as _collections
+    import collections.abc as _abc_module
     import copy as _copy_module
     import datetime as _datetime_module
     import decimal as _decimal_module
     import enum as _enum_module
     import fractions as _fractions_module
+    import functools as _functools_module
+    import ipaddress as _ipaddress_module
     import pathlib as _pathlib_module
+    import re as _re_module
     import types as _types_module
     import uuid as _uuid_module
     import weakref as _weakref_module
+    import zoneinfo as _zoneinfo_module
 
     def _is_atom(value):
         return value is None or type(value) in (
@@ -456,13 +479,76 @@ def _bundle_copy(bundle):
             return built
         return tuple(parts)
 
+    _accepted_bases = (
+        _decimal_module.Decimal,
+        _fractions_module.Fraction,
+        _datetime_module.datetime,
+        _datetime_module.date,
+        _datetime_module.time,
+        _datetime_module.timedelta,
+        range,
+        _uuid_module.UUID,
+        _datetime_module.timezone,
+        _zoneinfo_module.ZoneInfo,
+        _datetime_module.tzinfo,
+        _pathlib_module.PurePath,
+        _ipaddress_module.IPv4Address,
+        _ipaddress_module.IPv6Network,
+        _re_module.Pattern,
+        slice,
+        tuple,
+        frozenset,
+    )
+
+    def _added_slot_values(value):
+        values = []
+        for cls in type(value).__mro__:
+            if cls in _accepted_bases:
+                break
+            slots = cls.__dict__.get("__slots__")
+            if not slots:
+                continue
+            names = (slots,) if isinstance(slots, str) else slots
+            for name in names:
+                if name in ("__dict__", "__weakref__"):
+                    continue
+                try:
+                    values.append(getattr(value, name))
+                except Exception:
+                    continue
+        return values
+
     def _instance_state_immutable(value, seen):
+        items = []
         mapping = getattr(value, "__dict__", None)
-        if not mapping:
+        if isinstance(mapping, dict):
+            if isinstance(
+                value,
+                (
+                    _ipaddress_module.IPv4Network,
+                    _ipaddress_module.IPv6Network,
+                ),
+            ):
+                intrinsic = (
+                    "network_address",
+                    "netmask",
+                    "_prefixlen",
+                    "hosts",
+                    "broadcast_address",
+                    "hostmask",
+                )
+                items.extend(
+                    mapping[key]
+                    for key in mapping
+                    if key not in intrinsic
+                )
+            else:
+                items.extend(mapping.values())
+        items.extend(_added_slot_values(value))
+        if not items:
             return True
         return all(
-            _state_immutable(item, seen)
-            for item in mapping.values()
+            _state_immutable(item, seen) for item in items
         )
 
     def _state_immutable(value, seen=None):
@@ -490,6 +576,26 @@ def _bundle_copy(bundle):
                 range,
                 _uuid_module.UUID,
                 _datetime_module.timezone,
+            ),
+        ):
+            if isinstance(
+                value, (_datetime_module.date, _datetime_module.time)
+            ):
+                carried = getattr(value, "tzinfo", None)
+                if carried is not None and not _state_immutable(
+                    carried, seen
+                ):
+                    return False
+            return _instance_state_immutable(value, seen)
+        if isinstance(
+            value,
+            (
+                _datetime_module.tzinfo,
+                _zoneinfo_module.ZoneInfo,
+                _ipaddress_module.IPv4Address,
+                _ipaddress_module.IPv6Network,
+                _re_module.Pattern,
+                slice,
             ),
         ):
             return _instance_state_immutable(value, seen)
@@ -538,6 +644,46 @@ def _bundle_copy(bundle):
                 elif isinstance(
                     item,
                     (
+                        _weakref_module.WeakKeyDictionary,
+                        _weakref_module.WeakValueDictionary,
+                    ),
+                ):
+                    pending.extend(list(item.keys()))
+                    pending.extend(list(item.values()))
+                elif isinstance(
+                    item, _types_module.MappingProxyType
+                ):
+                    pending.extend(list(item.keys()))
+                    pending.extend(list(item.values()))
+                elif isinstance(
+                    item,
+                    (
+                        _abc_module.KeysView,
+                        _abc_module.ValuesView,
+                        _abc_module.ItemsView,
+                    ),
+                ):
+                    pending.extend(list(item))
+                elif isinstance(item, _weakref_module.ReferenceType):
+                    target = item()
+                    if target is not None:
+                        pending.append(target)
+                elif isinstance(item, _functools_module.partial):
+                    pending.append(item.func)
+                    pending.extend(item.args)
+                    if item.keywords:
+                        pending.append(dict(item.keywords))
+                elif isinstance(item, _types_module.FunctionType):
+                    closure = item.__closure__
+                    if closure:
+                        for cell in closure:
+                            try:
+                                pending.append(cell.cell_contents)
+                            except Exception:
+                                continue
+                elif isinstance(
+                    item,
+                    (
                         list,
                         tuple,
                         set,
@@ -564,6 +710,101 @@ def _bundle_copy(bundle):
                     except Exception:
                         pass
         return False
+
+    def _fallback_replacements(value):
+        found = {}
+        pending = [value]
+        seen = set()
+        while pending:
+            item = pending.pop()
+            if isinstance(item, _enum_module.Enum):
+                continue
+            if _is_atom(item):
+                continue
+            if id(item) in seen:
+                continue
+            seen.add(id(item))
+            try:
+                if isinstance(
+                    item,
+                    (
+                        _types_module.MappingProxyType,
+                        _abc_module.KeysView,
+                        _abc_module.ValuesView,
+                        _abc_module.ItemsView,
+                    ),
+                ):
+                    found[id(item)] = item
+                    if isinstance(item, _types_module.MappingProxyType):
+                        pending.extend(list(item.keys()))
+                        pending.extend(list(item.values()))
+                    else:
+                        pending.extend(list(item))
+                    continue
+                if isinstance(item, dict):
+                    pending.extend(item.keys())
+                    pending.extend(item.values())
+                elif isinstance(item, _collections.ChainMap):
+                    pending.extend(item.maps)
+                elif isinstance(item, _collections.UserDict):
+                    pending.append(item.data)
+                elif isinstance(item, _weakref_module.WeakSet):
+                    pending.extend(list(item))
+                elif isinstance(
+                    item,
+                    (
+                        _weakref_module.WeakKeyDictionary,
+                        _weakref_module.WeakValueDictionary,
+                    ),
+                ):
+                    pending.extend(list(item.keys()))
+                    pending.extend(list(item.values()))
+                elif isinstance(item, _weakref_module.ReferenceType):
+                    target = item()
+                    if target is not None:
+                        pending.append(target)
+                elif isinstance(item, _functools_module.partial):
+                    pending.append(item.func)
+                    pending.extend(item.args)
+                    if item.keywords:
+                        pending.append(dict(item.keywords))
+                elif isinstance(item, _types_module.FunctionType):
+                    closure = item.__closure__
+                    if closure:
+                        for cell in closure:
+                            try:
+                                pending.append(cell.cell_contents)
+                            except Exception:
+                                continue
+                elif isinstance(
+                    item,
+                    (
+                        list,
+                        tuple,
+                        set,
+                        frozenset,
+                        _collections.deque,
+                        _collections.UserList,
+                    ),
+                ):
+                    pending.extend(item)
+            except Exception:
+                pass
+            mapping = getattr(item, "__dict__", None)
+            if isinstance(mapping, dict):
+                pending.append(mapping)
+            for klass in type(item).__mro__:
+                slots = klass.__dict__.get("__slots__")
+                if not slots:
+                    continue
+                if isinstance(slots, str):
+                    slots = (slots,)
+                for slot in slots:
+                    try:
+                        pending.append(getattr(item, slot))
+                    except Exception:
+                        pass
+        return found
 
     def _attr_mapping(value):
         mapping = getattr(value, "__dict__", None)
@@ -844,6 +1085,22 @@ def _bundle_copy(bundle):
             stack.append((current, True, "attrs", built, 1))
             stack.append((attrs, False, None, None, 0))
             continue
+        if isinstance(
+            current,
+            (
+                _abc_module.KeysView,
+                _abc_module.ValuesView,
+                _abc_module.ItemsView,
+            ),
+        ):
+            placeholder = []
+            memo[id(current)] = placeholder
+            children = list(current)
+            stack.append((current, True, "sequence", placeholder,
+                          len(children)))
+            for child in reversed(children):
+                stack.append((child, False, None, None, 0))
+            continue
         if isinstance(current, set):
             try:
                 placeholder = type(current)()
@@ -884,7 +1141,14 @@ def _bundle_copy(bundle):
             raise ValueError(
                 "enum member with mutable instance state in bundle copy"
             )
-        built = _copy_module.deepcopy(current)
+        replacements = _fallback_replacements(current)
+        if replacements:
+            deep_memo = {}
+            for marker, part in replacements.items():
+                deep_memo[marker] = _bundle_copy(part)
+            built = _copy_module.deepcopy(current, deep_memo)
+        else:
+            built = _copy_module.deepcopy(current)
         memo[id(current)] = built
         results.append(built)
     return results[0]
