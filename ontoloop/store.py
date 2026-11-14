@@ -1615,6 +1615,21 @@ def append_record(store, content, record_type="record"):
         records = store.get("records")
         if not isinstance(records, list):
             return _key_unavailable_refusal()
+        # Fix round 12, ruling 394: an append over a last record
+        # whose hash stands erased, by standing as None or by
+        # the hash key standing absent, stands refused in the
+        # governed refusal form of this surface, with no record
+        # built and no heads signed.
+        if records:
+            last_record = records[-1]
+            if isinstance(last_record, dict) and (
+                last_record.get("hash") is None
+            ):
+                return {
+                    "error": "predecessor hash erased",
+                    "appended": False,
+                    "reported_appended": False,
+                }
         old_manifest = store.get("manifest")
         old_signature = store.get("signature_object")
         old_anchor = store.get("anchor_staging_copy")

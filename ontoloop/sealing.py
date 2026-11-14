@@ -568,7 +568,20 @@ def _chain_check(records):
                 return {"consistent": False, "fail_index": index}
         else:
             return {"consistent": False, "fail_index": index}
-        if stored_hash is not None and recomputed != stored_hash:
+        # Fix round 12, ruling 393: a stored hash standing as
+        # None, or a hash key standing absent, stands as a
+        # disagreement in the same form as every other erased
+        # journal record field, carrying a content_mismatch
+        # item, so verify over such a record returns
+        # disagreement and never agreement. A hash standing in
+        # a wrong value form keeps its standing form below.
+        if stored_hash is None:
+            return {
+                "consistent": False,
+                "fail_index": index,
+                "failed_checks": ["content_mismatch"],
+            }
+        if recomputed != stored_hash:
             return {"consistent": False, "fail_index": index}
         if index > 0 and record.get("predecessor_hash") != previous_hash:
             return {"consistent": False, "fail_index": index}
@@ -1644,10 +1657,19 @@ def travel_lint(surface):
         paraphrases.append("seal sentence")
     if carried.get("verify sentence") != VERIFY_SENTENCE:
         paraphrases.append("verify sentence")
-    if "verify holes" in carried and (
-        list(carried["verify holes"]) != list(VERIFY_HOLES)
-    ):
-        paraphrases.append("verify holes")
+    # Fix round 12, ruling 395: a verify holes value standing
+    # in a non iterable form stands read as a governed outcome
+    # of the lint, passed False with the holes position named,
+    # and never as an exception escaping the act.
+    if "verify holes" in carried:
+        try:
+            holes_match = (
+                list(carried["verify holes"]) == list(VERIFY_HOLES)
+            )
+        except Exception:
+            holes_match = False
+        if not holes_match:
+            paraphrases.append("verify holes")
     if carried.get(
         "grader awareness label"
     ) != _GRADER_AWARENESS_LABEL:

@@ -1628,12 +1628,27 @@ def check_record(record):
             and window[0] <= version <= reader
         )
         if not is_window_version:
-            if (
-                isinstance(version, (int, float))
-                and not isinstance(version, bool)
-                and version == version
-                and version > reader
-            ):
+            # Fix round 12, ruling 392: a version standing in a
+            # Decimal or Fraction form stands read for the value
+            # it carries, beside the int and float forms, so a
+            # version above the reader in either form returns
+            # the newer refusal.
+            from decimal import Decimal as _DecimalForm
+            from fractions import Fraction as _FractionForm
+
+            try:
+                stands_above_reader = (
+                    isinstance(
+                        version,
+                        (int, float, _DecimalForm, _FractionForm),
+                    )
+                    and not isinstance(version, bool)
+                    and version == version
+                    and version > reader
+                )
+            except Exception:
+                stands_above_reader = False
+            if stands_above_reader:
                 return {
                     "accepted": False,
                     "error": catalogue["version newer than reader"]["error"],
