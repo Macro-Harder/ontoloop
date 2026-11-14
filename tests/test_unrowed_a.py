@@ -72,6 +72,8 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         record = module.incident_entry(answers=("no", "no", "no"))
         second = module.incident_entry(answers=("no", "no", "no"))
         self.assertIsNot(record["questions"], second["questions"])
+        self.assertIsNot(record["answers"], second["answers"])
+        self.assertIsNot(record["consequences"], second["consequences"])
         self.assertEqual(tuple(record["questions"]), self.QUESTIONS_IN_ORDER)
         self.assertEqual(tuple(record["answers"].keys()),
                          self.QUESTIONS_IN_ORDER)
@@ -130,6 +132,9 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             journal_records=["journal record one", "journal record two"])
         self.assertEqual(with_records["reconstructed_material"], [])
         self.assertEqual(with_records["material_read"], [])
+        self.assertIsNot(
+            with_records["reconstructed_material"],
+            with_records["material_read"])
         with_tuple_records = module.resolve_dispute(
             disputed=False,
             journal_records=("journal record one", "journal record two"))
@@ -139,6 +144,9 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIs(with_tuple_records["journal_read"], False)
         self.assertEqual(with_tuple_records["reconstructed_material"], [])
         self.assertEqual(with_tuple_records["material_read"], [])
+        self.assertIsNot(
+            with_tuple_records["reconstructed_material"],
+            with_tuple_records["material_read"])
 
     def test_consequence_of_a_yes_at_each_question(self):
         module = require("ontoloop.ops")
@@ -384,6 +392,18 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             acts=["purge append", "repair verification"]))
         self.assertEqual(
             list_purge_order, ["repair verification", "purge append"])
+        list_stop_order = list(module.incident_append_order(
+            acts=["stop append", "repair verification"]))
+        self.assertEqual(
+            list_stop_order, ["repair verification", "stop append"])
+        self.assertEqual(
+            list(module.incident_append_order(
+                acts=("purge append", "stop append"))),
+            ["purge append", "stop append"])
+        self.assertEqual(
+            list(module.incident_append_order(
+                acts=("stop append", "purge append"))),
+            ["stop append", "purge append"])
 
     def test_loading_stop_takes_effect_before_its_journal_record(self):
         module = require("ontoloop.ops")
@@ -569,6 +589,19 @@ class _FreshnessCheckPoint:
         self.assertIsNone(refused["lifecycle_record"]["transition"])
         self.assertEqual(
             refused["lifecycle_record"]["record_home"],
+            "holdout lifecycle record")
+        unsealed_without_material = module.retire(
+            self.CHECK_POINT,
+            replacement_sealed=False,
+            replacement_sealed_without_retiring_material=True,
+        )
+        self.assertEqual(
+            unsealed_without_material["check_point"], self.CHECK_POINT)
+        self.assertIs(unsealed_without_material["accepted"], False)
+        self.assertIsNone(
+            unsealed_without_material["lifecycle_record"]["transition"])
+        self.assertEqual(
+            unsealed_without_material["lifecycle_record"]["record_home"],
             "holdout lifecycle record")
         with_material = module.retire(
             self.CHECK_POINT,
