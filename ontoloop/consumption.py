@@ -366,14 +366,24 @@ def _bundle_copy(bundle):
     typecode, and a memoryview as an independent
     mutable byte copy, a bytearray, of the content it
     views, so a copied part shares no mutable state
-    with the caller part in either direction. A value
+    with the caller part in either direction. A deque
+    part keeps the bound it was recorded with. A value
     standing in none of these forms copies through
-    the standard deep copy act. An enum member stands
+    the standard deep copy act, and an enum member
+    standing anywhere inside such a value stands
+    under the same refusal as a member standing in a
+    walked position. An enum member stands
     as a governed form of its own: a member carrying
     mutable instance state stands refused with a
     ValueError, and a member carrying no mutable
     instance state stands shared as an immutable
-    value. A container or wrapper part carrying
+    value. An attribute value carries no mutable
+    state where it stands as an exact atom, as None,
+    as a decimal, a fraction, a date, a time, a
+    timedelta, or a range value, as an enum member
+    carrying no mutable instance state, or as a tuple
+    or frozenset whose elements all carry no mutable
+    state under this same reading. A container or wrapper part carrying
     instance attribute state copies that state apart
     in both directions, its attribute mapping copied
     by this same act, with its type and its entries,
@@ -381,12 +391,18 @@ def _bundle_copy(bundle):
     defaultdict part keeps the factory it was
     recorded with. Where a subclass type does not
     allow its construction in the form a limb needs,
-    the copy stands in the plain base form.
+    or a subclass construction over the copied parts
+    alone does not reproduce the part, the copy
+    stands in the plain base form carrying the
+    copied parts.
     """
     import array as _array_module
     import collections as _collections
     import copy as _copy_module
+    import datetime as _datetime_module
+    import decimal as _decimal_module
     import enum as _enum_module
+    import fractions as _fractions_module
     import types as _types_module
 
     def _is_atom(value):
@@ -399,24 +415,67 @@ def _bundle_copy(bundle):
             value, (bool, int, float, complex, str, bytes)
         ) and not _is_atom(value)
 
+    def _tuple_reproduces(built, parts):
+        try:
+            if len(built) != len(parts):
+                return False
+            for index in range(len(parts)):
+                if built[index] is parts[index]:
+                    continue
+                if built[index] != parts[index]:
+                    return False
+            return True
+        except Exception:
+            return False
+
     def _tuple_form(original, parts):
         if type(original) is tuple:
             return tuple(parts)
         if hasattr(original, "_fields"):
-            return type(original)(*parts)
+            try:
+                built = type(original)(*parts)
+            except Exception:
+                return tuple(parts)
+            if _tuple_reproduces(built, parts):
+                return built
+            return tuple(parts)
         try:
-            return type(original)(parts)
+            built = type(original)(parts)
         except Exception:
             return tuple(parts)
+        if _tuple_reproduces(built, parts):
+            return built
+        return tuple(parts)
 
-    def _state_immutable(value):
+    def _state_immutable(value, seen=None):
         if _is_atom(value):
             return True
+        if seen is None:
+            seen = frozenset()
+        if id(value) in seen:
+            return True
+        seen = seen | {id(value)}
+        if isinstance(value, _enum_module.Enum):
+            return not _enum_carries_mutable(value, seen)
         if isinstance(value, (tuple, frozenset)):
-            return all(_state_immutable(item) for item in value)
+            return all(
+                _state_immutable(item, seen) for item in value
+            )
+        if isinstance(
+            value,
+            (
+                _decimal_module.Decimal,
+                _fractions_module.Fraction,
+                _datetime_module.date,
+                _datetime_module.time,
+                _datetime_module.timedelta,
+                range,
+            ),
+        ):
+            return True
         return False
 
-    def _enum_carries_mutable(member):
+    def _enum_carries_mutable(member, seen=None):
         mapping = getattr(member, "__dict__", None)
         if not mapping:
             return False
@@ -424,8 +483,60 @@ def _bundle_copy(bundle):
         for key in mapping:
             if key in internal:
                 continue
-            if not _state_immutable(mapping[key]):
+            if not _state_immutable(mapping[key], seen):
                 return True
+        return False
+
+    def _fallback_holds_mutable_enum(value):
+        pending = [value]
+        seen = set()
+        while pending:
+            item = pending.pop()
+            if isinstance(item, _enum_module.Enum):
+                if _enum_carries_mutable(item):
+                    return True
+                continue
+            if _is_atom(item):
+                continue
+            if id(item) in seen:
+                continue
+            seen.add(id(item))
+            try:
+                if isinstance(item, dict):
+                    pending.extend(item.keys())
+                    pending.extend(item.values())
+                elif isinstance(item, _collections.ChainMap):
+                    pending.extend(item.maps)
+                elif isinstance(item, _collections.UserDict):
+                    pending.append(item.data)
+                elif isinstance(
+                    item,
+                    (
+                        list,
+                        tuple,
+                        set,
+                        frozenset,
+                        _collections.deque,
+                        _collections.UserList,
+                    ),
+                ):
+                    pending.extend(item)
+            except Exception:
+                pass
+            mapping = getattr(item, "__dict__", None)
+            if isinstance(mapping, dict):
+                pending.append(mapping)
+            for klass in type(item).__mro__:
+                slots = klass.__dict__.get("__slots__")
+                if not slots:
+                    continue
+                if isinstance(slots, str):
+                    slots = (slots,)
+                for slot in slots:
+                    try:
+                        pending.append(getattr(item, slot))
+                    except Exception:
+                        pass
         return False
 
     def _attr_mapping(value):
@@ -532,6 +643,11 @@ def _bundle_copy(bundle):
                 elif _is_atom(child):
                     parts.append(child)
                 elif _is_atom_subclass(child):
+                    if _fallback_holds_mutable_enum(child):
+                        raise ValueError(
+                            "enum member with mutable instance state "
+                            "in bundle copy"
+                        )
                     copied = _copy_module.deepcopy(child)
                     memo[id(child)] = copied
                     parts.append(copied)
@@ -546,6 +662,11 @@ def _bundle_copy(bundle):
                 built = _tuple_form(current, parts)
             cyclic_attrs = _attr_mapping(current)
             if cyclic_attrs is not None:
+                if _fallback_holds_mutable_enum(cyclic_attrs):
+                    raise ValueError(
+                        "enum member with mutable instance state "
+                        "in bundle copy"
+                    )
                 _apply_attrs(
                     built, _copy_module.deepcopy(cyclic_attrs)
                 )
@@ -646,10 +767,24 @@ def _bundle_copy(bundle):
             current, (list, _collections.deque, _collections.UserList)
         ):
             if isinstance(current, _collections.deque):
-                try:
-                    placeholder = type(current)()
-                except Exception:
-                    placeholder = _collections.deque()
+                bound = current.maxlen
+                if bound is None:
+                    try:
+                        placeholder = type(current)()
+                    except Exception:
+                        placeholder = _collections.deque()
+                else:
+                    try:
+                        placeholder = type(current)((), bound)
+                    except Exception:
+                        try:
+                            placeholder = type(current)(
+                                maxlen=bound
+                            )
+                        except Exception:
+                            placeholder = _collections.deque(
+                                (), bound
+                            )
             elif isinstance(current, _collections.UserList):
                 try:
                     placeholder = type(current)()
@@ -719,6 +854,10 @@ def _bundle_copy(bundle):
             for child in reversed(children):
                 stack.append((child, False, None, None, 0))
             continue
+        if _fallback_holds_mutable_enum(current):
+            raise ValueError(
+                "enum member with mutable instance state in bundle copy"
+            )
         built = _copy_module.deepcopy(current)
         memo[id(current)] = built
         results.append(built)
