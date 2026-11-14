@@ -127,6 +127,95 @@ class TestStoreT04(unittest.TestCase):
         self.assertFalse(outcome["appended"])
 
 
+class TestStoreFixR1(unittest.TestCase):
+    """Fix round 1 STORE cures, written test first.
+
+    Covers S15-R1-007 (torn final line verify output),
+    S15-R1-010 (the contention evidence surface performing
+    the real wait), S15-R1-011 (the sealing level string
+    key refusal), S15-R1-105 (the limits wording detected,
+    not prevented, statement), and S15-R1-106 (the anchored
+    verify anchor agreement and anchor mismatch statements).
+    """
+
+    def test_verify_over_a_torn_final_line_returns_a_governed_output(self):
+        module = require(MODULE)
+        store = module.interrupted_store("torn final line")
+        result = module.verify(store)
+        self.assertEqual(result["output"], "unverifiable")
+        self.assertEqual(result["case"], "torn final line")
+        self.assertNotIn("sentence", result)
+
+    def test_append_under_contention_performs_the_wait_it_reports(self):
+        import time
+
+        module = require(MODULE)
+        started = time.monotonic()
+        outcome = module.append_under_contention(
+            module.lock_contention_case()
+        )
+        elapsed = time.monotonic() - started
+        self.assertEqual(outcome["error"], LOCK_CONTENTION_REFUSAL)
+        self.assertTrue(outcome["waited_to_bound"])
+        self.assertFalse(outcome["appended"])
+        self.assertGreaterEqual(elapsed, 9.0)
+
+    def test_append_under_contention_without_a_case_claims_no_wait(self):
+        module = require(MODULE)
+        outcome = module.append_under_contention({"unrelated": True})
+        self.assertFalse(outcome["waited_to_bound"])
+        self.assertFalse(outcome["appended"])
+
+    def test_limits_wording_states_detected_not_prevented(self):
+        module = require(MODULE)
+        record = module.store_security_record(
+            module.golden_record_store()
+        )
+        wording = record["simple"]["limits_wording"]
+        self.assertIn("detected, not prevented", wording)
+        self.assertEqual(module.check_store_security_record(record), [])
+
+    def test_anchored_verify_states_anchor_agreement(self):
+        module = require(MODULE)
+        store = module.golden_record_store()
+        anchor = dict(store["anchor_staging_copy"])
+        result = module.verify(store, anchor=anchor)
+        self.assertEqual(result["output"], "agreement")
+        self.assertEqual(result["anchor_statement"], "anchor agreement")
+
+    def test_anchored_verify_states_anchor_mismatch(self):
+        module = require(MODULE)
+        store = module.golden_record_store()
+        anchor = dict(store["anchor_staging_copy"])
+        module.append_record(
+            store,
+            {"record_type": "golden record", "payload": "golden record 2"},
+            "golden record",
+        )
+        result = module.verify(store, anchor=anchor)
+        self.assertEqual(result["output"], "disagreement")
+        self.assertEqual(result["anchor_statement"], "anchor mismatch")
+        self.assertNotIn("which head is true", str(result))
+
+    def test_sealing_treats_a_string_key_as_no_key_obtained(self):
+        sealing = require("ontoloop.sealing")
+        self.assertIsNone(sealing.get_signing_key({"key_slot": "a key"}))
+        with self.assertRaises(Exception) as caught:
+            sealing.sign(b"data", "a key")
+        self.assertEqual(
+            type(caught.exception).__name__, "SigningKeyUnavailable"
+        )
+
+    def test_sealing_verify_refuses_a_string_key_store(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        store = module.golden_record_store()
+        store["key_slot"] = "a string key"
+        result = sealing.verify(store)
+        self.assertEqual(result["output"], "unverifiable")
+        self.assertEqual(result["case"], "signing key unavailable")
+
+
 class TestStoreT05(unittest.TestCase):
     """STORE-T05: sync and write failures, platform refusal kept."""
 

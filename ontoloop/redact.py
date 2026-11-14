@@ -61,7 +61,16 @@ __all__ = [
     "store_level_posture_state",
     "uncertain_hit_case",
     "weakening_act_record",
+    "append_redacted",
+    "classify_material",
 ]
+
+
+import base64
+import binascii
+import math
+import re
+import urllib.parse
 
 
 def _pattern_positive_cases():
@@ -185,23 +194,31 @@ _FOUR_ASSEMBLIES = (
     "report construction",
 )
 
-# The placeholder type value, one value for every run in
-# this section. Its form stands as an authored reading
-# under the G-6 group bound: brief Section 5.7, item
+# The placeholder scheme. Brief Section 5.7, item
 # S5-O-40, states that placeholders are typed and name
-# the layer and class that fired, and states no spelling.
-# This value names layer 2 and its pattern family match
-# class, in plain words.
-_PLACEHOLDER_TYPE = "layer 2 pattern family match, definite hit"
+# the layer and class that fired, and states no
+# spelling. The scheme here computes the placeholder
+# from the hit that fired: the type value names the
+# layer and the class of the firing, and the
+# placeholder value names the run scope beside the
+# layer and class, in the form _placeholder_for_hit_form
+# states, so the same hit in one run always yields the
+# same placeholder, the same hit in two runs yields
+# two different placeholders, and two different hits
+# in one run yield two different placeholders.
 
 
 def _placeholder_for_scope(scope):
     """Return the placeholder value for one run scope.
 
-    The value is built from the run scope alone, so the
-    same scope always yields the same placeholder, two
-    different scopes yield two different placeholders,
-    and no part of any replaced value stands inside it.
+    The value stands as the fallback placeholder of a
+    run whose hit stands unnamed by its caller, built
+    from the run scope alone, so the same scope always
+    yields the same placeholder, two different scopes
+    yield two different placeholders, and no part of
+    any replaced value stands inside it. Where the hit
+    stands known, _placeholder_for_hit_form builds the
+    placeholder naming its layer and class instead.
     The concrete form stands as an authored reading
     under the G-6 group bound: item S5-O-40 states the
     scheme properties, typed, stable within a run,
@@ -215,33 +232,121 @@ def journal_after_definite_hit_appends():
     """Return the journal value after definite hit appends.
 
     The return carries exactly the two test pinned keys.
-    bytes: the journal byte content after appends of
-    definite hit material, standing as bytes holding one
-    redacted record line per definite hit shape, each
-    line carrying the run scoped placeholder form and no
-    part of any shape raw bytes, in the REDACT-T01
-    governing form: redaction runs inside the append,
-    before hashing and before any byte reaches the
-    journal, and no record exists in the journal in
-    unredacted form at any moment. The record line
-    wording stands as the journal residue of item G-1:
-    where the consumed patterns cases ground the shapes
-    counted here, the line form itself stands authored
-    and guessed under the entry 94 authorisation, and
-    stands labelled as such here and in the paper.
+    bytes: the journal byte content of a real store
+    journal after appends of definite hit material
+    through the redacting append path of this module,
+    standing as the canonical bytes of the records of a
+    store founded whole through the store module, with
+    one appended record per definite hit shape added
+    over the founding records, each appended record
+    carrying the redacted material with its run scoped
+    placeholders and no part of any shape raw bytes, in
+    the REDACT-T01 governing form: redaction runs
+    inside the append, before hashing and before any
+    byte reaches the journal, and no record exists in
+    the journal in unredacted form at any moment.
     scan_point: the string after appends, naming the
     occasion the check runs at, in the row fixture form.
     A fresh mapping and fresh bytes stand returned on
     every call.
     """
-    shapes = secret_bearing_shapes()
-    lines = []
-    for _shape in shapes:
-        lines.append(
-            "journal record: " + _placeholder_for_scope("journal run")
-        )
-    content = ("\n".join(lines) + "\n").encode("utf-8")
+    from ontoloop import store as _store_module
+
+    store = _store_module.golden_record_store()
+    for shape in secret_bearing_shapes():
+        material = shape["raw_bytes"].decode("utf-8")
+        append_redacted(store, material, scope="journal run")
+    content = b"\n".join(
+        record["canonical_bytes"] for record in store["records"]
+    )
     return {"bytes": content, "scan_point": "after appends"}
+
+
+def append_redacted(store, material, scope="journal run"):
+    """Append material to a store through the redacting path.
+
+    The act is the redacting append path REDACT-T01
+    governs. It classifies and redacts the material
+    first, replacing every definite hit span the
+    pattern families find with the placeholder naming
+    the layer and family that fired, scoped to the run
+    the scope argument names, and only then passes the
+    redacted material to the one store append act, so
+    redaction stands inside the append, before the
+    append act hashes the record and before any byte
+    of the record reaches the journal. No journal byte
+    stands written by any second path here: the store
+    append act is the only writer this act calls.
+
+    The return carries appended and reported_appended
+    in the store append outcome form, the redacted
+    material in the form appended, the placeholders
+    used, in first use order, and hits_redacted, the
+    count of definite hit spans replaced.
+    """
+    from ontoloop import store as _store_module
+
+    items = _material_items(material)
+    text = "\n".join(item["text"] for item in items)
+    redacted_text, placeholders, hits = _redact_text(text, scope)
+    outcome = _store_module.append_record(
+        store,
+        {"record_type": "record", "payload": redacted_text},
+        "record",
+    )
+    return {
+        "appended": bool(outcome.get("appended")),
+        "reported_appended": bool(outcome.get("reported_appended")),
+        "redacted_material": redacted_text,
+        "placeholders": placeholders,
+        "hits_redacted": hits,
+    }
+
+
+def _redact_text(text, scope):
+    """Redact definite hit spans in one text.
+
+    Every span a registered pattern family expression
+    finds stands replaced by the placeholder for that
+    family, built by _placeholder_for_hit_form, so the
+    placeholder names the layer and the class that
+    fired and stands scoped to the run. The return is
+    the redacted text, the placeholder values in first
+    use order, and the count of spans replaced.
+    """
+    placeholders = []
+    hits = 0
+    redacted = text
+    for family, expression in _pattern_expressions():
+        placeholder = _placeholder_for_hit_form(scope, 2, family)
+
+        def _replace(match, placeholder=placeholder):
+            return placeholder
+
+        redacted, count = expression.subn(_replace, redacted)
+        if count:
+            hits += count
+            if placeholder not in placeholders:
+                placeholders.append(placeholder)
+    return redacted, placeholders, hits
+
+
+def _placeholder_for_hit_form(scope, layer, class_name):
+    """Return the placeholder value for one hit in a run.
+
+    The value names the run scope, the layer that
+    fired, and the class that fired, in plain words,
+    so two hits in one run under the same layer and
+    class carry the same placeholder, two hits under
+    different classes carry different placeholders,
+    and the same hit in two runs carries two different
+    placeholders.
+    """
+    return "redacted placeholder for %s: layer %d %s" % (
+        scope,
+        layer,
+        class_name,
+    )
 
 
 def secret_bearing_shapes():
@@ -272,39 +377,416 @@ def secret_bearing_shapes():
     return shapes
 
 
-def classify_corpus_shapes():
-    """Return the classification of the corpus shapes.
+# The classification engine. One engine runs all six
+# layers over the material passed, under the one shared
+# rule per layer shared_rule states. Each layer act
+# below is the executable form of its shared rule: it
+# returns firing records holding the item index, the
+# field name where the material carried one, the
+# outcome, definite or uncertain, and the class that
+# fired. Material stands normalised by _material_items
+# into text items, so the same engine classifies a
+# string, a byte string, a mapping field by field, and
+# a sequence item by item, and its results vary with
+# the material passed in every case.
 
-    The act runs over the landed corpus shapes, read at
-    call time from ontoloop.corpus_spec at the helper
-    above: the three hard negative shape names stand as
-    the fixture ground the merged list names for this
-    row, their standing as consumed input only, no
-    per shape result key standing pinned by any test or
-    stated in any text for this surface. The return
-    carries exactly the three test pinned keys. layers:
-    a fresh mapping keyed by the integer layer numbers
-    1 to 6, each value a mapping carrying exactly rule,
-    whose value stands equal to shared_rule(layer) for
-    that layer, read through the same act, so the one
-    shared rule stands in both places by construction.
-    engine_count: 1, the six layers as one scanner
-    engine, grounded at brief Section 5.7.1.
-    firing_records: a fresh list holding the six layer
-    numbers 1 to 6, the per layer firing records limb
-    in its test facing form. The record a firing takes
-    beyond the layer number stands pinned by no test,
-    at shape act DG-3, and no wider form stands built.
+_CREDENTIAL_NAMES = (
+    "client secret",
+    "access token",
+    "refresh token",
+    "api key",
+    "access key",
+    "secret key",
+    "private key",
+    "signing key",
+    "session key",
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "apikey",
+    "authorisation",
+    "authorization",
+    "credentials",
+    "credential",
+    "passphrase",
+    "bearer",
+)
+
+_TOKEN_PREFIXES = (
+    "ghp_",
+    "gho_",
+    "ghu_",
+    "ghs_",
+    "ghr_",
+    "github_pat_",
+    "glpat-",
+    "npm_",
+    "pypi-",
+    "sk_live_",
+    "rk_live_",
+)
+
+
+def _material_items(material):
+    """Normalise material into a list of text items.
+
+    Each item carries field, the field name the
+    material stated for it or None, and text, its text
+    form. A byte string decodes as UTF-8 with any
+    undecodable byte replaced. A mapping contributes
+    one item per entry, in entry order, keyed by its
+    field name. A sequence contributes one item per
+    element, in order. Any other value contributes its
+    string form as one item.
     """
-    _shape_names = _corpus_shape_names()
+    if material is None:
+        return []
+    if isinstance(material, (bytes, bytearray)):
+        return [
+            {"field": None, "text": bytes(material).decode(
+                "utf-8", "replace")}
+        ]
+    if isinstance(material, str):
+        return [{"field": None, "text": material}]
+    if isinstance(material, dict):
+        items = []
+        for key in material:
+            value = material[key]
+            if isinstance(value, (bytes, bytearray)):
+                text = bytes(value).decode("utf-8", "replace")
+            elif isinstance(value, str):
+                text = value
+            else:
+                text = str(value)
+            items.append({"field": str(key), "text": text})
+        return items
+    if isinstance(material, (list, tuple, set, frozenset)):
+        items = []
+        for element in material:
+            items.extend(_material_items(element))
+        return items
+    return [{"field": None, "text": str(material)}]
+
+
+def _pattern_expressions():
+    """Return the registered pattern families, compiled.
+
+    The families and expressions stand read at call
+    time from pattern_set(version=1) in
+    ontoloop.patterns, in pattern set order, the same
+    landed set secret_bearing_shapes consumes.
+    """
+    from ontoloop.patterns import pattern_set
+
+    stated = pattern_set(version=1)
+    return [
+        (family, re.compile(stated[family]["expression"]))
+        for family in stated
+    ]
+
+
+def _entropy(text):
+    """Return the Shannon entropy of a text, in bits."""
+    if not text:
+        return 0.0
+    counts = {}
+    for char in text:
+        counts[char] = counts.get(char, 0) + 1
+    total = len(text)
+    value = 0.0
+    for count in counts.values():
+        share = count / total
+        value -= share * math.log2(share)
+    return value
+
+
+def _credential_name_forms(text):
+    """Return the credential names a text carries.
+
+    A name stands carried where it appears in the text
+    in its plain, spaced, or underscored form, case
+    folded. The return is a list of the canonical name
+    strings found, in the table order above.
+    """
+    lowered = text.lower()
+    found = []
+    for name in _CREDENTIAL_NAMES:
+        forms = (
+            name,
+            name.replace(" ", "_"),
+            name.replace(" ", "-"),
+            name.replace(" ", ""),
+        )
+        if any(form in lowered for form in forms):
+            found.append(name)
+    return found
+
+
+def _assignment_with_value(text):
+    """Return True where a credential name carries a value.
+
+    The layer 1 definite test: a credential bearing
+    field name or label followed by an assignment form
+    with a value present.
+    """
+    lowered = text.lower()
+    for name in _credential_name_forms(text):
+        for form in (
+            name,
+            name.replace(" ", "_"),
+            name.replace(" ", "-"),
+            name.replace(" ", ""),
+        ):
+            index = lowered.find(form)
+            while index != -1:
+                rest = lowered[index + len(form):].lstrip()
+                if rest[:1] in (":", "=") and rest[1:].strip():
+                    return True
+                index = lowered.find(form, index + 1)
+    return False
+
+
+def _partial_pattern_class(text):
+    """Return the class of a partial pattern firing, or None.
+
+    A partial firing stands where a pattern family test
+    fires in part: a private key block opening without
+    its full header, a cloud key prefix without its
+    full shape, a token prefix without its full length,
+    or an authorisation header without its full value.
+    """
+    if "-----BEGIN" in text and "PRIVATE KEY" in text:
+        return "private_key_block_headers"
+    if re.search(r"(?:AKIA|ASIA)[0-9A-Z]{1,15}", text):
+        return "cloud_access_key_shapes"
+    for prefix in _TOKEN_PREFIXES:
+        if prefix in text:
+            return "token_prefixes"
+    if re.search(r"(?i)authorization\s*:", text):
+        return "authorisation_header_forms"
+    if text.startswith("xox") and "-" in text:
+        return "token_prefixes"
+    return None
+
+
+def _declaration_forms(text):
+    """Return the layer 5 declaration classes a text carries.
+
+    The definite declaration forms stand as the shared
+    rule states them: a credential type field, a
+    credential file name, a credential schema name, and
+    a self declared credential payload marker.
+    """
+    classes = []
+    if re.search(r"(?i)credential[ _-]?type\s*[:=]", text):
+        classes.append("credential type field")
+    if re.search(r"(?i)\b[\w.-]+\.(?:pem|key|p12|keystore)\b", text):
+        classes.append("credential file name")
+    if re.search(r"(?i)credential[ _-]?schema", text):
+        classes.append("credential schema name")
+    if re.search(r"(?i)self[ _-]?declared credential", text):
+        classes.append("self declared credential payload marker")
+    return classes
+
+
+def _layer_one_firings(item):
+    if _assignment_with_value(_item_text(item)):
+        return [(1, "definite", "field name table")]
+    if _credential_name_forms(_item_text(item)):
+        return [(1, "uncertain", "field name table")]
+    return []
+
+
+def _item_text(item):
+    if item["field"]:
+        return item["field"] + ": " + item["text"]
+    return item["text"]
+
+
+def _layer_two_firings(item):
+    text = _item_text(item)
+    firings = []
+    for family, expression in _pattern_expressions():
+        if expression.search(text):
+            firings.append((2, "definite", family))
+    if firings:
+        return firings
+    partial = _partial_pattern_class(text)
+    if partial is not None:
+        return [(2, "uncertain", partial)]
+    return []
+
+
+def _layer_three_firings(item):
+    text = item["text"]
+    firings = []
+    for token in re.split(r"\s+", text):
+        if len(token) < 20:
+            continue
+        if _entropy(token) < 4.5:
+            continue
+        if _layer_two_firings(item) or _assignment_with_value(
+            _item_text(item)
+        ):
+            firings.append((3, "definite", "entropy candidate"))
+        else:
+            firings.append((3, "uncertain", "entropy candidate"))
+    return firings
+
+
+def _layer_four_firings(item):
+    decoded = _decode_candidate(item["text"])
+    if decoded["outcome"] == "definite hit":
+        return [(4, "definite", "decoded definite hit")]
+    if decoded["outcome"] == "uncertain hit":
+        return [(4, "uncertain", "decoded candidate")]
+    return []
+
+
+def _layer_five_firings(item):
+    text = _item_text(item)
+    classes = _declaration_forms(text)
+    if classes:
+        return [(5, "definite", classes[0])]
+    if "credential" in text.lower():
+        return [(5, "uncertain", "credential declaration")]
+    return []
+
+
+def _layer_six_firings(items):
+    joined = "\n".join(_item_text(item) for item in items)
+    probe = {"field": None, "text": joined}
+    if (
+        _layer_one_firings(probe)
+        and _layer_one_firings(probe)[0][1] == "definite"
+    ) or any(
+        outcome == "definite"
+        for _layer, outcome, _class in _layer_two_firings(probe)
+    ) or _declaration_forms(joined):
+        return [(6, "definite", "assembly as a whole")]
+    if (
+        _credential_name_forms(joined)
+        or _partial_pattern_class(joined) is not None
+        or "credential" in joined.lower()
+    ):
+        return [(6, "uncertain", "assembly as a whole")]
+    return []
+
+
+def classify_material(material):
+    """Classify material under the one shared rule per layer.
+
+    The act is the classification engine of REDACT-T02.
+    It takes the material passed, in any of the forms
+    _material_items states, and runs all six layers
+    over it as one engine, each layer act standing as
+    the executable form of the shared rule shared_rule
+    states for that layer. The return carries exactly
+    the three keys classify_corpus_shapes has always
+    carried. layers: a fresh mapping keyed by the
+    integer layer numbers 1 to 6, each value a mapping
+    carrying exactly rule, equal to shared_rule(layer)
+    for that layer. engine_count: 1, the six layers as
+    one scanner engine, grounded at brief Section
+    5.7.1. firing_records: a fresh mapping keyed by
+    the integer layer numbers 1 to 6, each value a
+    fresh list of firing records for that layer, each
+    record carrying layer, item, field, outcome, and
+    class: the layer that fired, the index of the
+    material item it fired on, the field name that
+    item carried or None, the outcome standing at
+    definite or uncertain under the layer shared rule,
+    and the class that fired. A layer with no firing
+    over the material carries an empty list, so the
+    records vary with the material in every case.
+    """
+    items = _material_items(material)
+    records = {layer: [] for layer in _SIX_LAYERS}
+    layer_acts = (
+        _layer_one_firings,
+        _layer_two_firings,
+        _layer_three_firings,
+        _layer_four_firings,
+        _layer_five_firings,
+    )
+    for index, item in enumerate(items):
+        for act in layer_acts:
+            for layer, outcome, class_name in act(item):
+                records[layer].append(
+                    {
+                        "layer": layer,
+                        "item": index,
+                        "field": item["field"],
+                        "outcome": outcome,
+                        "class": class_name,
+                    }
+                )
+    for layer, outcome, class_name in _layer_six_firings(items):
+        records[layer].append(
+            {
+                "layer": layer,
+                "item": None,
+                "field": None,
+                "outcome": outcome,
+                "class": class_name,
+            }
+        )
     layers = {}
     for layer in _SIX_LAYERS:
         layers[layer] = {"rule": shared_rule(layer)}
     return {
         "layers": layers,
         "engine_count": 1,
-        "firing_records": list(_SIX_LAYERS),
+        "firing_records": records,
     }
+
+
+def _corpus_material():
+    """Return the corpus shape material, as text items.
+
+    The material stands read at call time from
+    corpus_specification() in ontoloop.corpus_spec:
+    for each of the three hard negative shapes, the
+    statement and the values of every negative case it
+    carries, in shape and case order. No shape content
+    is copied here: the values stand read from the
+    landed module at call time.
+    """
+    from ontoloop.corpus_spec import corpus_specification
+
+    stated = corpus_specification()
+    material = []
+    for shape in stated["hard_negatives"].values():
+        for case in shape["negative_cases"]:
+            material.append(case["statement"])
+            material.extend(case["values"])
+    return material
+
+
+def classify_corpus_shapes(material=None):
+    """Return the classification of the corpus shapes.
+
+    The act runs the classification engine of
+    classify_material over the corpus material: the
+    material passed as the argument where one stands
+    passed, and otherwise the landed corpus shape
+    material _corpus_material reads at call time from
+    ontoloop.corpus_spec, the three hard negative
+    shapes standing as the fixture ground the merged
+    list names for this row. The return carries
+    exactly the three test pinned keys, in the forms
+    classify_material states: layers, each carrying
+    the one shared rule for its layer; engine_count 1,
+    the six layers as one scanner engine, grounded at
+    brief Section 5.7.1; and firing_records, the per
+    layer firing records the engine produced over the
+    corpus material, with definite and uncertain
+    outcomes under the one shared rule per layer.
+    """
+    if material is None:
+        material = _corpus_material()
+    return classify_material(material)
 
 
 def shared_rule(layer):
@@ -327,28 +809,59 @@ def shared_rule(layer):
     return _RULE_TEXTS[layer]
 
 
-def run_with_definite_hit(scope):
+def run_with_definite_hit(scope, material=None):
     """Return one run carrying a definite hit, by scope.
 
+    The run definite hit stands as the material passed,
+    where material stands passed, and otherwise as the
+    first definite hit shape of secret_bearing_shapes,
+    the private key block header case. The act runs the
+    classification engine over that material and builds
+    the run placeholders from its definite firings at
+    the hit layers, layers 1, 2, and 5, so each
+    placeholder names the layer and the class that
+    fired in fact.
+
     The return carries exactly the three test pinned
-    keys. placeholders: a fresh list holding one fresh
-    placeholder mapping, carrying exactly type, whose
-    value stands at the section placeholder type above,
-    truthy, naming the layer and class that fired in
-    the authored reading form the G-6 bound records.
+    keys. placeholders: a fresh list of fresh
+    placeholder mappings, one per distinct definite
+    firing of the run hit, each carrying exactly type,
+    whose value names the layer and class that fired,
+    in the form layer N class, definite hit.
     placeholder_for_hit: the placeholder value for the
-    run definite hit, built from the scope alone by the
-    section helper, stable for this run and standing
-    equal to what placeholder_for_same_hit returns over
-    this same run value. scope: the run name string
-    passed in, standing equal to it exactly, the run
-    scope limb in its test form. Across two runs under
-    two scopes the placeholder values differ, the never
-    reused across runs limb in its test form.
+    first definite firing of the run hit, built by
+    _placeholder_for_hit_form from the scope and that
+    firing, stable for this run and standing equal to
+    what placeholder_for_same_hit returns over this
+    same run value. scope: the run name string passed
+    in, standing equal to it exactly, the run scope
+    limb in its test form. Across two runs under two
+    scopes the placeholder values differ, the never
+    reused across runs limb in its test form, and
+    across two different hits in one run the
+    placeholder values differ by the class named.
     """
-    placeholder = _placeholder_for_scope(scope)
+    if material is None:
+        material = secret_bearing_shapes()[0]["raw_bytes"]
+    result = classify_material(material)
+    firings = []
+    for layer in (1, 2, 5):
+        for record in result["firing_records"][layer]:
+            if record["outcome"] != "definite":
+                continue
+            firing = (record["layer"], record["class"])
+            if firing not in firings:
+                firings.append(firing)
+    if not firings:
+        firings = [(2, "pattern family match")]
+    placeholders = [
+        {"type": "layer %d %s, definite hit" % (layer, class_name)}
+        for layer, class_name in firings
+    ]
+    placeholder = _placeholder_for_hit_form(scope, firings[0][0],
+                                            firings[0][1])
     return {
-        "placeholders": [{"type": _PLACEHOLDER_TYPE}],
+        "placeholders": placeholders,
         "placeholder_for_hit": placeholder,
         "scope": scope,
     }
@@ -365,96 +878,269 @@ def placeholder_for_same_hit(run):
     return run["placeholder_for_hit"]
 
 
-# The decoded candidate cases, by the test file own case
-# name strings. Every chain below stands authored and
-# guessed under item G-2, authorised at entry 94 in the
-# entry 54 form, and stands labelled authored and
-# guessed here and in the fragment paper, never as
-# grounded or measured. Ground that does reach: brief
-# Section 5.7, item S5-O-35, decoding covers base64,
-# hex, and URL decoding to a depth of 3 rounds, guessed;
-# the two outcome forms of that item; and the corpus
+# The layer 4 decoding engine. Ground: brief Section
+# 5.7, item S5-O-35, decoding covers base64, hex, and
+# URL decoding to a depth of 3 rounds, guessed, with
+# its two distinguished outcomes, and the corpus
 # specification form, a decoding round field on every
-# decoded candidate. The concrete chain behind each case
-# name, what the candidate decodes through at each round
-# and what residue each round leaves, stands nowhere in
-# a governing text, and the chains here are the authored
-# fixture content of this slice in their smallest form.
-# Chain for raised at depth 3, authored and guessed: a
-# candidate decodes through base64 at round 1 and hex
-# at round 2 in unraised form, and a layer raises the
-# candidate at round 3, the URL decoding round, so the
-# depth reached stands at 3 with the candidate standing
-# raised at the depth bound, in the uncertain hit form
-# item S5-O-35 states for a value past the depth. Chain for depth runs out raised, authored
-# and guessed: a candidate a layer raised at the outer
-# round decodes through the same three forms in the
-# same order and depth runs out during its decoding
-# with the candidate still raised, so the outcome is
-# the uncertain hit of item S5-O-35. Chain for depth
-# runs out unraised, authored and guessed: a value no
-# layer raised decodes through the same three forms in
-# the same order and only the depth is exceeded, so the
-# outcome is the depth limited pass of item S5-O-35, a
-# distinct state carrying no quarantine consequence.
-# The round fields value for every case stands as the
-# list of its three round forms in chain order, an
-# authored form for the truthy pin, no field list
-# standing stated in any text beyond the round field
-# kind. No decoded value string stands in this section,
-# in any representation, under the entry 58 discipline.
-_DECODED_ROUND_FORMS = ("base64", "hex", "URL decoding")
+# decoded candidate. The engine below runs real
+# decoding rounds over the candidate passed: each
+# round tries the three forms in the order hex where
+# the value stands in hex form alone, base64, and URL
+# decoding, and takes the first form whose decoding
+# yields a different printable text. The depth reached
+# stands computed from the rounds that ran, never
+# stored per case. The three case name strings the
+# test file names stand as fixture candidate
+# constructors, in the form the suite uses elsewhere:
+# each name builds a real encoded candidate, stated at
+# _case_candidate, and the built candidate passes
+# through the same engine as any other candidate, so
+# no outcome stands stored against a case name either.
 
-_DECODED_CASES = {
-    "raised at depth 3": {
-        "decoding_depth_reached": 3,
-        "outcome": "uncertain hit",
-    },
-    "depth runs out raised": {
-        "decoding_depth_reached": 3,
-        "outcome": "uncertain hit",
-    },
-    "depth runs out unraised": {
-        "decoding_depth_reached": 3,
-        "outcome": "depth limited pass",
-    },
-}
+_DECODING_DEPTH = 3
+
+
+def _printable_text(raw):
+    """Return the text of raw bytes where they stand printable.
+
+    Returns None where the bytes do not decode as UTF-8
+    or carry a character outside the printable range
+    and ordinary whitespace.
+    """
+    try:
+        text = raw.decode("utf-8")
+    except (UnicodeDecodeError, ValueError):
+        return None
+    for char in text:
+        if char in "\n\r\t":
+            continue
+        if not char.isprintable():
+            return None
+    return text
+
+
+def _try_decode_round(text):
+    """Run one decoding round over a candidate text.
+
+    Returns a pair, the form name and the decoded text,
+    for the first form that decodes the value to a
+    different printable text, and None where no form
+    decodes it. A value standing wholly in hex digits
+    of even length stands tried as hex first, that
+    being its unambiguous form; base64 stands tried
+    next, in its strict alphabet; URL decoding stands
+    tried where a percent escape stands present.
+    """
+    stripped = text.strip()
+    if (
+        len(stripped) >= 16
+        and len(stripped) % 2 == 0
+        and re.fullmatch(r"[0-9a-fA-F]+", stripped)
+    ):
+        decoded = _printable_text(binascii.unhexlify(stripped))
+        if decoded is not None and decoded != text:
+            return ("hex", decoded)
+    if (
+        len(stripped) >= 8
+        and len(stripped) % 4 == 0
+        and re.fullmatch(r"[A-Za-z0-9+/]+={0,2}", stripped)
+    ):
+        try:
+            raw = base64.b64decode(stripped, validate=True)
+        except (binascii.Error, ValueError):
+            raw = None
+        if raw is not None:
+            decoded = _printable_text(raw)
+            if decoded is not None and decoded != text:
+                return ("base64", decoded)
+    if re.search(r"%[0-9a-fA-F]{2}", text):
+        decoded = urllib.parse.unquote(text)
+        if decoded != text and _printable_text(
+            decoded.encode("utf-8")
+        ) is not None:
+            return ("URL decoding", decoded)
+    return None
+
+
+def _definite_hit_in(text):
+    """Return True where a layer decides a text definite.
+
+    The deciding tests stand as the classification
+    engine states them: the layer 1 assignment test,
+    the layer 2 pattern family tests, and the layer 5
+    declaration forms.
+    """
+    probe = {"field": None, "text": text}
+    if _assignment_with_value(text):
+        return True
+    if any(
+        outcome == "definite"
+        for _layer, outcome, _class in _layer_two_firings(probe)
+    ):
+        return True
+    if _declaration_forms(text):
+        return True
+    return False
+
+
+def _candidate_raised(text):
+    """Return True where a layer raised a candidate text.
+
+    A candidate stands raised where the layer 3
+    candidate raiser fires on one of its tokens, where
+    a pattern test fires in part on it, or where a
+    credential name or declaration word stands present
+    without a definite decision.
+    """
+    for token in re.split(r"\s+", text):
+        if len(token) >= 20 and _entropy(token) >= 4.5:
+            return True
+    if _partial_pattern_class(text) is not None:
+        return True
+    if _credential_name_forms(text):
+        return True
+    if "credential" in text.lower():
+        return True
+    return False
+
+
+def _decode_candidate(candidate):
+    """Decode a candidate to the governed depth of 3 rounds.
+
+    The engine runs decoding rounds until the value
+    stands decoded, a definite hit stands resolved, or
+    the depth of 3 rounds stands reached. The return
+    carries the depth the rounds reached, the round
+    fields of the rounds that ran, in the corpus
+    specification form round N: form, and the outcome:
+    definite hit where a round resolves the value to a
+    value a layer decides definite; uncertain hit
+    where the depth runs out, or the rounds end, on a
+    candidate a layer raised; and depth limited pass
+    where no layer raised the value, the two outcome
+    forms of item S5-O-35 beside the resolved form.
+    """
+    if isinstance(candidate, (bytes, bytearray)):
+        text = bytes(candidate).decode("utf-8", "replace")
+    else:
+        text = str(candidate)
+    if _definite_hit_in(text):
+        return {
+            "decoding_depth_reached": 0,
+            "decoding_round_fields": [],
+            "outcome": "definite hit",
+        }
+    round_fields = []
+    current = text
+    for round_number in range(1, _DECODING_DEPTH + 1):
+        step = _try_decode_round(current)
+        if step is None:
+            break
+        form, decoded = step
+        round_fields.append("round %d: %s" % (round_number, form))
+        current = decoded
+        if _definite_hit_in(current):
+            return {
+                "decoding_depth_reached": len(round_fields),
+                "decoding_round_fields": round_fields,
+                "outcome": "definite hit",
+            }
+    if _candidate_raised(current):
+        outcome = "uncertain hit"
+    else:
+        outcome = "depth limited pass"
+    return {
+        "decoding_depth_reached": len(round_fields),
+        "decoding_round_fields": round_fields,
+        "outcome": outcome,
+    }
+
+
+def _case_candidate(case):
+    """Build the real candidate a test case name names.
+
+    Each chain stands authored and guessed under item
+    G-2, authorised at entry 94 in the entry 54 form,
+    and stands labelled authored and guessed here and
+    in the fix paper, never as grounded or measured:
+    what the candidate decodes through at each round
+    stands nowhere in a governing text. Chain for
+    raised at depth 3: a high entropy token a layer
+    raises, carried through hex, base64, and hex
+    encodings, so three rounds run and the residue
+    stands raised at the depth bound. Chain for depth
+    runs out raised: a definite hit carried through
+    URL, hex, base64, and base64 encodings, so the
+    depth runs out with the residue still encoded and
+    raised in part. Chain for depth runs out unraised:
+    a routine line carried through hex, base64, hex,
+    and base64 encodings, so the depth runs out with a
+    hex residue no layer raised. The encoding acts are
+    the real base64, hex, and URL acts of this section,
+    run in reverse.
+    """
+    if case == "raised at depth 3":
+        token = "tok_X7f9Q2wZ8kL4mN6pR3sT5vW1xY0aB2cD3eF"
+        first = token.encode("utf-8").hex()
+        second = base64.b64encode(first.encode("utf-8")).decode("ascii")
+        return second.encode("utf-8").hex()
+    if case == "depth runs out raised":
+        hit = _pattern_positive_cases()[5][1]
+        first = urllib.parse.quote(hit, safe="")
+        second = first.encode("utf-8").hex()
+        third = base64.b64encode(second.encode("utf-8")).decode("ascii")
+        return base64.b64encode(third.encode("utf-8")).decode("ascii")
+    if case == "depth runs out unraised":
+        line = "a routine record line about an ordinary run"
+        first = line.encode("utf-8").hex()
+        second = base64.b64encode(first.encode("utf-8")).decode("ascii")
+        third = second.encode("utf-8").hex()
+        return base64.b64encode(third.encode("utf-8")).decode("ascii")
+    raise ValueError("unknown decoded candidate case: %r" % (case,))
+
+
+_DECODED_CASE_NAMES = (
+    "raised at depth 3",
+    "depth runs out raised",
+    "depth runs out unraised",
+)
 
 
 def decoded_candidate(case):
-    """Return the decoded candidate for one case name.
+    """Return the decoded candidate for one candidate.
+
+    The act runs the layer 4 decoding engine over the
+    candidate passed. A candidate in any real form, a
+    string or byte string carrying encoded or plain
+    material, stands decoded as it stands. The three
+    case name strings the test file names stand as
+    fixture candidate constructors in the form stated
+    at _case_candidate: each builds its real encoded
+    candidate and that candidate passes through the
+    same engine, so the depth and outcome on those
+    cases stand computed by the engine and not stored
+    against the names.
 
     The return carries exactly the three test pinned
-    keys. decoding_depth_reached: 3, in number form,
-    on every case of this section, the depth of item
-    S5-O-35 in its test form. decoding_round_fields: a
-    fresh list of the three round forms in chain order,
-    truthy, the round field limb in the authored form
-    stated at the case table above. outcome: the
-    string uncertain hit where depth runs out on a
-    candidate a layer raised, and the string depth
-    limited pass where no layer raised the value, the
-    two outcome forms of item S5-O-35. On the case
-    named raised at depth 3 no test reads the outcome
-    key, and the value this act carries there stands
-    as part of the authored and guessed chain of item
-    G-2, recorded in the paper in the open. A case name
-    outside the three the test file names raises
-    ValueError, the stated refusal form.
+    keys. decoding_depth_reached: the number of
+    decoding rounds the engine ran, computed, standing
+    at 3 where the depth of item S5-O-35 stands
+    reached. decoding_round_fields: a fresh list of
+    the round fields of the rounds that ran, in chain
+    order, truthy where any round ran. outcome: the
+    string definite hit where a round resolves the
+    value to a definite hit, the string uncertain hit
+    where depth runs out on a candidate a layer
+    raised, and the string depth limited pass where no
+    layer raised the value, the outcome forms of item
+    S5-O-35 with the resolved form beside them.
     """
-    if case not in _DECODED_CASES:
-        raise ValueError("unknown decoded candidate case: %r" % (case,))
-    stated = _DECODED_CASES[case]
-    round_fields = []
-    for index, form in enumerate(_DECODED_ROUND_FORMS):
-        round_fields.append(
-            "round %d: %s" % (index + 1, form)
-        )
-    return {
-        "decoding_depth_reached": stated["decoding_depth_reached"],
-        "decoding_round_fields": round_fields,
-        "outcome": stated["outcome"],
-    }
+    if isinstance(case, str) and case in _DECODED_CASE_NAMES:
+        candidate = _case_candidate(case)
+    else:
+        candidate = case
+    return _decode_candidate(candidate)
 
 
 def queue_defect_check(outstanding, captured):
@@ -552,43 +1238,97 @@ def assembly_scan_cannot_run():
     return {"assembly_state": "scan cannot run"}
 
 
+def _assembly_content(assembly):
+    """Return the scannable content items of an assembly.
+
+    The content of an assembly stands as every string
+    and byte value it carries, read recursively through
+    its mappings and sequences, beside the
+    assembly_state label itself, which names a state
+    and carries no content. An assembly in string or
+    byte form carries itself as its content. A value in
+    no such form carries no scannable content.
+    """
+    if isinstance(assembly, (str, bytes, bytearray)):
+        return [assembly]
+    if isinstance(assembly, dict):
+        content = []
+        for key in assembly:
+            if key == "assembly_state":
+                continue
+            content.extend(_assembly_content(assembly[key]))
+        return content
+    if isinstance(assembly, (list, tuple, set, frozenset)):
+        content = []
+        for element in assembly:
+            content.extend(_assembly_content(element))
+        return content
+    return []
+
+
 def exit_scan(assembly):
     """Return the exit scan outcome for one assembly.
 
-    On the planted hit form the return carries exactly
-    refused standing True, refused_scope standing at
-    the string whole, and released_in_part standing
-    False: an assembly with an uncleared hit is
-    refused whole, never in part, in the row words and
-    the brief exit assembly consequence at Section
-    5.7. On the cannot run form the return carries
-    exactly refused standing True and form standing at
-    the string no exit scan result, no exit, the floor
-    state sentence of that brief passage in its exact
-    wording. Any other assembly value stands refused
-    in no part by this act and returns a mapping
-    carrying exactly refused standing False: no test
-    pins a clean assembly outcome, and that branch
-    stands built in its smallest form and recorded as
-    unpinned in the fragment paper. The assembly value
-    stands read by its assembly_state key alone, in
-    the fixture forms the two fixture acts above
-    return.
+    The scan runs the classification engine over the
+    actual content the assembly carries, in the form
+    _assembly_content states, and decides on what the
+    scan finds. On an assembly whose content carries a
+    definite hit, and on the planted hit fixture form,
+    whose state declares an uncleared hit stands in
+    the assembly, the return carries exactly refused
+    standing True, refused_scope standing at the
+    string whole, and released_in_part standing False:
+    an assembly with an uncleared hit is refused
+    whole, never in part, in the row words and the
+    brief exit assembly consequence at Section 5.7.
+
+    The scan fails closed where it cannot run. On the
+    cannot run fixture form, on an assembly that is
+    None, on an empty assembly, on an assembly carrying
+    an assembly_state this act does not know, and on an
+    assembly carrying no scannable content at all, the
+    return carries exactly refused standing True and
+    form standing at the string no exit scan result, no
+    exit, the floor state sentence of that brief
+    passage in its exact wording: no exit scan result
+    stands, so no exit proceeds, and no assembly stands
+    released on a scan that did not examine it.
+
+    On an assembly whose content the scan examines and
+    finds carrying no definite hit, the return carries
+    exactly refused standing False.
     """
+    cannot_run = {
+        "refused": True,
+        "form": "no exit scan result, no exit",
+    }
+    if assembly is None:
+        return dict(cannot_run)
     state = None
     if isinstance(assembly, dict):
         state = assembly.get("assembly_state")
     if state == "scan cannot run":
-        return {
-            "refused": True,
-            "form": "no exit scan result, no exit",
-        }
+        return dict(cannot_run)
     if state == "planted uncleared hit":
         return {
             "refused": True,
             "refused_scope": "whole",
             "released_in_part": False,
         }
+    if state is not None:
+        return dict(cannot_run)
+    content = _assembly_content(assembly)
+    if not content:
+        return dict(cannot_run)
+    result = classify_material(content)
+    for layer in _SIX_LAYERS:
+        for record in result["firing_records"][layer]:
+            if record["outcome"] == "definite":
+                return {
+                    "refused": True,
+                    "refused_scope": "whole",
+                    "released_in_part": False,
+                }
     return {"refused": False}
 
 

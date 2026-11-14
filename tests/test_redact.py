@@ -349,5 +349,143 @@ class TestRedactT08(unittest.TestCase):
         self.assertTrue(check["discharge_recorded_in_store_posture_record"])
 
 
+class TestRedactFixR1(unittest.TestCase):
+    """Fix round 1: content scanning, classification, decoding.
+
+    Written test first for the COR cures of S15-R1-056,
+    S15-R1-057, S15-R1-058, S15-R1-061, and S15-R1-063: the
+    exit scan scans content and fails closed, the
+    classification act classifies the material passed, the
+    decoding act computes its depth over a real candidate,
+    the redacting append path writes through the store
+    append, and placeholders name the layer and class that
+    fired.
+    """
+
+    def test_exit_scan_fails_closed_on_an_unknown_state(self):
+        module = require(MODULE)
+        outcome = module.exit_scan({"assembly_state": "some unknown state"})
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["form"], "no exit scan result, no exit")
+
+    def test_exit_scan_fails_closed_on_an_empty_mapping_and_on_none(self):
+        module = require(MODULE)
+        for assembly in ({}, None):
+            outcome = module.exit_scan(assembly)
+            self.assertTrue(outcome["refused"])
+            self.assertEqual(
+                outcome["form"], "no exit scan result, no exit"
+            )
+
+    def test_exit_scan_refuses_an_assembly_carrying_definite_hit_bytes(self):
+        module = require(MODULE)
+        shape = module.secret_bearing_shapes()[0]
+        outcome = module.exit_scan({"content": shape["raw_bytes"]})
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+        outcome = module.exit_scan(shape["raw_bytes"])
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+
+    def test_exit_scan_releases_scannable_clean_content(self):
+        module = require(MODULE)
+        outcome = module.exit_scan({"content": "an ordinary record line"})
+        self.assertFalse(outcome["refused"])
+
+    def test_classification_act_classifies_the_material_passed(self):
+        module = require(MODULE)
+        hit = module.classify_material("password = SyntheticValue123")
+        fired = [
+            record
+            for records in hit["firing_records"].values()
+            for record in records
+        ]
+        self.assertTrue(
+            any(record["outcome"] == "definite" for record in fired)
+        )
+        plain = module.classify_material("a routine note about lunch")
+        plain_fired = [
+            record
+            for records in plain["firing_records"].values()
+            for record in records
+        ]
+        self.assertFalse(
+            any(record["outcome"] == "definite" for record in plain_fired)
+        )
+        self.assertNotEqual(hit["firing_records"], plain["firing_records"])
+        self.assertEqual(hit["engine_count"], 1)
+        for layer in SIX_LAYERS:
+            self.assertEqual(
+                hit["layers"][layer]["rule"], module.shared_rule(layer)
+            )
+
+    def test_classify_corpus_shapes_records_per_layer_firings(self):
+        module = require(MODULE)
+        result = module.classify_corpus_shapes()
+        self.assertEqual(result["engine_count"], 1)
+        for layer in SIX_LAYERS:
+            self.assertIn(layer, result["firing_records"])
+            self.assertIsInstance(result["firing_records"][layer], list)
+            for record in result["firing_records"][layer]:
+                self.assertIn(record["outcome"], ("definite", "uncertain"))
+                self.assertEqual(record["layer"], layer)
+
+    def test_decoding_computes_depth_over_a_real_candidate(self):
+        import base64
+        import urllib.parse
+
+        module = require(MODULE)
+        hit = "password = SyntheticValue123"
+        layer_one = urllib.parse.quote(hit, safe="")
+        layer_two = layer_one.encode("utf-8").hex()
+        candidate = base64.b64encode(
+            layer_two.encode("utf-8")
+        ).decode("ascii")
+        result = module.decoded_candidate(candidate)
+        self.assertEqual(result["decoding_depth_reached"], 3)
+        self.assertEqual(result["outcome"], "definite hit")
+        self.assertEqual(len(result["decoding_round_fields"]), 3)
+        plain = module.decoded_candidate("a routine note")
+        self.assertEqual(plain["decoding_depth_reached"], 0)
+        self.assertEqual(plain["outcome"], "depth limited pass")
+
+    def test_redacting_append_path_writes_through_the_store_append(self):
+        module = require(MODULE)
+        store_module = require("ontoloop.store")
+        store = store_module.golden_record_store()
+        before = len(store["records"])
+        outcome = module.append_redacted(
+            store, "password = SyntheticValue123", scope="run one"
+        )
+        self.assertTrue(outcome["appended"])
+        self.assertEqual(len(store["records"]), before + 1)
+        journal = b"\n".join(
+            record["canonical_bytes"] for record in store["records"]
+        )
+        self.assertNotIn(b"SyntheticValue123", journal)
+        self.assertTrue(outcome["placeholders"])
+        for placeholder in outcome["placeholders"]:
+            self.assertIn("layer", placeholder)
+
+    def test_journal_after_appends_comes_from_a_real_store_journal(self):
+        module = require(MODULE)
+        journal = module.journal_after_definite_hit_appends()
+        self.assertEqual(journal["scan_point"], "after appends")
+        self.assertIn(b"redacted placeholder", journal["bytes"])
+        for shape in module.secret_bearing_shapes():
+            self.assertNotIn(shape["raw_bytes"], journal["bytes"])
+
+    def test_placeholders_name_the_layer_and_class_that_fired(self):
+        module = require(MODULE)
+        run = module.run_with_definite_hit("run one")
+        for placeholder in run["placeholders"]:
+            self.assertIn("layer 2", placeholder["type"])
+            self.assertIn("private_key_block_headers", placeholder["type"])
+        self.assertIn(
+            "private_key_block_headers", run["placeholder_for_hit"]
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

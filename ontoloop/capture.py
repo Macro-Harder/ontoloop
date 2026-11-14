@@ -34,6 +34,7 @@ __all__ = [
     "meaning_check",
     "membership_counts",
     "pending_outcome_close_routes",
+    "pool_stamp",
     "submit_outcome",
     "validate_chain",
 ]
@@ -110,6 +111,14 @@ _STEP_TWO = "example-a-step-two"
 # chain break variation exercises.
 _BROKEN_PREDECESSOR = "example-a-step-nonexistent"
 
+# The Example A chain run identity, authored and
+# guessed under scope item G-2 in the same standing
+# as the chain contents: the chain form carries the
+# identity of the run its steps stand in, so chain
+# validation can detect a predecessor naming a step
+# in another run.
+_RUN_IDENTITY = "example-a-run"
+
 
 def _digest(domain, parts):
     text = domain
@@ -137,10 +146,32 @@ def _group_key():
     )
 
 
-def _pool_stamp():
-    if _ROTATION_POSITION % 3 == 0:
+def pool_stamp(position):
+    """Return the pool stamp for one rotation position.
+
+    The stamp act reads the two inputs computation_inputs
+    names for it in fact: the store sequence order, given
+    here as the rotation position of the new group in that
+    order, and the group first acceptance standing, this
+    act standing as the assignment at first acceptance
+    itself. Every third new group in store sequence order
+    is stamped holdout eligible and the other positions
+    are not, in the brief Section 5.3 rotation form, and
+    the stamp is permanent from that acceptance. A
+    position that is not a positive integer raises
+    ValueError.
+    """
+    if not isinstance(position, int) or isinstance(position, bool):
+        raise ValueError("unknown rotation position: %r" % (position,))
+    if position < 1:
+        raise ValueError("unknown rotation position: %r" % (position,))
+    if position % 3 == 0:
         return "holdout eligible"
     return "not holdout eligible"
+
+
+def _pool_stamp():
+    return pool_stamp(_ROTATION_POSITION)
 
 
 # The computation input names, by computation, in
@@ -256,10 +287,11 @@ def computation_inputs(name):
 def example_a_chain(varied_by=None):
     """Return the Example A predecessor chain.
 
-    The return carries exactly the two test pinned
-    keys. order: a fresh list holding the two step
-    identity values in chain order, on the CORE
-    ground stated at the step constants above.
+    The return carries the two test pinned keys and
+    the run identity key stated below. order: a fresh
+    list holding the two step identity values in
+    chain order, on the CORE ground stated at the
+    step constants above.
     steps: a fresh list of two fresh step mappings,
     each carrying step_identity and predecessor.
     The first step predecessor stands as None, the
@@ -281,6 +313,17 @@ def example_a_chain(varied_by=None):
     at the broken predecessor constant above, under
     scope item G-2. The order value and the step
     identities stand unmoved in that form.
+    The chain carries its run identity at the top
+    level under run_identity, and each step carries
+    the same identity under run, so a predecessor
+    naming a step in another run stands detectable
+    by validate_chain: a step may carry
+    predecessor_run naming the run its predecessor
+    stands in, and a predecessor_run differing from
+    the step own run stands as a cross run
+    predecessor. The run identity value stands
+    authored and guessed under scope item G-2 in
+    the same standing as the chain contents.
     A varied_by value outside the pinned forms
     raises ValueError.
     """
@@ -291,11 +334,17 @@ def example_a_chain(varied_by=None):
         second_predecessor = _BROKEN_PREDECESSOR
     return {
         "order": [_STEP_ONE, _STEP_TWO],
+        "run_identity": _RUN_IDENTITY,
         "steps": [
-            {"step_identity": _STEP_ONE, "predecessor": None},
+            {
+                "step_identity": _STEP_ONE,
+                "predecessor": None,
+                "run": _RUN_IDENTITY,
+            },
             {
                 "step_identity": _STEP_TWO,
                 "predecessor": second_predecessor,
+                "run": _RUN_IDENTITY,
             },
         ],
     }
@@ -342,6 +391,7 @@ def validate_chain(chain):
     """
     order = list(chain["order"])
     steps = list(chain["steps"])
+    chain_run = chain.get("run_identity")
     identities = []
     for index, step in enumerate(steps):
         if "step_identity" in step:
@@ -358,11 +408,17 @@ def validate_chain(chain):
     if identities != order:
         broken = True
     for index, step in enumerate(steps):
+        step_run = step.get("run", chain_run)
+        if chain_run is not None and step_run != chain_run:
+            broken = True
         predecessor = step["predecessor"]
         if index == 0:
             if predecessor is not None:
                 broken = True
             continue
+        predecessor_run = step.get("predecessor_run", step_run)
+        if predecessor_run != step_run:
+            broken = True
         if predecessor not in identities:
             broken = True
         elif predecessor == identities[index]:
@@ -462,69 +518,156 @@ def pending_outcome_close_routes():
 def submit_outcome(case):
     """Return the outcome submission outcome for a case.
 
-    On each case the tests name, the return carries
-    exactly the two test pinned keys. refused: True.
-    reason: the string closed state. Its ground is
-    the outcome precedence passage at brief Section
-    5.3: an Outcome appended for a run already closed
-    as none will follow, and a second Outcome appended
-    for a run already in the attached state, are each
-    refused with a named error naming the closed
-    state, and dataset eligibility follows the first
-    closed outcome only. The case name late stands
-    read as the none will follow case and the case
-    name second as the attached case, in the plain
-    reading the shape act states, and that mapping
-    stands as an authored reading in the open under
-    the bound at step record entry 99 item (d). A
-    case name outside the two the test file names
-    raises ValueError, the refusal form the landed
-    fragments use for an unknown argument to a
-    present function, and no submission on an open
-    pending run stands built by this act.
+    The act reads the run state the case states, in
+    either of the forms it accepts: a case name string,
+    or a mapping carrying the run state under the key
+    state or the key run_state. On a closed state, the
+    none will follow state or the attached state, the
+    return carries exactly the two test pinned keys.
+    refused: True. reason: the string closed state.
+    Its ground is the outcome precedence passage at
+    brief Section 5.3: an Outcome appended for a run
+    already closed as none will follow, and a second
+    Outcome appended for a run already in the attached
+    state, are each refused with a named error naming
+    the closed state, and dataset eligibility follows
+    the first closed outcome only. The case name late
+    stands read as the none will follow case and the
+    case name second as the attached case, in the
+    plain reading the shape act states, and that
+    mapping stands as an authored reading in the open
+    under the bound at step record entry 99 item (d).
+    On an open pending state the submission stands
+    accepted: the return carries refused False and
+    reason standing at the string outcome appended,
+    the pending outcome state closing by the outcome
+    record route pending_outcome_close_routes names.
+    A case stating no state this act knows raises
+    ValueError, the refusal form the landed fragments
+    use for an unknown argument to a present function.
     """
-    if case not in ("late", "second"):
-        raise ValueError("unknown outcome submission case: %r" % (case,))
-    return {"refused": True, "reason": "closed state"}
+    state = case
+    if isinstance(case, dict):
+        state = case.get("state", case.get("run_state"))
+    if state in ("late", "second", "attached", "none will follow"):
+        return {"refused": True, "reason": "closed state"}
+    if state in ("pending", "open"):
+        return {"refused": False, "reason": "outcome appended"}
+    raise ValueError("unknown outcome submission case: %r" % (case,))
+
+
+_JOURNAL_LINE_CAP_BYTES = 64 * 1024
+_TEXT_FIELD_CAP_BYTES = 32 * 1024
+
+
+def _payload_fields(payload):
+    """Return the text fields of a payload, as byte strings.
+
+    A mapping payload contributes one field per value,
+    in key order, each value in its byte form: bytes
+    stand as they stand, and any other value stands in
+    the UTF-8 byte form of its string form. A string or
+    bytes payload stands as a single text field in its
+    byte form. Any other payload form raises ValueError.
+    """
+    if isinstance(payload, dict):
+        fields = []
+        for key in payload:
+            value = payload[key]
+            if isinstance(value, (bytes, bytearray)):
+                fields.append(bytes(value))
+            else:
+                fields.append(str(value).encode("utf-8"))
+        return fields
+    if isinstance(payload, (bytes, bytearray)):
+        return [bytes(payload)]
+    if isinstance(payload, str):
+        return [payload.encode("utf-8")]
+    raise ValueError("unknown payload form: %r" % (type(payload),))
+
+
+def _measure_payload(payload):
+    """Measure a payload against both D-13 caps.
+
+    The journal line size stands as the total of the
+    field byte sizes plus one separator byte between
+    fields. The text field size stands as the largest
+    single field byte size. The return carries both
+    measured sizes and the refusal standing: refused
+    where either size passes its cap, a payload at a
+    cap standing accepted whole.
+    """
+    fields = _payload_fields(payload)
+    line_size = sum(len(field) for field in fields)
+    if len(fields) > 1:
+        line_size += len(fields) - 1
+    field_size = max([len(field) for field in fields], default=0)
+    refused = (
+        line_size > _JOURNAL_LINE_CAP_BYTES
+        or field_size > _TEXT_FIELD_CAP_BYTES
+    )
+    return {
+        "journal_line_bytes": line_size,
+        "text_field_bytes": field_size,
+        "refused": refused,
+    }
 
 
 def capture_payload(case):
-    """Return the payload capture outcome for a case.
+    """Return the payload capture outcome for a payload.
+
+    The act measures the payload it is given against
+    both D-13 caps and decides on the measurement. A
+    real payload stands accepted in either of the
+    payload forms _payload_fields states: a string or
+    bytes payload as a single text field on one journal
+    line, or a mapping payload field by field. The two
+    case name strings the Step 13 tests name stand as
+    fixture payload constructors in the form the suite
+    uses elsewhere: the string at cap builds the
+    two field payload whose fields stand at the text
+    field cap and one byte under it, measuring exactly
+    at the journal line cap with its separator byte,
+    and the string over cap builds the two field
+    payload with both fields at the text field cap,
+    measuring one byte over the journal line cap. Both
+    fixture payloads pass through the same measurement
+    act as any real payload, and no outcome stands
+    stored against either name.
 
     The return carries exactly the five keys the
-    tests pin across this class, on each case. On
-    the at cap case: accepted True, truncated False,
-    refused False, truncation_written False, and
-    partial_record_written False. On the over cap
-    case: accepted False, truncated False, refused
-    True, truncation_written False, and
+    tests pin across this class. Accepted whole:
+    accepted True, truncated False, refused False,
+    truncation_written False, and
+    partial_record_written False. Refused: accepted
+    False, truncated False, refused True,
+    truncation_written False, and
     partial_record_written False. Its ground is the
     capture cap failure form at brief Section 5.3:
     where a journal line would pass the D-13 line
     cap or a text field would pass the D-13 field
     cap on legitimate work, capture refuses that run
     and records no part of it, and no truncation
-    happens at capture. The cap values behind the
-    two case names stand at D-13, 64 KiB per journal
-    line and 32 KiB per text field, guessed, and
-    stand labelled guessed at the caps surface of
-    this module and in the fragment paper. The
-    payload contents behind the two case name
-    strings stand unpinned by any test and stand
-    built as test pinned properties only, under the
-    bound at step record entry 99 item (d) for
-    scope gap G-6. A case name outside the two the
-    test file names raises ValueError.
+    happens at capture. The cap values stand at
+    D-13, 64 KiB per journal line and 32 KiB per text
+    field, guessed, and stand labelled guessed at
+    the caps surface of this module. A payload in no
+    stated form raises ValueError.
     """
     if case == "at cap":
-        return {
-            "accepted": True,
-            "truncated": False,
-            "refused": False,
-            "truncation_written": False,
-            "partial_record_written": False,
+        payload = {
+            "first": "a" * _TEXT_FIELD_CAP_BYTES,
+            "second": "b" * (_TEXT_FIELD_CAP_BYTES - 1),
         }
-    if case == "over cap":
+    elif case == "over cap":
+        payload = {
+            "first": "a" * _TEXT_FIELD_CAP_BYTES,
+            "second": "b" * _TEXT_FIELD_CAP_BYTES,
+        }
+    else:
+        payload = case
+    measured = _measure_payload(payload)
+    if measured["refused"]:
         return {
             "accepted": False,
             "truncated": False,
@@ -532,7 +675,13 @@ def capture_payload(case):
             "truncation_written": False,
             "partial_record_written": False,
         }
-    raise ValueError("unknown payload case: %r" % (case,))
+    return {
+        "accepted": True,
+        "truncated": False,
+        "refused": False,
+        "truncation_written": False,
+        "partial_record_written": False,
+    }
 
 
 def d13_caps():
@@ -570,12 +719,19 @@ def membership_counts(case):
     The figure set stands as the authored reading
     stated at the figure constant above, under the
     bound at step record entry 99 item (d) for
-    scope gap G-6. A state name outside the one the
-    test file names raises ValueError, and no count
-    for the pending state as a separate argument
-    stands built or claimed by this act.
+    scope gap G-6. The act accepts the state in
+    either form it is stated in: a state name string,
+    or a mapping carrying the state under the key
+    state. The pending state counts in the same form
+    as the none will follow state, a run in either
+    state carrying no outcome: it counts in runs seen
+    and in no membership figure. A state outside the
+    two this act knows raises ValueError.
     """
-    if case != "none will follow":
+    state = case
+    if isinstance(case, dict):
+        state = case.get("state")
+    if state not in ("none will follow", "pending"):
         raise ValueError("unknown membership counts state: %r" % (case,))
     figures = {}
     for figure in _MEMBERSHIP_FIGURES:
@@ -593,24 +749,36 @@ def capture_into_store(case):
     character for character on the landed store
     surface at system/ontoloop/store.py, where
     capture_append on a suspect store refuses in
-    terms with that reason wording, consumed here
-    as a value form and not as a call: this act
-    takes the case name string the test passes,
-    calls no store surface, and passes no store
-    value anywhere. Its ground beside that form is
-    the row behaviour, capture refuses while the
-    store stands suspect, at plan section 6.5. A
-    case name outside the suspect case the test
-    file names raises ValueError: the non suspect
-    forms of this surface stand unpinned by any
-    test, stand built in no accepted form here,
-    and stand recorded as such in the fragment
-    paper, under the bound at step record entry 99
-    item (d) for scope gap G-6.
+    terms with that reason wording. The act accepts
+    the case in either form it is stated in: the
+    case name string the test passes, standing as
+    the suspect position in value form, or a real
+    store value, a mapping carrying the store
+    records, which this act passes to the store
+    capture append act itself and reports in the
+    same three key form: on a suspect store value
+    the refusal stands as above, and on a store
+    value the append act accepts, captured stands
+    True with refused False and the reason standing
+    at the string captured. Its ground beside that
+    form is the row behaviour, capture refuses while
+    the store stands suspect, at plan section 6.5. A
+    case in neither form raises ValueError.
     """
-    if case != "suspect":
-        raise ValueError("unknown capture into store case: %r" % (case,))
-    return {"refused": True, "reason": "store suspect", "captured": False}
+    if case == "suspect":
+        return {"refused": True, "reason": "store suspect", "captured": False}
+    if isinstance(case, dict) and "records" in case:
+        from ontoloop import store as _store_module
+
+        outcome = _store_module.capture_append(case)
+        if outcome.get("refused"):
+            return {
+                "refused": True,
+                "reason": outcome.get("reason", "store suspect"),
+                "captured": False,
+            }
+        return {"refused": False, "reason": "captured", "captured": True}
+    raise ValueError("unknown capture into store case: %r" % (case,))
 
 
 def meaning_check(check_id, affected_class, fixture, direction):

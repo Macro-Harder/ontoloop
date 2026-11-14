@@ -121,8 +121,13 @@ _LIMITS_WORDING = (
     "up to 10 seconds, guessed at D-19, and a lock "
     "contention refusal follows the wait. While a store "
     "stands suspect, ordinary capture appends stand "
-    "refused. No other limit stated in this record carries "
-    "a figure or a bound."
+    "refused. The append lock is the only writer path "
+    "inside the product: a direct file writer under full "
+    "reach stands outside the product and is detected, "
+    "not prevented, by verify disagreement or "
+    "unverifiable outcomes, and no prevention stands "
+    "claimed for such a writer. No other limit stated in "
+    "this record carries a figure or a bound."
 )
 _LIMITS_FIGURE_BASIS = (
     "The D-19 writer wait for the single append lock, "
@@ -790,19 +795,36 @@ def append_with_fault(store, fault):
 def append_under_contention(case):
     """Return the lock contention outcome for a contention case.
 
-    The contention act over the one append lock position the
-    roster 937 append act states: contention waits to the D-19
-    bound, guessed, then refuses by name in the returned
-    mapping form, and nothing stands appended. The case value
-    stands read as the lock contention case roster 935 section
-    constructs and carries no field this act judges.
+    The act drives the case through the one append act
+    against the held lock the case states, so the wait it
+    reports is the wait the append act performs: where the
+    case carries a store value and states its append lock
+    held, this act takes the module append lock itself and
+    calls append_record over that store, whose own poll
+    loop then waits to the D-19 bound, guessed, and refuses
+    by name, and that refusal stands returned whole, with
+    nothing appended. Where the case states no held lock
+    over a store, no wait stands performed and the return
+    claims none: waited_to_bound stands False and no
+    contention refusal stands reported as performed.
     """
-    return {
-        "error": _LOCK_CONTENTION_REFUSAL,
-        "waited_to_bound": True,
-        "appended": False,
-        "reported_appended": False,
-    }
+    store = case.get("store") if isinstance(case, dict) else None
+    if not isinstance(store, dict) or not case.get("lock_held"):
+        return {
+            "error": "lock contention case not stated",
+            "waited_to_bound": False,
+            "appended": False,
+            "reported_appended": False,
+        }
+    _APPEND_LOCK.acquire()
+    try:
+        return append_record(
+            store,
+            {"record_type": "record", "payload": "contention probe"},
+            "record",
+        )
+    finally:
+        _APPEND_LOCK.release()
 
 
 def append_before_truncation_verified(store):
@@ -1356,20 +1378,23 @@ def verify(store, anchor=None):
     at RF-6, this surface records the suspect position on
     the store value the computation judged, setting its
     store position to suspect, and no act of this slice
-    clears that position. The torn final line input keeps
-    the sealing form at this exit, under scope gap G-5, the
-    repair acts of roster 936's section standing as the
-    slice answer to that row. The anchored form stands
-    carried as the optional supplied anchor argument,
-    defaulting to the uninvoked form the one argument call
-    the suite uses requires: where an anchor stands
-    supplied and the delegation returns agreement, the
-    anchor check of subsection 20.87 point six runs over
-    the supplied anchor through the sealing signature act
-    alone, returning the point six anchored cases in their
-    own forms, and where the anchored heads agree no
-    statement key stands added, no text stating one, under
-    shape disagreement DG-16.
+    clears that position. The torn final line input returns
+    the governed unverifiable output naming its case from
+    the sealing computation beneath this surface, with no
+    sentence. The anchored form stands carried as the
+    optional supplied anchor argument, defaulting to the
+    uninvoked form the one argument call the suite uses
+    requires: where an anchor stands supplied and the
+    delegation returns agreement, the anchor check of
+    subsection 20.87 point six runs over the supplied
+    anchor through the sealing signature act alone,
+    returning the point six anchored cases in their own
+    forms; where the anchored heads agree, the result
+    carries the anchor agreement statement beside the
+    outcome, and where they differ, the disagreement
+    result carries the anchor mismatch statement, stating
+    the mismatch and nothing about which head is true, in
+    the form subsection 20.87 point six states.
     """
     if not isinstance(store, dict):
         return {
@@ -1409,20 +1434,34 @@ def verify(store, anchor=None):
         if anchor is not None:
             anchored = _anchored_check(store, projected, anchor)
             if anchored is not None:
-                result = anchored
+                if set(anchored) == {"anchor_statement"}:
+                    result = dict(result)
+                    result["anchor_statement"] = anchored[
+                        "anchor_statement"
+                    ]
+                else:
+                    result = anchored
     if isinstance(result, dict) and result.get("output") == "disagreement":
         store[_SUSPECT_POSITION_KEY] = _SUSPECT_POSITION_VALUE
     return result
 
 
+_ANCHOR_AGREEMENT = "anchor agreement"
+_ANCHOR_MISMATCH = "anchor mismatch"
+
+
 def _anchored_check(store, projected, anchor):
     """Run the anchored check over a supplied anchor object.
 
-    Returns None where the anchored heads agree with the
-    standing signed heads, and a verify result in the
-    subsection 20.87 point six anchored form where they do
-    not stand or do not verify. The check recomputes no
-    chain and compares no journal signature: its only
+    Returns a statement mapping carrying the anchor
+    agreement statement where the anchored heads agree
+    with the standing signed heads, and a verify result in
+    the subsection 20.87 point six anchored form where
+    they do not stand or do not verify: on differing heads
+    the disagreement result carries the anchor mismatch
+    statement beside its outcome, stating the mismatch and
+    nothing about which head is true. The check recomputes
+    no chain and compares no journal signature: its only
     signing act is the sealing signature verification over
     the anchor stated heads.
     """
@@ -1458,13 +1497,17 @@ def _anchored_check(store, projected, anchor):
         return {"output": "unverifiable", "case": "anchor signature invalid"}
     standing = store.get("signature_object")
     if not isinstance(standing, dict):
-        return None
+        return {"anchor_statement": _ANCHOR_AGREEMENT}
     if (
         anchor.get("journal_head_hash") != standing.get("journal_head_hash")
         or anchor.get("manifest_hash") != standing.get("manifest_hash")
     ):
-        return {"output": "disagreement", "form": "disagreement form"}
-    return None
+        return {
+            "output": "disagreement",
+            "form": "disagreement form",
+            "anchor_statement": _ANCHOR_MISMATCH,
+        }
+    return {"anchor_statement": _ANCHOR_AGREEMENT}
 
 
 def append_record(store, content, record_type="record"):

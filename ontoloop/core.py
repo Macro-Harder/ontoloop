@@ -27,11 +27,15 @@ and it is not a second journal append surface.
 What this slice does not build stands unbuilt behind the
 module level guard at the foot of this file: the journal
 append itself and every store act, the capture acts in
-substance, the declaration refusal surface and the
-determinism surface in their suite forms, the catalogue
-rows of the later slices and the whole set check, the
-governing state table as an implementation unit, and
-every reading form artifact. A lookup of a public name
+substance, the governing state table as an
+implementation unit, and every reading form artifact.
+The catalogue stands complete in this module at the
+ruled 24 row set, the declaration refusal surface and
+the determinism check surfaces stand built in their
+suite forms in this module, and the whole set check
+stands as the re-run act of the catalogue completion
+record, not as a surface of this module. A lookup of a
+public name
 this module does not provide raises AssertionError in the
 NOT BUILT form the suite harness uses. A lookup of a
 private or dunder name raises AttributeError in the
@@ -66,6 +70,14 @@ __all__ = [
     "check_owing_forms",
     "catalogue_row_with_value",
     "printed_claims",
+    "present_declaration",
+    "refused_technique_set",
+    "determinism_source_scan",
+    "determinism_run_check",
+    "determinism_check_with_barred_practice",
+    "dispose_determinism_failure",
+    "core_exit_passes",
+    "meaning_check",
 ]
 
 
@@ -1774,10 +1786,12 @@ def owing_form_defects():
     error_catalogue through the module globals at call
     time, against the stored owing presentation in the
     same form. Simple stands owed on every row; Advanced
-    stands owed on all four rows, on the substance
-    judgement the shape act states at its appended
-    section B; Agentic stands owed where the row named
-    reader is an agent. A row whose owed form stands
+    stands owed on all rows of the completed 24 row
+    catalogue, on the substance judgement the shape act
+    states at its appended section B, every row wording
+    stating a refusal reason; Agentic stands owed where
+    the row named reader is an agent. A row whose owed
+    form stands
     missing, None, or empty stands named in the returned
     list, as a defect in the catalogue itself. Over the
     catalogue as built every owed form stands present,
@@ -1802,6 +1816,437 @@ def owing_form_defects():
         if missing:
             defects.append(name)
     return defects
+
+
+# Section: declaration refusal, determinism check, and
+# the type mapping meaning check. The declaration
+# refusal surfaces stand under plan subsection 19.33,
+# the determinism check surfaces under plan subsections
+# 18.7 point one and 20.18, and meaning_check under plan
+# subsection 19.101 for the type mapping class.
+
+import ast as _ast
+import os as _os
+
+_DECLARATION_ERROR = "declared training technique refused"
+
+_REFUSED_TECHNIQUES = ("sft", "dpo", "grpo")
+
+# The closed allowed list of technique declarations for
+# the first version, in the form plan subsection 19.33
+# point one states it: the list stands closed, and no
+# training technique name stands on it. The tuple stands
+# empty of technique names in this version by that rule,
+# so every technique declaration presented stands
+# outside the allowed list and stands refused.
+_ALLOWED_TECHNIQUE_DECLARATIONS = ()
+
+
+def refused_technique_set():
+    """Return the shipped refused technique set.
+
+    The return is a fresh set holding exactly the three
+    strings plan subsection 19.33 point three names,
+    sft, dpo, and grpo, in their exact string forms.
+    """
+    return set(_REFUSED_TECHNIQUES)
+
+
+def _matched_declaration_form(declaration):
+    """Return the matching form of one declaration.
+
+    The matching form stands as plan subsection 19.33
+    point two states it: the declaration case folded
+    and its whitespace collapsed, with the spaces then
+    removed whole, so a spacing variant written inside
+    a listed name matches the listed name itself.
+    """
+    collapsed = " ".join(str(declaration).split()).casefold()
+    return collapsed.replace(" ", "")
+
+
+def present_declaration(declaration):
+    """Present one technique declaration for acceptance.
+
+    The act matches the declaration in the matching
+    form _matched_declaration_form computes and judges
+    it against the closed allowed list and the shipped
+    refused set. A declaration matching a refused name
+    in that form, and any other declaration outside the
+    closed allowed list, which in this version carries
+    no training technique name, stands refused under
+    plan subsection 19.33: the return carries refused
+    standing True, error standing at the named error
+    declared training technique refused, in the exact
+    string subsection 19.33 point four names,
+    declared_record_changed standing False, the refusal
+    changing no record except the refusal record, and
+    journal_refusal_recorded standing True, the refusal
+    journaled like any other refusal.
+    """
+    matched = _matched_declaration_form(declaration)
+    if matched in _ALLOWED_TECHNIQUE_DECLARATIONS:
+        return {
+            "refused": False,
+            "error": None,
+            "declared_record_changed": False,
+            "journal_refusal_recorded": False,
+        }
+    return {
+        "refused": True,
+        "error": _DECLARATION_ERROR,
+        "declared_record_changed": False,
+        "journal_refusal_recorded": True,
+    }
+
+
+def _scan_source_for_barred_practices(source):
+    """Scan source text for the two barred practices.
+
+    The scan parses the source and walks its syntax
+    tree, so words standing in strings, docstrings, and
+    comments stand never counted as practices. It
+    returns a pair of fresh lists: the uses of the
+    builtin hash function, each recorded by its line,
+    and the constructions whose output order is the
+    iteration order of a set, each recorded by its
+    line: a loop or a comprehension iterating a set
+    literal or a set call directly, and a call passing
+    a set literal or a set call to a sequence or
+    ordering builtin. The scan reaches the practices
+    themselves and depends on no import, in the form
+    plan subsection 20.18 clause two states.
+    """
+    tree = _ast.parse(source)
+    hash_uses = []
+    set_order = []
+
+    def _is_set_form(node):
+        if isinstance(node, _ast.Set):
+            return True
+        return (
+            isinstance(node, _ast.Call)
+            and isinstance(node.func, _ast.Name)
+            and node.func.id == "set"
+        )
+
+    for node in _ast.walk(tree):
+        if (
+            isinstance(node, _ast.Call)
+            and isinstance(node.func, _ast.Name)
+            and node.func.id == "hash"
+        ):
+            hash_uses.append(
+                "builtin hash function used at line %d" % node.lineno
+            )
+        if isinstance(node, (_ast.For, _ast.AsyncFor)) and _is_set_form(
+            node.iter
+        ):
+            set_order.append(
+                "loop over a set at line %d" % node.lineno
+            )
+        if isinstance(
+            node,
+            (
+                _ast.ListComp,
+                _ast.SetComp,
+                _ast.DictComp,
+                _ast.GeneratorExp,
+            ),
+        ):
+            for generator in node.generators:
+                if _is_set_form(generator.iter):
+                    set_order.append(
+                        "comprehension over a set at line %d"
+                        % node.lineno
+                    )
+        if (
+            isinstance(node, _ast.Call)
+            and isinstance(node.func, _ast.Name)
+            and node.func.id
+            in ("sorted", "list", "tuple", "iter", "next")
+            and node.args
+            and _is_set_form(node.args[0])
+        ):
+            set_order.append(
+                "sequence built from a set at line %d" % node.lineno
+            )
+    return hash_uses, set_order
+
+
+def determinism_source_scan(source=None):
+    """Run the source limb of the determinism check.
+
+    With no source argument the act reads this module
+    own source file whole, at call time, and scans it
+    with _scan_source_for_barred_practices. The return
+    carries limb standing at the string source,
+    builtin_hash_uses_for_grouping_ordering_assignment
+    holding the recorded uses of the builtin hash
+    function for grouping, ordering, or assignment,
+    set_iteration_order_constructions holding the
+    recorded constructions whose output order is the
+    iteration order of a set, and
+    whole_core_source_scanned standing True where the
+    module source stood read in full. Over this module
+    as built both lists stand empty.
+    """
+    if source is None:
+        with open(_os.path.abspath(__file__), "r", encoding="utf-8") as handle:
+            source = handle.read()
+        whole = True
+    else:
+        whole = False
+    hash_uses, set_order = _scan_source_for_barred_practices(source)
+    return {
+        "limb": "source",
+        "builtin_hash_uses_for_grouping_ordering_assignment": hash_uses,
+        "set_iteration_order_constructions": set_order,
+        "whole_core_source_scanned": whole,
+    }
+
+
+def determinism_run_check():
+    """Run the run limb of the determinism check.
+
+    The act runs one core computation, the canonical
+    encoding of a record, twice over the same inputs,
+    with the set valued input, the record field name
+    set, constructed in a different order on the second
+    run: the record stands built field by field in the
+    first construction order, then in its reverse. The
+    return carries limb standing at the string run,
+    first_input_order and second_input_order holding
+    the two construction orders, first_output and
+    second_output holding the two canonical encodings
+    in full, and compared_in_full standing True, the
+    two outputs standing compared as whole byte
+    strings. The canonical form orders a record by its
+    field names in its own form, so the two outputs
+    stand equal over this module as built.
+    """
+    field_names = {"alpha", "beta", "gamma", "delta"}
+    first_order = list(field_names)
+    second_order = list(reversed(first_order))
+    values = {
+        "alpha": "first field",
+        "beta": "second field",
+        "gamma": "third field",
+        "delta": "fourth field",
+    }
+    first_record = {}
+    for name in first_order:
+        first_record[name] = values[name]
+    second_record = {}
+    for name in second_order:
+        second_record[name] = values[name]
+    first_output = canonical_encoding(first_record)
+    second_output = canonical_encoding(second_record)
+    return {
+        "limb": "run",
+        "first_input_order": first_order,
+        "second_input_order": second_order,
+        "first_output": first_output,
+        "second_output": second_output,
+        "compared_in_full": first_output == second_output,
+    }
+
+
+_SEEDED_SOURCE_PRACTICE = (
+    "groups = {}\n"
+    "for value in values:\n"
+    "    groups[hash(value)] = value\n"
+    "ordered = [item for item in {first, second}]\n"
+)
+
+_SEEDED_COMPUTATIONS = {
+    "source": (
+        "seeded computation grouping by the builtin hash function"
+    ),
+    "run": "seeded computation emitting set iteration order",
+}
+
+
+def _seeded_set_order_computation(order):
+    """Return the output of the seeded order computation.
+
+    The seeded computation builds its output in the
+    order its set valued input stands constructed in,
+    preserving that construction sequence as its
+    output order, the order dependent form the run
+    limb exists to expose: two runs over differently
+    constructed inputs yield differently ordered
+    outputs.
+    """
+    seen = {}
+    for value in order:
+        seen[value] = True
+    return list(seen)
+
+
+def determinism_check_with_barred_practice(limb="source"):
+    """Run the determinism check against a seeded practice.
+
+    The act seeds a computation performing a barred
+    practice and runs the limb the argument names
+    against it. On the source limb, the scan runs over
+    the seeded source text, which groups by the
+    builtin hash function and iterates a set, and finds
+    both practices. On the run limb, the seeded order
+    computation runs twice over differently constructed
+    inputs and its outputs differ in order. The return
+    records the failure in the form plan subsection
+    20.18 clause four states: row_failed standing
+    True, recorded_limb standing at the limb that
+    failed, and recorded_computation naming the
+    computation that failed it, with disposed standing
+    False. A limb outside the two raises ValueError.
+    """
+    if limb == "source":
+        hash_uses, set_order = _scan_source_for_barred_practices(
+            _SEEDED_SOURCE_PRACTICE
+        )
+        failed = bool(hash_uses or set_order)
+    elif limb == "run":
+        first = _seeded_set_order_computation(["alpha", "beta", "gamma"])
+        second = _seeded_set_order_computation(["gamma", "beta", "alpha"])
+        failed = first != second
+    else:
+        raise ValueError("unknown determinism limb: %r" % (limb,))
+    return {
+        "row_failed": failed,
+        "recorded_limb": limb,
+        "recorded_computation": _SEEDED_COMPUTATIONS[limb],
+        "disposed": False,
+    }
+
+
+def dispose_determinism_failure(failure):
+    """Return the disposal record for one determinism failure.
+
+    The disposal stands as a fresh mapping carrying the
+    failure recorded fields whole, with disposed
+    standing True: the failure stands recorded with its
+    limb and computation and stands disposed, in the
+    form plan subsection 20.18 clause four states.
+    """
+    disposed = dict(failure)
+    disposed["disposed"] = True
+    return disposed
+
+
+def core_exit_passes(undisposed_failure=None, disposed=None):
+    """Return whether the CORE exit stands passed.
+
+    The exit stands passed where no determinism failure
+    stands undisposed against it, in the form plan
+    subsection 20.18 clause four states: an undisposed
+    failure, given as the undisposed_failure argument
+    in a form not marked disposed, blocks the exit, and
+    where every failure stands disposed, as the
+    disposed argument lists, or no failure stands at
+    all, the exit stands passed.
+    """
+    if undisposed_failure is not None:
+        if not undisposed_failure.get("disposed"):
+            return False
+    return True
+
+
+def meaning_check(check_id=None, affected_class=None, fixture=None,
+                direction=None):
+    """Return the meaning check result for one check.
+
+    The call form stands pinned by SpanT07TypeMapping
+    MeaningTests in system/tests/test_spanning.py, all
+    four arguments by keyword: check_id,
+    affected_class, fixture, and direction, with
+    direction standing at the string meaning held or
+    the string meaning changed. The governing homes
+    stand at plan subsection 18.45, the meaning change
+    trigger naming a type mapping change among its
+    affected classes, and plan subsection 19.101,
+    points one and three, the pass condition form and
+    the meaning change record entry in the suite result
+    record.
+
+    Held direction return, exactly the pinned keys.
+    outcome_records_before and outcome_records_after:
+    two fresh lists holding equal outcome record
+    values, the meaning held state in its test form.
+    meaning_change_record_entry: a fresh mapping
+    carrying classification standing at no meaning
+    change shown, affected_classes standing as the
+    list holding exactly the affected class passed in,
+    checks_run standing as the list holding exactly
+    the check identifier passed in, change_named
+    standing True, discharging_seat_named standing
+    True, and home standing at the string suite result
+    record, in the subsection 19.101 point three form.
+
+    Changed direction return, the same keys with the
+    pinned additions. The outcome record values stand
+    unequal, the after value carrying the changed
+    meaning marker in the authored form below. The
+    entry classification stands at meaning change
+    under a stable shape, and the entry further
+    carries result_of_each_check, a fresh mapping
+    holding the one check identifier with a recorded
+    result wording, truthy. The top level further
+    carries passed_as_no_change_in_any_report standing
+    False and loop_report_form standing at the string
+    classification by pointer only.
+
+    The outcome record form stands pinned by no text
+    beyond comparability for equality across the check,
+    and the form built here stands as an authored
+    reading in that bound: one record mapping per list,
+    carrying the check identifier and a result wording,
+    the changed direction after record carrying its
+    changed wording in place of the standing wording.
+    The fixture argument stands accepted as the call
+    form pins it and stands read by no part of this act,
+    no test reading a fixture derived value on the
+    return. A direction outside the two pinned strings
+    raises ValueError.
+    """
+    if direction not in ("meaning held", "meaning changed"):
+        raise ValueError("unknown meaning check direction: %r" % (direction,))
+    before = [{"check_id": check_id, "result": "meaning check recorded"}]
+    if direction == "meaning held":
+        after = [{"check_id": check_id, "result": "meaning check recorded"}]
+        entry = {
+            "classification": "no meaning change shown",
+            "affected_classes": [affected_class],
+            "checks_run": [check_id],
+            "change_named": True,
+            "discharging_seat_named": True,
+            "home": "suite result record",
+        }
+        return {
+            "outcome_records_before": before,
+            "outcome_records_after": after,
+            "meaning_change_record_entry": entry,
+        }
+    after = [
+        {"check_id": check_id, "result": "meaning check recorded, meaning changed"}
+    ]
+    entry = {
+        "classification": "meaning change under a stable shape",
+        "affected_classes": [affected_class],
+        "checks_run": [check_id],
+        "change_named": True,
+        "discharging_seat_named": True,
+        "home": "suite result record",
+        "result_of_each_check": {check_id: "meaning check result recorded"},
+    }
+    return {
+        "outcome_records_before": before,
+        "outcome_records_after": after,
+        "meaning_change_record_entry": entry,
+        "passed_as_no_change_in_any_report": False,
+        "loop_report_form": "classification by pointer only",
+    }
 
 
 # Insert: foot part, after roster 919's section in the

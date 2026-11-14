@@ -52,6 +52,7 @@ VERIFY_HOLES = (
 SIGNING_KEY_UNAVAILABLE = "signing key unavailable"
 SIGNATURE_OBJECT_MISSING = "signature object missing"
 MANIFEST_LAG = "manifest lag"
+TORN_FINAL_LINE = "torn final line"
 DISAGREEMENT_FORM = "disagreement form"
 
 PREFIX_READING = "chain consistent prefix"
@@ -298,8 +299,7 @@ def _key_bytes(key):
     if key is None:
         return None
     if isinstance(key, str):
-        raw = key.encode("utf-8")
-        return raw if raw else None
+        return None
     if isinstance(key, (bytes, bytearray)):
         raw = bytes(key)
         return raw if raw else None
@@ -312,7 +312,10 @@ def get_signing_key(store):
     The slot is the store value entry named signing_key, with
     key_slot accepted as the same slot under its other name, on a
     mapping store value or as an attribute on an object store
-    value. An unset or unusable slot returns None. The value is a
+    value. An unset or unusable slot returns None, and a slot
+    carrying a string stands as no key obtained, in the store
+    boundary form subsection 20.87 points three and six state.
+    The value is a
     fixture key where fixture founding set it; it is never
     presented by this module as a production key.
     """
@@ -557,11 +560,13 @@ def verify(store):
     beside it, and on no other output does any sentence stand in
     the result.
 
-    Findings no Commit 2 test class asserts stay in the NOT BUILT
-    form in this module: a chain failure at the final record (the
-    torn final line case), a store with no records or no manifest,
-    and a store with no founding object identity raise
-    AssertionError in the NOT BUILT form. A bytes input is the
+    A chain failure at the final record (the torn final line
+    case) returns unverifiable naming that case, in the
+    governed output form subsection 20.87 points six and seven
+    state. Findings no Commit 2 test class asserts stay in the
+    NOT BUILT form in this module: a store with no records or
+    no manifest, and a store with no founding object identity,
+    raise AssertionError in the NOT BUILT form. A bytes input is the
     SPEC-SEAL example store form, which is not built in this
     slice, and raises the same NOT BUILT form. The version window
     check stands deferred with its slices, as the tracer scope
@@ -587,7 +592,7 @@ def verify(store):
         fail_index = chain["fail_index"]
         if fail_index < len(records) - 1:
             return _prefix_reading()
-        raise _not_built()
+        return {"output": "unverifiable", "case": TORN_FINAL_LINE}
     head = chain["head"]
     if store_founding is not None and (
         manifest.get("founding_object_identity") != store_founding

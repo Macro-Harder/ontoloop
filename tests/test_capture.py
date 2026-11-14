@@ -166,5 +166,104 @@ class TestCaptureT07(unittest.TestCase):
         self.assertFalse(outcome["captured"])
 
 
+class TestCaptureFixR1(unittest.TestCase):
+    """Fix round 1: real payload measurement and widened forms.
+
+    Written test first for the COR cure of S15-R1-059 and
+    S15-R1-064: capture_payload measures the payload it is
+    given against both D-13 caps, the pool stamp act reads
+    the rotation position it is given, chain validation
+    detects a cross run predecessor where the chain carries
+    run identity, and the outcome, membership, and capture
+    into store acts accept the material forms their rows
+    state beyond their exact case strings.
+    """
+
+    def test_real_payload_at_the_text_field_cap_is_accepted_whole(self):
+        module = require(MODULE)
+        outcome = module.capture_payload("x" * 32768)
+        self.assertTrue(outcome["accepted"])
+        self.assertFalse(outcome["refused"])
+        self.assertFalse(outcome["truncated"])
+
+    def test_real_payload_over_the_text_field_cap_is_refused(self):
+        module = require(MODULE)
+        outcome = module.capture_payload("x" * 32769)
+        self.assertTrue(outcome["refused"])
+        self.assertFalse(outcome["accepted"])
+        self.assertFalse(outcome["truncation_written"])
+        self.assertFalse(outcome["partial_record_written"])
+
+    def test_real_payload_well_under_the_caps_is_accepted(self):
+        module = require(MODULE)
+        outcome = module.capture_payload(b"a small real payload")
+        self.assertTrue(outcome["accepted"])
+        self.assertFalse(outcome["refused"])
+
+    def test_mapping_payload_at_the_journal_line_cap_is_accepted(self):
+        module = require(MODULE)
+        payload = {"first": "a" * 32768, "second": "b" * 32767}
+        outcome = module.capture_payload(payload)
+        self.assertTrue(outcome["accepted"])
+        self.assertFalse(outcome["refused"])
+
+    def test_mapping_payload_over_the_journal_line_cap_is_refused(self):
+        module = require(MODULE)
+        payload = {"first": "a" * 32768, "second": "b" * 32768}
+        outcome = module.capture_payload(payload)
+        self.assertTrue(outcome["refused"])
+        self.assertFalse(outcome["accepted"])
+
+    def test_mapping_payload_with_a_field_over_the_field_cap_is_refused(self):
+        module = require(MODULE)
+        payload = {"only": "a" * 40000}
+        outcome = module.capture_payload(payload)
+        self.assertTrue(outcome["refused"])
+
+    def test_pool_stamp_reads_the_rotation_position_given(self):
+        module = require(MODULE)
+        self.assertEqual(module.pool_stamp(3), "holdout eligible")
+        self.assertEqual(module.pool_stamp(6), "holdout eligible")
+        self.assertEqual(module.pool_stamp(1), "not holdout eligible")
+        self.assertEqual(module.pool_stamp(2), "not holdout eligible")
+        self.assertEqual(
+            module.capture_example_a()["pool_stamp"], module.pool_stamp(1)
+        )
+
+    def test_chain_validation_detects_a_cross_run_predecessor(self):
+        module = require(MODULE)
+        chain = module.example_a_chain()
+        chain["steps"][1]["predecessor_run"] = "another run"
+        result = module.validate_chain(chain)
+        self.assertFalse(result["valid"])
+        self.assertTrue(result["refused"] or result["flagged_partial"])
+
+    def test_submit_outcome_accepts_a_pending_run_form(self):
+        module = require(MODULE)
+        outcome = module.submit_outcome("pending")
+        self.assertFalse(outcome["refused"])
+        outcome = module.submit_outcome({"state": "attached"})
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["reason"], "closed state")
+
+    def test_membership_counts_accepts_the_pending_state_form(self):
+        module = require(MODULE)
+        counts = module.membership_counts({"state": "pending"})
+        self.assertEqual(counts["runs_seen_delta"], 1)
+        for figure in counts["membership_figures"]:
+            self.assertEqual(counts["membership_figures"][figure], 0)
+
+    def test_capture_into_store_over_a_real_store_value(self):
+        module = require(MODULE)
+        store_module = require("ontoloop.store")
+        clean = module.capture_into_store(store_module.golden_record_store())
+        self.assertTrue(clean["captured"])
+        self.assertFalse(clean["refused"])
+        suspect = module.capture_into_store(store_module.suspect_store())
+        self.assertTrue(suspect["refused"])
+        self.assertEqual(suspect["reason"], "store suspect")
+        self.assertFalse(suspect["captured"])
+
+
 if __name__ == "__main__":
     unittest.main()

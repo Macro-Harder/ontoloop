@@ -319,5 +319,61 @@ class TestCoreT06(unittest.TestCase):
             self.assertIs(claim["substitute_for_owing_row"], False)
 
 
+class TestCoreMeaningCheckFixR1(unittest.TestCase):
+    """Fix round 1: meaning_check for the type mapping class.
+
+    Written test first for the COR cure of S15-R1-005 and
+    S15-R1-072: the SpanT07 pair's surface, built on
+    ontoloop.core in the form MeaningCheckBase pins, ahead
+    of the spanning joining extension recorded at this act.
+    """
+
+    def _run(self, module, direction):
+        return module.meaning_check(
+            check_id="SPAN-T07",
+            affected_class="type mapping change",
+            fixture=(
+                "Example A records whose field values sit at "
+                "the type mapping boundary"
+            ),
+            direction=direction,
+        )
+
+    def test_meaning_held_record_state(self):
+        module = require(MODULE)
+        result = self._run(module, "meaning held")
+        self.assertEqual(
+            result["outcome_records_before"],
+            result["outcome_records_after"],
+        )
+        entry = result["meaning_change_record_entry"]
+        self.assertEqual(
+            entry["classification"], "no meaning change shown"
+        )
+        self.assertEqual(entry["affected_classes"], ["type mapping change"])
+        self.assertEqual(entry["checks_run"], ["SPAN-T07"])
+        self.assertTrue(entry["change_named"])
+        self.assertTrue(entry["discharging_seat_named"])
+        self.assertEqual(entry["home"], "suite result record")
+
+    def test_meaning_changed_record_state(self):
+        module = require(MODULE)
+        result = self._run(module, "meaning changed")
+        self.assertNotEqual(
+            result["outcome_records_before"],
+            result["outcome_records_after"],
+        )
+        entry = result["meaning_change_record_entry"]
+        self.assertEqual(
+            entry["classification"],
+            "meaning change under a stable shape",
+        )
+        self.assertTrue(entry["result_of_each_check"])
+        self.assertFalse(result["passed_as_no_change_in_any_report"])
+        self.assertEqual(
+            result["loop_report_form"], "classification by pointer only"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
