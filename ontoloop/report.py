@@ -632,6 +632,25 @@ _CLAIM_CONCEPT_ROOTS = (
     "reach",
     "cosign",
     "witness",
+    "unseal",
+    "delet",
+    "eras",
+    "falsif",
+    "destroy",
+    "remov",
+    "unbreak",
+    "invulner",
+    "unassail",
+    "everlast",
+    "fortif",
+    "audit",
+    "inspect",
+    "examin",
+    "ineras",
+    "indel",
+    "attackproof",
+    "intrusionproof",
+    "sworn",
 )
 
 # The exact assertion words, beside the assertion roots
@@ -713,6 +732,17 @@ _ASSERTION_ROOTS = (
     "sustain",
     "embod",
     "exhibit",
+    "secur",
+    "establish",
+    "achiev",
+    "creat",
+    "warrant",
+    "confer",
+    "impart",
+    "demonstrat",
+    "present",
+    "constitut",
+    "produc",
 )
 
 # The wordings that mark a claim statement as standing
@@ -863,21 +893,26 @@ def _clause_claim(clause):
         return True
     prefixes = (
         "double", "pre", "re", "cross", "co", "sub", "over",
+        "self", "auto", "counter",
     )
-    verification_roots = ("check", "verif", "validat", "confirm")
+    verification_roots = ("check", "verif", "validat", "confirm", "certif")
     for word in words:
         for root in verification_roots:
             position = word.find(root)
             if position > 0 and word[:position] in prefixes:
                 return True
-    if (
-        "keeps" in words
-        and "out" in words
-        and "outside" in words
-    ):
+    if "keeps" in words and "out" in words:
         return True
     if "permanent" in words and any(
         word.startswith("stand") for word in words
+    ):
+        return True
+    be_verbs = ("is", "are", "was", "were", "be", "been", "am")
+    if any(
+        word in be_verbs
+        and index + 1 < len(words)
+        and words[index + 1] == "permanent"
+        for index, word in enumerate(words)
     ):
         return True
     return False
@@ -928,6 +963,23 @@ _SUBORDINATE_INTRODUCERS = (
     "despite",
     "notwithstanding",
     "with",
+    "albeit",
+    "suppose",
+    "granted",
+    "conceding",
+    "noting",
+    "observing",
+    "acknowledging",
+    "recognising",
+    "recognizing",
+    "admitting",
+    "ignoring",
+    "realizing",
+    "knowing",
+    "except",
+    "save",
+    "barring",
+    "failing",
 )
 
 
@@ -959,12 +1011,63 @@ def _main_segment(clause):
             return " ".join(words[:index])
         if (
             index >= 3
-            and word == "the"
+            and word in ("the", "this", "a", "an")
             and index + 2 < len(words)
-            and words[index + 2] in ("is", "are", "was", "were")
+            and words[index + 2] in (
+                "is", "are", "was", "were", "does", "do", "did",
+                "never", "has", "have", "can", "cannot", "must",
+                "will", "shall",
+            )
+            and _clause_asserted(" ".join(words[:index]))
+        ):
+            return " ".join(words[:index])
+        if (
+            index >= 4
+            and index + 1 < len(words)
+            and words[index + 1] in ("do", "does", "did")
+            and _clause_asserted(" ".join(words[:index]))
         ):
             return " ".join(words[:index])
     return clause
+
+
+def _governing_condition_holds(text):
+    """Return True where a governing phrase governs by its complement.
+
+    A governing phrase excuses a claim only where the
+    condition it names, in its own complement, stands as
+    a governed condition: the complement standing after
+    the phrase opens with the governed subject, the
+    deployment confinement fact or the signed strength
+    form, allowing one leading article word, or the
+    phrase itself stands as the governed condition form,
+    as the signed strength only forms do. Governed words
+    standing elsewhere in the text, as the name of a
+    place or a thing beside an unrelated condition the
+    phrase names, govern nothing.
+    """
+    for phrase in _GOVERNING_CONDITION_PHRASES:
+        if (
+            "deployment confinement fact" in phrase
+            or "signed strength" in phrase
+        ):
+            if phrase in text:
+                return True
+            continue
+        start = 0
+        while True:
+            position = text.find(phrase, start)
+            if position < 0:
+                break
+            complement = text[position + len(phrase):].strip()
+            if complement.startswith("the "):
+                complement = complement[4:]
+            if complement.startswith(
+                "deployment confinement fact"
+            ) or complement.startswith("signed strength"):
+                return True
+            start = position + len(phrase)
+    return False
 
 
 def _fragment_governs(clause):
@@ -993,10 +1096,7 @@ def _fragment_governs(clause):
         for phrase in _GOVERNING_CONDITION_PHRASES
     ):
         return False
-    return (
-        "deployment confinement fact" in text
-        or "signed strength" in text
-    )
+    return _governing_condition_holds(text)
 
 
 def _clause_inability_form(clause):
@@ -1025,13 +1125,23 @@ def _clause_inability_form(clause):
         "chang", "modif", "rewrit",
         "penetrat", "breach", "compromis", "circumvent",
         "forg", "sign", "reach",
+        "delet", "eras", "falsif", "destroy", "remov",
+        "unseal", "seal",
     )
-    fillers = ("ever", "never", "possibly", "be", "been", "not")
+    fillers = (
+        "ever", "never", "possibly", "be", "been", "not",
+        "simply", "really",
+        "under", "any", "circumstances", "in", "way",
+        "at", "time", "no",
+    )
+    modals = (
+        "can", "could", "shall", "will", "must", "may", "might",
+    )
     for index, word in enumerate(words):
         if word == "cannot":
             start = index + 1
         elif (
-            word in ("can", "could", "shall", "will", "must")
+            word in modals
             and index + 1 < len(words)
             and words[index + 1] in ("never", "ever", "not")
         ):
@@ -1039,16 +1149,22 @@ def _clause_inability_form(clause):
         elif (
             word in ("are", "is", "was", "were")
             and index + 1 < len(words)
-            and words[index + 1] == "never"
+            and words[index + 1] in ("never", "not")
         ):
             start = index + 1
+        elif (
+            word == "never"
+            and index + 1 < len(words)
+            and words[index + 1] in modals
+        ):
+            start = index + 2
         else:
             continue
         cursor = start
         steps = 0
         while (
             cursor < len(words)
-            and steps < 4
+            and steps < 8
             and words[cursor] in fillers
         ):
             cursor += 1
@@ -1095,7 +1211,10 @@ def _seal_claim_scan(assembly_text):
             r",|\(|\)|\[|\]|:|/|\s-\s|"
             "\u2013|\u2014"
             r"|\||\{|\}|~|&"
-            r"|\band\b|\bbut\b|\byet\b|\bor\b|\bnor\b|\bplus\b",
+            r"|\*|\^|=|#|@|\\|>|\+|--"
+            r"|\band\b|\bbut\b|\byet\b|\bor\b|\bnor\b|\bplus\b"
+            r"|\bhowever\b|\bmeanwhile\b|\bnevertheless\b"
+            r"|\bnonetheless\b|\bfurthermore\b",
             statement)
         governed_by_fragment = any(
             _fragment_governs(clause) for clause in clauses
@@ -1110,13 +1229,7 @@ def _seal_claim_scan(assembly_text):
             main = _main_segment(clause)
             main_words = _clause_words(main)
             clause_words = _clause_words(clause)
-            if any(
-                phrase in main
-                for phrase in _GOVERNING_CONDITION_PHRASES
-            ) and (
-                "deployment confinement fact" in main
-                or "signed strength" in main
-            ):
+            if _governing_condition_holds(main):
                 continue
             if (
                 main_words
@@ -1491,10 +1604,20 @@ def production_report_form(produced_pairs=None, produced_records=None):
                 continue
             shape = record.get("shape")
             if shape is not None:
-                per_shape[shape] = per_shape.get(shape, 0) + 1
+                try:
+                    hash(shape)
+                except TypeError:
+                    pass
+                else:
+                    per_shape[shape] = per_shape.get(shape, 0) + 1
             family = record.get("family")
             if family is not None:
-                per_family[family] = per_family.get(family, 0) + 1
+                try:
+                    hash(family)
+                except TypeError:
+                    pass
+                else:
+                    per_family[family] = per_family.get(family, 0) + 1
     counts_present = bool(per_kind or per_shape or per_family)
     return {
         "form": "production",
