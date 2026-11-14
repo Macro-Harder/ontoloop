@@ -761,6 +761,67 @@ _CLAIM_CONCEPT_ROOTS = (
     "riskfree",
     "rubberstamp",
     "timestamp",
+    "memoriz",
+    "smuggl",
+    "relay",
+    "dictat",
+    "carri",
+    "fabricat",
+    "publish",
+    "sold",
+    "sell",
+    "counterfeit",
+    "impersonat",
+    "fak",
+    "reproduc",
+    "photocopi",
+    "fax",
+    "sync",
+    "siphon",
+    "harvest",
+    "scrap",
+    "lift",
+    "purloin",
+    "filch",
+    "restor",
+    "recover",
+    "reconstruct",
+    "regenerat",
+    "reissu",
+    "recreat",
+    "spotless",
+    "unblemish",
+    "pristine",
+    "unmark",
+    "unopen",
+    "impass",
+    "unenter",
+    "unimpeach",
+    "unquestion",
+    "immaculat",
+    "errorless",
+    "riskless",
+    "defectfree",
+    "unpick",
+    "uncrack",
+    "unfake",
+    "unspoof",
+    "hackerproof",
+    "thiefproof",
+    "waxseal",
+    "emboss",
+    "engrav",
+    "brand",
+    "imprint",
+    "inscrib",
+    "etch",
+    "postmark",
+    "hallmark",
+    "watermark",
+    "goldstamp",
+    "silverstamp",
+    "handstamp",
+    "datestamp",
 )
 
 # The exact assertion words, beside the assertion roots
@@ -904,6 +965,26 @@ _ASSERTION_ROOTS = (
     "evidenc",
     "document",
     "record",
+    "symboliz",
+    "symbolis",
+    "signif",
+    "denot",
+    "connot",
+    "portray",
+    "depict",
+    "express",
+    "back",
+    "anchor",
+    "prop",
+    "brace",
+    "enforc",
+    "impos",
+    "implement",
+    "deploy",
+    "harness",
+    "leverag",
+    "featur",
+    "possess",
 )
 
 # The wordings that mark a claim statement as standing
@@ -951,6 +1032,21 @@ _GOVERNING_CONDITION_PHRASES = (
     "predicated on",
     "based on",
     "resting on",
+    "contingent upon",
+    "pursuant to",
+    "governed by",
+    "in accordance with",
+    "in reliance on",
+    "hinging on",
+    "hinged on",
+    "premised upon",
+    "predicated upon",
+    "founded on",
+    "resting upon",
+    "dependent upon",
+    "reliant upon",
+    "based upon",
+    "subject solely to",
     "conditional",
     "only at signed strength",
     "subject to",
@@ -1080,8 +1176,19 @@ def _clause_claim(clause):
         "meta", "para", "hypo", "epi", "endo", "exo", "hetero",
         "homo", "iso", "tele", "pan", "uni",
         "triple", "hand", "machine", "deep",
+        "pro",
+        "tera", "peta", "exa", "zetta", "yotta", "femto", "atto",
+        "zepto", "yocto", "ronna", "quetta", "myria", "demi",
+        "under", "vice", "arch", "uber",
+        "thrice", "quadruple", "quintuple",
+        "manually", "automatically", "electronically",
+        "independently", "personally", "visually", "digitally",
+        "cryptographically", "mechanically", "optically",
     )
-    verification_roots = ("check", "verif", "validat", "confirm", "certif")
+    verification_roots = (
+        "check", "verif", "validat", "confirm", "certif",
+        "seal", "sign",
+    )
     for word in words:
         for root in verification_roots:
             position = word.find(root)
@@ -1436,6 +1543,13 @@ def _clause_inability_form(clause):
         "mirror", "clon", "screenshot", "email", "upload", "archiv",
         "broadcast", "stol", "wip", "exfiltrat", "purg", "corrupt",
         "film", "scan", "trac",
+        "memoriz", "smuggl", "relay", "dictat", "carri",
+        "fabricat", "publish", "sold", "sell", "counterfeit",
+        "impersonat", "fak",
+        "reproduc", "photocopi", "fax", "sync", "siphon",
+        "harvest", "scrap", "lift", "purloin", "filch",
+        "restor", "recover", "reconstruct", "regenerat",
+        "reissu", "recreat",
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -1451,6 +1565,17 @@ def _clause_inability_form(clause):
         "regardless", "somehow", "anyhow", "just", "merely",
         "truly", "actually", "even", "still", "the", "least",
         "stretch", "pretext", "on", "account",
+        "shape", "capacity", "scenario", "route", "context",
+        "instance", "occasion", "situation", "wise", "light",
+        "from", "angle", "quarter",
+        "legally", "physically", "practically", "theoretically",
+        "somewhere", "anywhere", "nowhere", "somewhat", "partly",
+        "fully", "easily", "practice", "theory", "anyone",
+        "person", "party", "human", "law",
+        "henceforth", "forever", "permanently", "temporarily",
+        "secretly", "silently", "unknowingly", "knowingly",
+        "deliberately", "accidentally", "inadvertently",
+        "maliciously", "externally", "internally",
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -1576,7 +1701,11 @@ def _seal_claim_scan(assembly_text):
             if (
                 main_words
                 and len(main_words) < len(clause_words)
-                and main_words[-1] in ("conditional", "conditioned")
+                and main_words[-1] in (
+                    "conditional", "conditioned", "contingent",
+                    "dependent", "reliant", "premised", "predicated",
+                    "based", "resting",
+                )
                 and clause_words[len(main_words)] == "upon"
             ):
                 complement = " ".join(clause_words[len(main_words) + 1:])
@@ -1592,6 +1721,43 @@ def _seal_claim_scan(assembly_text):
                     "provided", "given", "assuming", "granted",
                     "presuming", "supposing",
                 )
+            ):
+                rest = clause_words[len(main_words) + 1:]
+                if rest and rest[0] == "that":
+                    rest = rest[1:]
+                complement = " ".join(rest)
+                if _governing_condition_holds(
+                    "conditional on " + complement
+                ):
+                    continue
+            if (
+                main_words
+                and len(main_words) < len(clause_words)
+                and clause_words[len(main_words)] == "turning"
+                and len(main_words) + 1 < len(clause_words)
+                and clause_words[len(main_words) + 1] == "on"
+            ):
+                complement = " ".join(clause_words[len(main_words) + 2:])
+                if _governing_condition_holds(
+                    "conditional on " + complement
+                ):
+                    continue
+            if (
+                main_words
+                and len(main_words) < len(clause_words)
+                and main_words[-1] == "accordance"
+                and clause_words[len(main_words)] == "with"
+            ):
+                complement = " ".join(clause_words[len(main_words) + 1:])
+                if _governing_condition_holds(
+                    "conditional on " + complement
+                ):
+                    continue
+            if (
+                main_words
+                and len(main_words) < len(clause_words)
+                and main_words[-1] == "condition"
+                and clause_words[len(main_words)] == "that"
             ):
                 complement = " ".join(clause_words[len(main_words) + 1:])
                 if _governing_condition_holds(
