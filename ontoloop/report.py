@@ -822,6 +822,70 @@ _CLAIM_CONCEPT_ROOTS = (
     "silverstamp",
     "handstamp",
     "datestamp",
+    "stream",
+    "distribut",
+    "transfer",
+    "doctor",
+    "pilfer",
+    "memoris",
+    "circulat",
+    "disseminat",
+    "convey",
+    "dispatch",
+    "aire",
+    "televis",
+    "projecte",
+    "displaye",
+    "beame",
+    "overhear",
+    "quot",
+    "paraphras",
+    "plagiar",
+    "unlock",
+    "decrypt",
+    "manipulat",
+    "loot",
+    "snatch",
+    "swip",
+    "pinch",
+    "tape",
+    "bugg",
+    "wiretap",
+    "embezzl",
+    "divert",
+    "xerox",
+    "retyp",
+    "noted",
+    "logg",
+    "catalog",
+    "memorial",
+    "chronicl",
+    "unstain",
+    "untarnish",
+    "unsulli",
+    "unsoil",
+    "unequal",
+    "unparallel",
+    "unrival",
+    "unsurpass",
+    "incomparab",
+    "unreach",
+    "unapproach",
+    "ungett",
+    "foilstamp",
+    "inkstamp",
+    "laseretch",
+    "inviolat",
+    "unflaw",
+    "unmarr",
+    "unimpair",
+    "entryproof",
+    "unchalleng",
+    "imperish",
+    "fraudproof",
+    "drillproof",
+    "dustproof",
+    "smudgeproof",
 )
 
 # The exact assertion words, beside the assertion roots
@@ -851,6 +915,27 @@ _ASSERTION_WORDS = (
     "held",
     "kept",
     "bound",
+    "carries",
+    "mirrors",
+    "reflects",
+    "signals",
+    "implies",
+    "suggests",
+    "indicates",
+    "testifies",
+    "echoes",
+    "speaks",
+    "bears",
+    "wields",
+    "harbours",
+    "harbors",
+    "illustrates",
+    "crystallizes",
+    "crystallises",
+    "encapsulates",
+    "actualizes",
+    "actualises",
+    "substantiates",
 )
 
 # The assertion roots. A word beginning with one of
@@ -1047,6 +1132,34 @@ _GOVERNING_CONDITION_PHRASES = (
     "reliant upon",
     "based upon",
     "subject solely to",
+    "in conformity with",
+    "in compliance with",
+    "in reliance upon",
+    "founded upon",
+    "built on",
+    "built upon",
+    "hinging upon",
+    "based solely on",
+    "resting solely on",
+    "dependent solely upon",
+    "contingent solely upon",
+    "conditioned solely upon",
+    "tied to",
+    "relying on",
+    "conditioned by",
+    "on the basis of",
+    "anchored in",
+    "linked to",
+    "bound by",
+    "in dependence on",
+    "in keeping with",
+    "in line with",
+    "as required by",
+    "under the terms of",
+    "within the bounds of",
+    "bounded by",
+    "limited by",
+    "constrained by",
     "conditional",
     "only at signed strength",
     "subject to",
@@ -1184,10 +1297,19 @@ def _clause_claim(clause):
         "manually", "automatically", "electronically",
         "independently", "personally", "visually", "digitally",
         "cryptographically", "mechanically", "optically",
+        "mini", "maxi", "cyber",
+        "remotely", "locally", "virtually", "physically",
+        "audibly",
+        "sixfold", "tenfold", "once", "single",
+        "sextuple", "septuple", "octuple", "nonuple", "hecto",
+        "acoustically", "blindly",
+        "peer", "owner", "author", "clerk", "team", "group",
+        "board", "panel", "joint",
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
-        "seal", "sign",
+        "seal", "sign", "attest", "endors", "notariz",
+        "notaris", "countersign",
     )
     for word in words:
         for root in verification_roots:
@@ -1550,6 +1672,16 @@ def _clause_inability_form(clause):
         "harvest", "scrap", "lift", "purloin", "filch",
         "restor", "recover", "reconstruct", "regenerat",
         "reissu", "recreat",
+        "stream", "distribut", "transfer", "circulat",
+        "disseminat", "convey", "dispatch", "air", "televis",
+        "project", "display", "beam", "overhear", "quot",
+        "paraphras", "plagiar", "expos", "unlock", "decrypt",
+        "doctor", "manipulat", "pilfer", "loot", "snatch",
+        "swip", "pinch", "memoris",
+        "record", "tap", "bugg", "wiretap", "embezzl",
+        "divert", "xerox", "retyp", "reseal", "seen", "hear",
+        "witness", "noted", "logg", "catalog", "memorial",
+        "chronicl",
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -1576,6 +1708,15 @@ def _clause_inability_form(clause):
         "secretly", "silently", "unknowingly", "knowingly",
         "deliberately", "accidentally", "inadvertently",
         "maliciously", "externally", "internally",
+        "statute", "jurisdiction", "device", "channel",
+        "through", "via",
+        "domain", "realm", "sphere", "setting", "environment",
+        "medium", "venue", "arena", "regime", "framework",
+        "realistically", "effectively", "virtually",
+        "technically", "mechanically", "digitally",
+        "electronically", "manually", "automatically",
+        "reality", "effect", "essence", "outsider", "stranger",
+        "grounds", "forum", "degree", "agency",
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -1675,7 +1816,9 @@ def _seal_claim_scan(assembly_text):
             _fragment_governs(clause) for clause in clauses
         )
         for clause in clauses:
-            if not _clause_claim(clause):
+            if not _clause_claim(clause) and not _clause_inability_form(
+                clause
+            ):
                 continue
             if any(
                 marker in clause for marker in _UNCONDITIONAL_MARKERS
@@ -1704,7 +1847,8 @@ def _seal_claim_scan(assembly_text):
                 and main_words[-1] in (
                     "conditional", "conditioned", "contingent",
                     "dependent", "reliant", "premised", "predicated",
-                    "based", "resting",
+                    "based", "resting", "founded", "built",
+                    "hinging", "reliance", "solely",
                 )
                 and clause_words[len(main_words)] == "upon"
             ):
@@ -1733,6 +1877,18 @@ def _seal_claim_scan(assembly_text):
             if (
                 main_words
                 and len(main_words) < len(clause_words)
+                and clause_words[len(main_words)] == "keeping"
+                and len(main_words) + 1 < len(clause_words)
+                and clause_words[len(main_words) + 1] == "with"
+            ):
+                complement = " ".join(clause_words[len(main_words) + 2:])
+                if _governing_condition_holds(
+                    "conditional on " + complement
+                ):
+                    continue
+            if (
+                main_words
+                and len(main_words) < len(clause_words)
                 and clause_words[len(main_words)] == "turning"
                 and len(main_words) + 1 < len(clause_words)
                 and clause_words[len(main_words) + 1] == "on"
@@ -1745,7 +1901,23 @@ def _seal_claim_scan(assembly_text):
             if (
                 main_words
                 and len(main_words) < len(clause_words)
-                and main_words[-1] == "accordance"
+                and clause_words[len(main_words)] == "as"
+                and len(main_words) + 2 < len(clause_words)
+                and clause_words[len(main_words) + 1] == "required"
+                and clause_words[len(main_words) + 2] == "by"
+            ):
+                complement = " ".join(clause_words[len(main_words) + 3:])
+                if _governing_condition_holds(
+                    "conditional on " + complement
+                ):
+                    continue
+            if (
+                main_words
+                and len(main_words) < len(clause_words)
+                and main_words[-1] in (
+                    "accordance", "conformity", "compliance",
+                    "keeping", "line",
+                )
                 and clause_words[len(main_words)] == "with"
             ):
                 complement = " ".join(clause_words[len(main_words) + 1:])
