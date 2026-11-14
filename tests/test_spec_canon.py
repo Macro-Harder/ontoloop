@@ -244,5 +244,86 @@ class TestSpecCanonFixR4(unittest.TestCase):
         self.assertEqual(produced, b"[[1,2],[1,2],{5:again:[1,2]}]")
 
 
+class TestSpecCanonFixR5(unittest.TestCase):
+    """Fix round 5, Region 3, ruling 62: canonical depth form.
+
+    Written test first for N-25. The canonical encode and
+    decode acts meet deep finite nesting with the governed
+    ValueError form of the module, beside the standing
+    acyclic and cyclic cases still deciding as pinned.
+    """
+
+    def _deep_list(self, depth):
+        value = "x"
+        for _ in range(depth):
+            value = [value]
+        return value
+
+    def test_encode_canonical_deep_nesting_raises_value_error(self):
+        module = require(MODULE)
+        with self.assertRaises(ValueError) as caught:
+            module.encode_canonical(
+                self._deep_list(1500), "journal record")
+        self.assertIn("too deeply nested", str(caught.exception))
+
+    def test_encode_value_deep_nesting_raises_value_error(self):
+        module = require(MODULE)
+        with self.assertRaises(ValueError) as caught:
+            module.encode_value(self._deep_list(1500))
+        self.assertIn("too deeply nested", str(caught.exception))
+
+    def test_hash_canonical_deep_nesting_raises_value_error(self):
+        module = require(MODULE)
+        with self.assertRaises(ValueError) as caught:
+            module.hash_canonical(
+                self._deep_list(1500), "journal record")
+        self.assertIn("too deeply nested", str(caught.exception))
+
+    def test_decode_canonical_deep_list_nesting_raises_value_error(self):
+        module = require(MODULE)
+        raw = (
+            b"ontoloop-v1\x00journal record\x00"
+            + b"[" * 1500 + b"1:x" + b"]" * 1500
+        )
+        with self.assertRaises(ValueError) as caught:
+            module.decode_canonical(raw, "journal record")
+        self.assertIn("too deeply nested", str(caught.exception))
+
+    def test_decode_canonical_deep_mapping_nesting_raises_value_error(self):
+        module = require(MODULE)
+        content = b"1:x"
+        for _ in range(1500):
+            content = b"{1:a:" + content + b"}"
+        raw = b"ontoloop-v1\x00journal record\x00" + content
+        with self.assertRaises(ValueError) as caught:
+            module.decode_canonical(raw, "journal record")
+        self.assertIn("too deeply nested", str(caught.exception))
+
+    def test_standing_depth_still_encodes_and_decodes(self):
+        module = require(MODULE)
+        value = self._deep_list(120)
+        produced = module.encode_canonical(value, "journal record")
+        self.assertIsInstance(produced, bytes)
+        self.assertEqual(
+            module.decode_canonical(produced, "journal record"), value)
+
+    def test_standing_cyclic_cases_still_raise_the_cycle_form(self):
+        module = require(MODULE)
+        material = []
+        material.append(material)
+        with self.assertRaises(ValueError) as caught:
+            module.encode_canonical(material, "journal record")
+        self.assertEqual(
+            str(caught.exception), "cyclic value in canonical form")
+
+    def test_standing_acyclic_cases_still_encode_byte_identical(self):
+        module = require(MODULE)
+        record = module.golden_record("journal record")
+        self.assertEqual(
+            module.encode_canonical(record, "journal record"),
+            module.golden_byte_examples()["journal record"],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

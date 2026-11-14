@@ -108,59 +108,69 @@ def encode_value(value, _path=None):
     shared across branches in acyclic form encodes in the
     ordinary way, and deep finite nesting encodes to its full
     depth where the interpreter recursion allows it.
+    Fix round 5, ruling 62, N-25: a finite value nested
+    too deeply for the interpreter recursion to encode
+    raises the governed ValueError form of this module,
+    naming the value as too deeply nested in canonical
+    form, beside the cyclic form above, and no encoding
+    stands produced on that input.
     """
-    if value is True:
-        return b"true"
-    if value is False:
-        return b"false"
-    if value is None:
-        return b"null"
-    if isinstance(value, float):
-        raise ValueError("floating point value in a hashed object")
-    if isinstance(value, int):
-        return str(value).encode("ascii")
-    if isinstance(value, str):
-        raw = value.encode("utf-8")
-        return str(len(raw)).encode("ascii") + b":" + raw
-    if isinstance(value, (bytes, bytearray)):
-        raw = bytes(value)
-        return str(len(raw)).encode("ascii") + b":" + raw
-    if isinstance(value, dict):
-        if _path is None:
-            _path = set()
-        marker = id(value)
-        if marker in _path:
-            raise ValueError("cyclic value in canonical form")
-        _path.add(marker)
-        try:
-            parts = []
-            for key in sorted(value.keys()):
-                if not isinstance(key, str):
-                    raise TypeError("canonical form keys must be strings")
-                parts.append(
-                    encode_value(key, _path)
-                    + b":"
-                    + encode_value(value[key], _path)
+    try:
+        if value is True:
+            return b"true"
+        if value is False:
+            return b"false"
+        if value is None:
+            return b"null"
+        if isinstance(value, float):
+            raise ValueError("floating point value in a hashed object")
+        if isinstance(value, int):
+            return str(value).encode("ascii")
+        if isinstance(value, str):
+            raw = value.encode("utf-8")
+            return str(len(raw)).encode("ascii") + b":" + raw
+        if isinstance(value, (bytes, bytearray)):
+            raw = bytes(value)
+            return str(len(raw)).encode("ascii") + b":" + raw
+        if isinstance(value, dict):
+            if _path is None:
+                _path = set()
+            marker = id(value)
+            if marker in _path:
+                raise ValueError("cyclic value in canonical form")
+            _path.add(marker)
+            try:
+                parts = []
+                for key in sorted(value.keys()):
+                    if not isinstance(key, str):
+                        raise TypeError("canonical form keys must be strings")
+                    parts.append(
+                        encode_value(key, _path)
+                        + b":"
+                        + encode_value(value[key], _path)
+                    )
+                return b"{" + b",".join(parts) + b"}"
+            finally:
+                _path.discard(marker)
+        if isinstance(value, (list, tuple)):
+            if _path is None:
+                _path = set()
+            marker = id(value)
+            if marker in _path:
+                raise ValueError("cyclic value in canonical form")
+            _path.add(marker)
+            try:
+                return (
+                    b"["
+                    + b",".join(encode_value(item, _path) for item in value)
+                    + b"]"
                 )
-            return b"{" + b",".join(parts) + b"}"
-        finally:
-            _path.discard(marker)
-    if isinstance(value, (list, tuple)):
-        if _path is None:
-            _path = set()
-        marker = id(value)
-        if marker in _path:
-            raise ValueError("cyclic value in canonical form")
-        _path.add(marker)
-        try:
-            return (
-                b"["
-                + b",".join(encode_value(item, _path) for item in value)
-                + b"]"
-            )
-        finally:
-            _path.discard(marker)
-    raise TypeError("unsupported value in canonical form: %r" % type(value))
+            finally:
+                _path.discard(marker)
+        raise TypeError("unsupported value in canonical form: %r" % type(value))
+    except RecursionError:
+        raise ValueError(
+            "value too deeply nested in canonical form") from None
 
 
 def domain_separated(kind, content):
@@ -302,12 +312,21 @@ def decode_canonical(data, kind):
     The domain header must name kind exactly. Sequences decode
     as lists. A length prefixed item decodes as a string where
     its bytes are valid UTF-8, and as bytes otherwise.
+    Fix round 5, ruling 62, N-25: canonical content nested
+    too deeply for the interpreter recursion to parse raises
+    the governed ValueError form of this module, naming the
+    value as too deeply nested in canonical form, and no
+    value stands decoded on that input.
     """
     _check_kind(kind)
     header = DOMAIN_PREFIX + SEPARATOR + kind.encode("utf-8") + SEPARATOR
     if not isinstance(data, (bytes, bytearray)) or not bytes(data).startswith(header):
         raise ValueError("canonical content does not carry the named kind")
-    return _Parser(bytes(data)[len(header):]).parse()
+    try:
+        return _Parser(bytes(data)[len(header):]).parse()
+    except RecursionError:
+        raise ValueError(
+            "value too deeply nested in canonical form") from None
 
 
 canonical_decode = decode_canonical

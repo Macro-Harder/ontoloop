@@ -375,5 +375,223 @@ class TestCoreMeaningCheckFixR1(unittest.TestCase):
         )
 
 
+class TestCoreFixR5(unittest.TestCase):
+    """Fix round 5, Region 3: core surfaces, rulings 38, 44 to 47.
+
+    Written test first for N-01, N-07, N-08, N-09, and N-10.
+    Each pin states the governed form its ruling charges,
+    beside the standing forms the cure preserves.
+    """
+
+    def _record_with_version(self, module, version):
+        record = module.golden_record()
+        record["schema_version"] = version
+        return record
+
+    # Act 1, ruling 38, N-01: the version stands checked as a
+    # version of the window in substance.
+    def test_fractional_versions_return_the_governed_refusal(self):
+        module = require(MODULE)
+        below = module.error_catalogue()[
+            "version below reader window"]["error"]
+        for version in (2.5, 1.5, 2.999):
+            result = module.check_record(
+                self._record_with_version(module, version))
+            self.assertIs(result["accepted"], False, repr(version))
+            self.assertEqual(result["error"], below, repr(version))
+
+    def test_fractional_version_above_reader_returns_newer_refusal(self):
+        module = require(MODULE)
+        newer = module.error_catalogue()[
+            "version newer than reader"]["error"]
+        result = module.check_record(
+            self._record_with_version(module, 3.5))
+        self.assertIs(result["accepted"], False)
+        self.assertEqual(result["error"], newer)
+
+    def test_nan_and_true_return_the_governed_refusal(self):
+        module = require(MODULE)
+        below = module.error_catalogue()[
+            "version below reader window"]["error"]
+        for version in (float("nan"), True):
+            result = module.check_record(
+                self._record_with_version(module, version))
+            self.assertIs(result["accepted"], False, repr(version))
+            self.assertEqual(result["error"], below, repr(version))
+
+    def test_non_numeric_versions_return_the_governed_refusal(self):
+        module = require(MODULE)
+        below = module.error_catalogue()[
+            "version below reader window"]["error"]
+        forms = (
+            "3", "abc", None, [1], {"a": 1}, (1,), 1j,
+        )
+        for version in forms:
+            result = module.check_record(
+                self._record_with_version(module, version))
+            self.assertIs(result["accepted"], False, repr(version))
+            self.assertEqual(result["error"], below, repr(version))
+
+    def test_standing_integer_versions_still_decide_as_pinned(self):
+        module = require(MODULE)
+        below = module.error_catalogue()[
+            "version below reader window"]["error"]
+        newer = module.error_catalogue()[
+            "version newer than reader"]["error"]
+        for version in (1, 2, 3):
+            result = module.check_record(
+                self._record_with_version(module, version))
+            self.assertIs(result["accepted"], True, repr(version))
+        for version in (0, -1):
+            result = module.check_record(
+                self._record_with_version(module, version))
+            self.assertIs(result["accepted"], False, repr(version))
+            self.assertEqual(result["error"], below, repr(version))
+        result = module.check_record(
+            self._record_with_version(module, 4))
+        self.assertIs(result["accepted"], False)
+        self.assertEqual(result["error"], newer)
+
+    # Act 2, ruling 44, N-07: the scan matches the module
+    # qualified hash call.
+    def test_builtins_hash_call_recorded_at_its_true_line(self):
+        module = require(MODULE)
+        source = "import builtins\nvalue = builtins.hash(item)\n"
+        scan = module.determinism_source_scan(source)
+        self.assertEqual(
+            scan["builtin_hash_uses_for_grouping_ordering_assignment"],
+            ["builtin hash function used at line 2"],
+        )
+
+    def test_standing_hash_call_forms_still_recorded(self):
+        module = require(MODULE)
+        direct = module.determinism_source_scan("value = hash(item)\n")
+        self.assertEqual(
+            direct["builtin_hash_uses_for_grouping_ordering_assignment"],
+            ["builtin hash function used at line 1"],
+        )
+        imported = module.determinism_source_scan(
+            "from builtins import hash\nvalue = hash(item)\n")
+        self.assertEqual(
+            imported["builtin_hash_uses_for_grouping_ordering_assignment"],
+            ["builtin hash function used at line 2"],
+        )
+
+    def test_module_own_source_still_returns_its_standing_result(self):
+        module = require(MODULE)
+        scan = module.determinism_source_scan()
+        self.assertEqual(
+            scan["builtin_hash_uses_for_grouping_ordering_assignment"], [])
+        self.assertEqual(scan["set_iteration_order_constructions"], [])
+        self.assertTrue(scan["whole_core_source_scanned"])
+
+    # Act 3, ruling 45, N-08: the core canonical surfaces meet
+    # deep finite nesting in a governed form.
+    def _deep_mapping(self, depth):
+        value = {"leaf": "x"}
+        for _ in range(depth):
+            value = {"a": value}
+        return value
+
+    def test_canonical_encoding_deep_nesting_raises_value_error(self):
+        module = require(MODULE)
+        with self.assertRaises(ValueError) as caught:
+            module.canonical_encoding(self._deep_mapping(1500))
+        self.assertIn("too deeply nested", str(caught.exception))
+
+    def test_hash_record_deep_nesting_raises_value_error(self):
+        module = require(MODULE)
+        with self.assertRaises(ValueError) as caught:
+            module.hash_record(self._deep_mapping(1500))
+        self.assertIn("too deeply nested", str(caught.exception))
+
+    def test_deep_nesting_at_standing_depth_still_encodes(self):
+        module = require(MODULE)
+        record = self._deep_mapping(800)
+        encoded = module.canonical_encoding(record)
+        self.assertIsInstance(encoded, bytes)
+        self.assertTrue(encoded)
+        digest = module.hash_record(record)
+        self.assertIsInstance(digest, bytes)
+        self.assertEqual(len(digest), 32)
+
+    # Act 4, ruling 46, N-09: meaning_check meets an unhashable
+    # check identifier in one governed form in both directions.
+    def test_unhashable_check_id_returns_held_form_in_both_directions(self):
+        module = require(MODULE)
+        held = module.meaning_check(
+            check_id=["SPAN-X"],
+            affected_class="type mapping change",
+            fixture="fixture",
+            direction="meaning held",
+        )
+        changed = module.meaning_check(
+            check_id=["SPAN-X"],
+            affected_class="type mapping change",
+            fixture="fixture",
+            direction="meaning changed",
+        )
+        self.assertEqual(changed, held)
+        entry = held["meaning_change_record_entry"]
+        self.assertEqual(
+            entry["classification"], "no meaning change shown")
+        self.assertEqual(entry["checks_run"], [["SPAN-X"]])
+        self.assertEqual(
+            held["outcome_records_before"],
+            held["outcome_records_after"],
+        )
+
+    def test_standing_identifier_forms_still_decide_as_pinned(self):
+        module = require(MODULE)
+        held = module.meaning_check(
+            check_id="SPAN-T07",
+            affected_class="type mapping change",
+            fixture="fixture",
+            direction="meaning held",
+        )
+        self.assertEqual(
+            held["meaning_change_record_entry"]["classification"],
+            "no meaning change shown",
+        )
+        changed = module.meaning_check(
+            check_id="SPAN-T07",
+            affected_class="type mapping change",
+            fixture="fixture",
+            direction="meaning changed",
+        )
+        entry = changed["meaning_change_record_entry"]
+        self.assertEqual(
+            entry["classification"],
+            "meaning change under a stable shape",
+        )
+        self.assertEqual(
+            entry["result_of_each_check"],
+            {"SPAN-T07": "meaning check result recorded"},
+        )
+
+    # Act 5, ruling 47, N-10: dispose_determinism_failure fails
+    # closed on a non mapping failure value.
+    def test_non_mapping_failure_values_return_the_undisposed_form(self):
+        module = require(MODULE)
+        for value in (None, 5, (1, 2), "failure"):
+            result = module.dispose_determinism_failure(value)
+            self.assertEqual(result, {"disposed": False}, repr(value))
+
+    def test_standing_failure_mapping_still_disposes_as_pinned(self):
+        module = require(MODULE)
+        failure = {
+            "row_failed": True,
+            "recorded_limb": "source",
+            "recorded_computation": "seeded computation",
+            "disposed": False,
+        }
+        disposed = module.dispose_determinism_failure(failure)
+        self.assertIs(disposed["disposed"], True)
+        self.assertIs(failure["disposed"], False)
+        self.assertTrue(
+            module.core_exit_passes(
+                undisposed_failure=None, disposed=[disposed]))
+
+
 if __name__ == "__main__":
     unittest.main()

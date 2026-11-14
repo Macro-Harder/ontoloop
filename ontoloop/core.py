@@ -1591,12 +1591,36 @@ def check_record(record):
         version = record["schema_version"]
         reader = globals()["reader_version"]()
         window = globals()["reader_window"]()
-        if version > reader:
-            return {
-                "accepted": False,
-                "error": catalogue["version newer than reader"]["error"],
-            }
-        if version < window[0]:
+        # Fix round 5, ruling 38, N-01: the version stands
+        # checked as a version of the window in substance.
+        # Only an integer value, the bool form standing
+        # excluded as no version, that equals a version
+        # inside the window stands as a window version.
+        # A numeric value above the reader returns the
+        # newer refusal, and every other value standing
+        # as no window version, a fractional form, nan,
+        # True, and every non numeric form among them,
+        # returns the below window refusal, the stated
+        # refusal form of this surface for a value that
+        # does not order as a window version. No value
+        # stands accepted by fall through, and no value
+        # raises an exception on this limb.
+        is_window_version = (
+            isinstance(version, int)
+            and not isinstance(version, bool)
+            and window[0] <= version <= reader
+        )
+        if not is_window_version:
+            if (
+                isinstance(version, (int, float))
+                and not isinstance(version, bool)
+                and version == version
+                and version > reader
+            ):
+                return {
+                    "accepted": False,
+                    "error": catalogue["version newer than reader"]["error"],
+                }
             return {
                 "accepted": False,
                 "error": catalogue["version below reader window"]["error"],
@@ -1939,6 +1963,19 @@ def _scan_source_for_barred_practices(source):
             hash_uses.append(
                 "builtin hash function used at line %d" % node.lineno
             )
+        if (
+            isinstance(node, _ast.Call)
+            and isinstance(node.func, _ast.Attribute)
+            and node.func.attr == "hash"
+            and isinstance(node.func.value, _ast.Name)
+            and node.func.value.id == "builtins"
+        ):
+            # Fix round 5, ruling 44, N-07: the module
+            # qualified spelling of the builtin hash call
+            # stands recorded beside the bare name form.
+            hash_uses.append(
+                "builtin hash function used at line %d" % node.lineno
+            )
         if isinstance(node, (_ast.For, _ast.AsyncFor)) and _is_set_form(
             node.iter
         ):
@@ -2133,7 +2170,19 @@ def dispose_determinism_failure(failure):
     standing True: the failure stands recorded with its
     limb and computation and stands disposed, in the
     form plan subsection 20.18 clause four states.
+    Fix round 5, ruling 47, N-10: a failure value
+    standing in no mapping form meets the act in the
+    fail closed form of its sibling core_exit_passes:
+    the act returns its undisposed result, a fresh
+    mapping carrying disposed standing False alone,
+    and raises nothing, so no disposed mark stands
+    fabricated on a value that carries no failure
+    record.
     """
+    from collections.abc import Mapping as _MappingForm
+
+    if not isinstance(failure, _MappingForm):
+        return {"disposed": False}
     disposed = dict(failure)
     disposed["disposed"] = True
     return disposed
@@ -2249,6 +2298,21 @@ def meaning_check(check_id=None, affected_class=None, fixture=None,
     """
     if direction not in ("meaning held", "meaning changed"):
         raise ValueError("unknown meaning check direction: %r" % (direction,))
+    # Fix round 5, ruling 46, N-09: an unhashable check
+    # identifier stands met in one governed form in
+    # both directions, the held form of this surface.
+    # The changed direction keys its per check result
+    # mapping by the identifier, so an identifier no
+    # mapping can key cannot carry a changed result:
+    # both directions return the held result on such an
+    # identifier, and no exception stands raised.
+    try:
+        _probe = {check_id: True}
+        _identifier_hashable = True
+    except TypeError:
+        _identifier_hashable = False
+    if not _identifier_hashable:
+        direction = "meaning held"
     before = [{"check_id": check_id, "result": "meaning check recorded"}]
     if direction == "meaning held":
         after = [{"check_id": check_id, "result": "meaning check recorded"}]
@@ -2307,16 +2371,31 @@ def canonical_encoding(record):
     The byte form is the landed canonical form module's
     encoding of the record under the journal record kind,
     returned as bytes, the same bytes on every call over
-    the same record.
+    the same record. Fix round 5, ruling 45, N-08: where
+    the encoding of a deeply nested finite record raises
+    RecursionError, this surface returns the governed
+    refusal of this family, a ValueError naming the
+    value as too deeply nested in canonical form, in
+    the form of the cyclic cure beside it, and no
+    encoding stands produced on that input.
     """
-    return _encode_canonical(record, _JOURNAL_RECORD_KIND)
+    try:
+        return _encode_canonical(record, _JOURNAL_RECORD_KIND)
+    except RecursionError:
+        raise ValueError(
+            "value too deeply nested in canonical form") from None
 
 
 def hash_record(record):
     """Return the record digest as raw bytes.
 
     The digest is the SHA-256 digest of the record
-    canonical encoding, in raw byte form.
+    canonical encoding, in raw byte form. The deep
+    nesting governed form of canonical_encoding stands
+    carried through this surface whole: a record whose
+    encoding raises the governed ValueError returns no
+    digest, and the ValueError stands raised in its
+    place.
     """
     return hashlib.sha256(canonical_encoding(record)).digest()
 
