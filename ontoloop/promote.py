@@ -925,10 +925,42 @@ def test_instruction_items_against_holdout(bundle, occasion=None,
     stands computed in this file. On a clean case at
     promotion the test result stands carried on the
     Promotion Record position the return names.
+
+    The instruction_items collection stands checked
+    as a list of items before any iteration. A
+    collection standing in any other form, a plain
+    string, a single mapping, None, or any other non
+    list form, returns the governed refusal form of
+    this surface, in one stated form at both
+    occasions: fired standing True, refusal_form
+    standing at cross split audit refusal, field_scope
+    standing at instruction text field,
+    wider_material_compared standing False, and the
+    occasion proceeds flag standing False. No items
+    tested count stands in that refusal, because no
+    item was presented, and no fired item, test
+    result, audit record, or cross split audit result
+    stands in it, because those values stand carried
+    solely from a shared act outcome and no act ran.
+    A genuine list, the empty list among it, keeps
+    the standing behaviour above exactly.
     """
     if occasion not in ("candidate construction", "promotion"):
         raise ValueError("unknown instruction test occasion: %r" % (occasion,))
-    items = list(bundle["instruction_items"])
+    collection = bundle.get("instruction_items")
+    if not isinstance(collection, list):
+        refusal = {
+            "fired": True,
+            "refusal_form": "cross split audit refusal",
+            "field_scope": "instruction text field",
+            "wider_material_compared": False,
+        }
+        if occasion == "promotion":
+            refusal["promotion_proceeds"] = False
+        else:
+            refusal["bundle_proceeds"] = False
+        return refusal
+    items = list(collection)
     count = len(items)
     holdout_material = bundle.get("holdout_items")
     if holdout_material is None:
