@@ -75,11 +75,34 @@ __all__ = [
 # surface fragment at composition. This section defines no other
 # surface name and consumes no sibling section name.
 
-_CATALOGUE_ORDER = (
+_CORE_ROW_NAMES = (
     "unlisted record type",
     "unknown field",
     "version newer than reader",
     "version below reader window",
+)
+
+_CATALOGUE_ORDER = _CORE_ROW_NAMES + (
+    "capture refusal at the D-13 caps",
+    "outcome precedence refusals naming the closed state",
+    "confirmation record incomplete",
+    "refusal with no period open",
+    "store suspect",
+    "access record append failed",
+    "exit scan hit",
+    "seal claim unqualified",
+    "no exit scan result, no exit",
+    "purge stopped export refused",
+    "refusal of any assembly containing tombstoned material",
+    "hash mismatch on load",
+    "lock contention refusal",
+    "dataset writing interrupted",
+    "store founding interrupted",
+    "signing key unavailable",
+    "signature object missing",
+    "sync failure",
+    "declared training technique refused",
+    "flagged material inside candidate bundle",
 )
 
 _ERROR_CATALOGUE = {
@@ -129,6 +152,185 @@ _ERROR_CATALOGUE = {
         "simple_form": (
             "The record schema version stands below the lower edge of "
             "the reader window, so the record is not read by this reader."
+        ),
+    },    "capture refusal at the D-13 caps": {
+        "error": "capture turned away at the caps: the payload stands over a cap, so the capture does not proceed",
+        "raising_module": "ontoloop.capture",
+        "state_change": "the capture is refused whole, no part of the payload is captured, and no truncated form is written",
+        "record_home": "gate refusal record",
+        "simple_form": (
+            "The payload stands over a capture cap, so the capture is turned away whole. Nothing is captured and nothing is cut down to fit."
+        ),
+    },
+    "outcome precedence refusals naming the closed state": {
+        "error": "outcome precedence: the outcome state already stands closed, so the later outcome is turned away",
+        "raising_module": "ontoloop.capture",
+        "state_change": "the later outcome is not accepted, and the record keeps the closed outcome state it already carries",
+        "record_home": "the outcome record returned at capture",
+        "simple_form": (
+            "The outcome already stands closed, so the later outcome is turned away. The closed state is named in the result."
+        ),
+    },
+    "confirmation record incomplete": {
+        "error": "confirmation record incomplete",
+        "raising_module": "ontoloop.promote",
+        "state_change": "the confirmation is not recorded as complete, and the promotion it would confirm stands unconfirmed",
+        "record_home": "the Promotion Record",
+        "simple_form": (
+            "The confirmation record lacks a part it needs, so the confirmation does not complete. The promotion stands unconfirmed."
+        ),
+    },
+    "refusal with no period open": {
+        "error": "no period open: the act needs an open period and none stands open, so the act is turned away",
+        "raising_module": "ontoloop.promote",
+        "state_change": "no promotion act proceeds, and no period is opened or changed by the refused act",
+        "record_home": "the Promotion Record",
+        "simple_form": (
+            "No period stands open for this act, so the act is turned away. Open a period first, then present the act again."
+        ),
+    },
+    "store suspect": {
+        "error": "store suspect",
+        "raising_module": "ontoloop.store",
+        "state_change": "the store stands suspect, ordinary capture appends are barred while that state stands, and no stored record changes",
+        "record_home": "the store suspect record",
+        "simple_form": (
+            "The store stands suspect, so ordinary capture appends are barred while that state stands. Stored records are unchanged."
+        ),
+    },
+    "access record append failed": {
+        "error": "access record append failed",
+        "raising_module": "ontoloop.store",
+        "state_change": "no access record is appended, no content is shown, and no group is spent",
+        "record_home": "the append result returned by the access record append act",
+        "simple_form": (
+            "The access record append did not complete, so no access record stands added. No content is shown and no group is spent."
+        ),
+    },
+    "exit scan hit": {
+        "error": "exit scan hit",
+        "raising_module": "ontoloop.redact",
+        "state_change": "the assembly is not released, no exit proceeds on it, and no record changes state",
+        "record_home": "the exit scan record",
+        "simple_form": (
+            "The exit scan found material that bars the exit, so the assembly is not released. The hit stands named in the scan record."
+        ),
+    },
+    "seal claim unqualified": {
+        "error": "seal claim unqualified",
+        "raising_module": "ontoloop.redact",
+        "state_change": "the claim is not printed in unqualified form, and no assembly carrying it in that form is released",
+        "record_home": "the report record carrying the seal claim",
+        "simple_form": (
+            "The seal claim lacks the qualification it needs, so the claim does not stand as made. The claim must be qualified before it travels."
+        ),
+    },
+    "no exit scan result, no exit": {
+        "error": "no exit scan result, no exit",
+        "raising_module": "ontoloop.redact",
+        "state_change": "no exit scan result stands, no exit proceeds, and no record changes state",
+        "record_home": "the exit attempt record",
+        "simple_form": (
+            "The exit scan could not run, so no exit scan result stands and no exit proceeds. The exit stays barred until a scan runs."
+        ),
+    },
+    "purge stopped export refused": {
+        "error": "purge stopped export refused",
+        "raising_module": "ontoloop.ops",
+        "state_change": "the export is not made, the purge stands stopped, and no material is removed by that export",
+        "record_home": "the purge record",
+        "simple_form": (
+            "The purge stands stopped, so the export is turned away. No material leaves in that export."
+        ),
+    },
+    "refusal of any assembly containing tombstoned material": {
+        "error": "assembly containing tombstoned material: the assembly carries material under a tombstone, so the assembly is turned away",
+        "raising_module": "ontoloop.ops",
+        "state_change": "the assembly is not released or used, and the tombstoned material stands untouched in place",
+        "record_home": "the export assembly record",
+        "simple_form": (
+            "The assembly carries material under a tombstone, so the assembly is turned away whole. The tombstoned material stays in place."
+        ),
+    },
+    "hash mismatch on load": {
+        "error": "hash mismatch on load",
+        "raising_module": "ontoloop.consumption",
+        "state_change": "the bundle is not loaded, it stands in the unloadable position, and no loaded state changes",
+        "record_home": "the load refusal record, naming which side was checked against which and the hash each side carried",
+        "simple_form": (
+            "The bundle hash does not match the hash it was checked against, so the bundle is not loaded. Both hashes stand named in the load record."
+        ),
+    },
+    "lock contention refusal": {
+        "error": "lock contention: the append lock stayed held through the wait, so the append is turned away",
+        "raising_module": "ontoloop.store",
+        "state_change": "the append is not made after the wait, and no record is appended or changed by the refused act",
+        "record_home": "lock refusal record in the Promotion Record form",
+        "simple_form": (
+            "The append lock stayed held through the whole wait, so the append is turned away. Try again when the lock stands free."
+        ),
+    },
+    "dataset writing interrupted": {
+        "error": "dataset writing interrupted",
+        "raising_module": "ontoloop.dataset",
+        "state_change": "no dataset and no Dataset record stand for the failed attempt",
+        "record_home": "the intake account entry for the failed attempt",
+        "simple_form": (
+            "The dataset write was interrupted, so no dataset and no dataset record stand for that attempt. The abort stands in the intake account."
+        ),
+    },
+    "store founding interrupted": {
+        "error": "store founding interrupted",
+        "raising_module": "ontoloop.store",
+        "state_change": "no store and no genesis record stand for the interrupted founding",
+        "record_home": "the founding record read from the home as no store, in the section 8.4 table form",
+        "simple_form": (
+            "The store founding was interrupted, so no store and no genesis record stand for that founding. Found the store again from the start."
+        ),
+    },
+    "signing key unavailable": {
+        "error": "signing key unavailable",
+        "raising_module": "ontoloop.store",
+        "state_change": "the append is refused where the key is needed, no record is appended, and the store stands unchanged",
+        "record_home": "the store record for the refused append",
+        "simple_form": (
+            "No signing key stands available, so the append is turned away. The store stands unchanged."
+        ),
+    },
+    "signature object missing": {
+        "error": "signature object missing",
+        "raising_module": "ontoloop.store",
+        "state_change": "the store stands reported as unverifiable for that case, and no stored record changes state",
+        "record_home": "the verify record for the store",
+        "simple_form": (
+            "The signature object is missing, so the store cannot be verified on that check. The store stands reported as unverifiable for that case."
+        ),
+    },
+    "sync failure": {
+        "error": "sync failure",
+        "raising_module": "ontoloop.store",
+        "state_change": "the store moves to suspect at once, barring ordinary appends while it stands, and no later sync success clears that state",
+        "record_home": "suspect record",
+        "simple_form": (
+            "A sync step failed, so the store moves to suspect at once. Ordinary appends are barred while that state stands."
+        ),
+    },
+    "declared training technique refused": {
+        "error": "declared training technique refused",
+        "raising_module": "ontoloop.core",
+        "state_change": "the refusal stands with no state change to the declared record, and no record changes except the refusal record the journal entry states",
+        "record_home": "journal refusal record",
+        "simple_form": (
+            "The declared technique stands outside the allowed list, so the declaration is turned away. The declared record stands unchanged."
+        ),
+    },
+    "flagged material inside candidate bundle": {
+        "error": "flagged material inside candidate bundle",
+        "raising_module": "ontoloop.cross_split_audit",
+        "state_change": "the candidate bundle is refused, no promotion proceeds on it, and the evaluation stands recorded as not scored with its typed reason",
+        "record_home": "the evaluation record for the refusal and, at the promotion call point, the Promotion Record",
+        "simple_form": (
+            "Flagged material stands inside the candidate bundle, so the bundle is turned away and no promotion proceeds on it. The evaluation stands recorded as not scored, with its typed reason."
         ),
     },
 }
@@ -262,6 +464,510 @@ _OWING_PRESENTATION = {
         },
         "agentic_form": None,
     },
+    "capture refusal at the D-13 caps": {
+        "name": "capture refusal at the D-13 caps",
+        "named_reader": "agent",
+        "simple_form": {
+            "wording": (
+                "The payload stands over a capture cap, so the capture is turned away whole. Nothing is captured and nothing is cut down to fit."
+            ),
+            "figure": "none stated",
+            "bound": "the D-13 capture caps",
+            "refusal_reason": "payload over a capture cap",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: capture refuses at the D-13 caps, with no truncation at capture, under plan section 4.4 and row CAPTURE-T05. A payload at a cap is accepted whole and a payload over a cap is refused whole, so no shortened form of the material ever stands as the captured form."
+            ),
+            "figure": "none stated",
+            "bound": "the D-13 capture caps",
+            "refusal_reason": "payload over a capture cap",
+        },
+        "agentic_form": {
+            "wording": (
+                "Agent action: do not resubmit the payload in a cut down form. Present the material within the caps, or stop and report the cap gap. The refused capture writes nothing."
+            ),
+            "figure": "none stated",
+            "bound": "the D-13 capture caps",
+            "refusal_reason": "payload over a capture cap",
+        },
+    },
+    "outcome precedence refusals naming the closed state": {
+        "name": "outcome precedence refusals naming the closed state",
+        "named_reader": "agent",
+        "simple_form": {
+            "wording": (
+                "The outcome already stands closed, so the later outcome is turned away. The closed state is named in the result."
+            ),
+            "figure": "none stated",
+            "bound": "the closed outcome state",
+            "refusal_reason": "outcome state already closed",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: the pending outcome state closes by its two routes only, under plan section 4.4 and row CAPTURE-T04. A late outcome and a second outcome are each refused naming the closed state, so the first closing stands and no later outcome rewrites it."
+            ),
+            "figure": "none stated",
+            "bound": "the closed outcome state",
+            "refusal_reason": "outcome state already closed",
+        },
+        "agentic_form": {
+            "wording": (
+                "Agent action: do not present another outcome for a record whose outcome stands closed. Report the closed state and stop."
+            ),
+            "figure": "none stated",
+            "bound": "the closed outcome state",
+            "refusal_reason": "outcome state already closed",
+        },
+    },
+    "confirmation record incomplete": {
+        "name": "confirmation record incomplete",
+        "named_reader": "agent",
+        "simple_form": {
+            "wording": (
+                "The confirmation record lacks a part it needs, so the confirmation does not complete. The promotion stands unconfirmed."
+            ),
+            "figure": "none stated",
+            "bound": "the confirmation record parts the Promotion Record requires",
+            "refusal_reason": "confirmation record missing a required part",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: a confirmation record that lacks a part it needs cannot complete the confirmation, under plan section 4.4 and row PROMOTE-T05. The promotion it would confirm stands unconfirmed until a complete confirmation record stands."
+            ),
+            "figure": "none stated",
+            "bound": "the confirmation record parts the Promotion Record requires",
+            "refusal_reason": "confirmation record missing a required part",
+        },
+        "agentic_form": {
+            "wording": (
+                "Agent action: complete the confirmation record with every part it needs, or stop and report the missing part. Do not treat the promotion as confirmed."
+            ),
+            "figure": "none stated",
+            "bound": "the confirmation record parts the Promotion Record requires",
+            "refusal_reason": "confirmation record missing a required part",
+        },
+    },
+    "refusal with no period open": {
+        "name": "refusal with no period open",
+        "named_reader": "agent",
+        "simple_form": {
+            "wording": (
+                "No period stands open for this act, so the act is turned away. Open a period first, then present the act again."
+            ),
+            "figure": "none stated",
+            "bound": "an open promotion period",
+            "refusal_reason": "no period open",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: the act is governed by the period it stands in, under plan section 4.4 and brief Section 5.6. Where no period stands open the act is refused with this named error, and the refused act opens nothing and changes nothing."
+            ),
+            "figure": "none stated",
+            "bound": "an open promotion period",
+            "refusal_reason": "no period open",
+        },
+        "agentic_form": {
+            "wording": (
+                "Agent action: do not present the act while no period stands open. Wait for an open period, or stop and report that none stands open."
+            ),
+            "figure": "none stated",
+            "bound": "an open promotion period",
+            "refusal_reason": "no period open",
+        },
+    },
+    "store suspect": {
+        "name": "store suspect",
+        "named_reader": "operator",
+        "simple_form": {
+            "wording": (
+                "The store stands suspect, so ordinary capture appends are barred while that state stands. Stored records are unchanged."
+            ),
+            "figure": "none stated",
+            "bound": "the suspect state barring ordinary capture appends",
+            "refusal_reason": "store in the suspect state",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: the store suspect state bars ordinary capture appends while it stands, under plan section 4.4, row STORE-T06, and row CAPTURE-T07. The state follows a sync failure or another governed suspect act, and no later success clears it by itself."
+            ),
+            "figure": "none stated",
+            "bound": "the suspect state barring ordinary capture appends",
+            "refusal_reason": "store in the suspect state",
+        },
+        "agentic_form": None,
+    },
+    "access record append failed": {
+        "name": "access record append failed",
+        "named_reader": "operator",
+        "simple_form": {
+            "wording": (
+                "The access record append did not complete, so no access record stands added. No content is shown and no group is spent."
+            ),
+            "figure": "none stated",
+            "bound": "the access record append act",
+            "refusal_reason": "access record append did not complete",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: an access record append that fails shows no content and spends no group, under plan section 4.4 and brief Section 7.3. The failure is returned to the caller in the append result, and nothing stands appended on that act."
+            ),
+            "figure": "none stated",
+            "bound": "the access record append act",
+            "refusal_reason": "access record append did not complete",
+        },
+        "agentic_form": None,
+    },
+    "exit scan hit": {
+        "name": "exit scan hit",
+        "named_reader": "agent",
+        "simple_form": {
+            "wording": (
+                "The exit scan found material that bars the exit, so the assembly is not released. The hit stands named in the scan record."
+            ),
+            "figure": "none stated",
+            "bound": "the exit scan hit classes",
+            "refusal_reason": "exit scan hit",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: the layer 6 exit scan scans assembly content, under plan section 4.4 and row REDACT-T06. An assembly whose content carries a hit is refused the exit, and the hit stands named in the exit scan record."
+            ),
+            "figure": "none stated",
+            "bound": "the exit scan hit classes",
+            "refusal_reason": "exit scan hit",
+        },
+        "agentic_form": {
+            "wording": (
+                "Agent action: do not release the assembly. Remove or redact the hit material, then present the assembly for a fresh scan."
+            ),
+            "figure": "none stated",
+            "bound": "the exit scan hit classes",
+            "refusal_reason": "exit scan hit",
+        },
+    },
+    "seal claim unqualified": {
+        "name": "seal claim unqualified",
+        "named_reader": "agent",
+        "simple_form": {
+            "wording": (
+                "The seal claim lacks the qualification it needs, so the claim does not stand as made. The claim must be qualified before it travels."
+            ),
+            "figure": "none stated",
+            "bound": "the seal claim qualification the claim list requires",
+            "refusal_reason": "seal claim stated without its qualification",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: a seal claim travels only in its qualified form, under plan section 4.4 and the seal claim list at brief Section 7.4. A claim stated without its qualification is refused, and the verbatim claim texts travel verbatim or not at all."
+            ),
+            "figure": "none stated",
+            "bound": "the seal claim qualification the claim list requires",
+            "refusal_reason": "seal claim stated without its qualification",
+        },
+        "agentic_form": {
+            "wording": (
+                "Agent action: state the seal claim in its qualified verbatim form, or do not print the claim. Do not paraphrase the claim text."
+            ),
+            "figure": "none stated",
+            "bound": "the seal claim qualification the claim list requires",
+            "refusal_reason": "seal claim stated without its qualification",
+        },
+    },
+    "no exit scan result, no exit": {
+        "name": "no exit scan result, no exit",
+        "named_reader": "agent",
+        "simple_form": {
+            "wording": (
+                "The exit scan could not run, so no exit scan result stands and no exit proceeds. The exit stays barred until a scan runs."
+            ),
+            "figure": "none stated",
+            "bound": "a completed exit scan",
+            "refusal_reason": "exit scan could not run",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: where a scan cannot run, the exit is refused in the form no exit scan result, no exit, under plan section 4.4 and row REDACT-T06. A scan that did not examine the assembly returns no clear result, and no exit proceeds on it."
+            ),
+            "figure": "none stated",
+            "bound": "a completed exit scan",
+            "refusal_reason": "exit scan could not run",
+        },
+        "agentic_form": {
+            "wording": (
+                "Agent action: do not treat the assembly as scanned and do not release it. Report that the scan could not run and stop."
+            ),
+            "figure": "none stated",
+            "bound": "a completed exit scan",
+            "refusal_reason": "exit scan could not run",
+        },
+    },
+    "purge stopped export refused": {
+        "name": "purge stopped export refused",
+        "named_reader": "operator",
+        "simple_form": {
+            "wording": (
+                "The purge stands stopped, so the export is turned away. No material leaves in that export."
+            ),
+            "figure": "none stated",
+            "bound": "the purge stop state",
+            "refusal_reason": "purge stopped",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: where the purge stands stopped, an export from the stopped purge is refused, under plan section 4.4 and row OPS-T03. The stop stands until its governed lifting act, and no export proceeds around it."
+            ),
+            "figure": "none stated",
+            "bound": "the purge stop state",
+            "refusal_reason": "purge stopped",
+        },
+        "agentic_form": None,
+    },
+    "refusal of any assembly containing tombstoned material": {
+        "name": "refusal of any assembly containing tombstoned material",
+        "named_reader": "agent",
+        "simple_form": {
+            "wording": (
+                "The assembly carries material under a tombstone, so the assembly is turned away whole. The tombstoned material stays in place."
+            ),
+            "figure": "none stated",
+            "bound": "the tombstone set for the assembly",
+            "refusal_reason": "assembly contains tombstoned material",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: any assembly containing tombstoned material is refused, under plan section 4.4 and row OPS-T03. The refusal covers the whole assembly, and the tombstoned material is neither included nor removed by the refused act."
+            ),
+            "figure": "none stated",
+            "bound": "the tombstone set for the assembly",
+            "refusal_reason": "assembly contains tombstoned material",
+        },
+        "agentic_form": {
+            "wording": (
+                "Agent action: rebuild the assembly without the tombstoned material, or stop and report the tombstone. Do not present the same assembly again."
+            ),
+            "figure": "none stated",
+            "bound": "the tombstone set for the assembly",
+            "refusal_reason": "assembly contains tombstoned material",
+        },
+    },
+    "hash mismatch on load": {
+        "name": "hash mismatch on load",
+        "named_reader": "agent",
+        "simple_form": {
+            "wording": (
+                "The bundle hash does not match the hash it was checked against, so the bundle is not loaded. Both hashes stand named in the load record."
+            ),
+            "figure": "none stated",
+            "bound": "the bundle content hash checked against the presented hash",
+            "refusal_reason": "hash mismatch on load",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: a presented bundle is hash checked over its whole content before a load, under plan section 4.4 at item S5-O-73 and row CONSUME-T03. Where the hashes differ the bundle stands unloadable, and the load refusal record names which side was checked against which and the hash each side carried."
+            ),
+            "figure": "none stated",
+            "bound": "the bundle content hash checked against the presented hash",
+            "refusal_reason": "hash mismatch on load",
+        },
+        "agentic_form": {
+            "wording": (
+                "Agent action: do not load the bundle. Report both hashes from the load refusal record and stop."
+            ),
+            "figure": "none stated",
+            "bound": "the bundle content hash checked against the presented hash",
+            "refusal_reason": "hash mismatch on load",
+        },
+    },
+    "lock contention refusal": {
+        "name": "lock contention refusal",
+        "named_reader": "operator",
+        "simple_form": {
+            "wording": (
+                "The append lock stayed held through the whole wait, so the append is turned away. Try again when the lock stands free."
+            ),
+            "figure": "none stated",
+            "bound": "the D-19 writer wait",
+            "refusal_reason": "lock held through the wait",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: the append lock is an inter process lock carrying the D-19 writer wait, under plan section 4.4, plan subsection 18.6 clause four, and row STORE-T04. A writer that waits the full wait against a held lock is refused, and its append is not made."
+            ),
+            "figure": "none stated",
+            "bound": "the D-19 writer wait",
+            "refusal_reason": "lock held through the wait",
+        },
+        "agentic_form": None,
+    },
+    "dataset writing interrupted": {
+        "name": "dataset writing interrupted",
+        "named_reader": "agent",
+        "simple_form": {
+            "wording": (
+                "The dataset write was interrupted, so no dataset and no dataset record stand for that attempt. The abort stands in the intake account."
+            ),
+            "figure": "none stated",
+            "bound": "a completed dataset write",
+            "refusal_reason": "dataset writing interrupted",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: the Dataset is written sealed whole or not written at all, under plan subsection 19.112 point two and row DATASET-T07. An interruption inside the write leaves no dataset and no Dataset record for the failed attempt, and the intake account for the failed attempt records the abort."
+            ),
+            "figure": "none stated",
+            "bound": "a completed dataset write",
+            "refusal_reason": "dataset writing interrupted",
+        },
+        "agentic_form": {
+            "wording": (
+                "Agent action: do not treat any part of the interrupted write as a dataset. Rebuild the dataset whole, or stop and report the interruption."
+            ),
+            "figure": "none stated",
+            "bound": "a completed dataset write",
+            "refusal_reason": "dataset writing interrupted",
+        },
+    },
+    "store founding interrupted": {
+        "name": "store founding interrupted",
+        "named_reader": "operator",
+        "simple_form": {
+            "wording": (
+                "The store founding was interrupted, so no store and no genesis record stand for that founding. Found the store again from the start."
+            ),
+            "figure": "none stated",
+            "bound": "a completed store founding",
+            "refusal_reason": "store founding interrupted",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: an interruption inside founding leaves no store and no genesis record, under plan subsection 19.112 point three and row STORE-T09. There is no store to verify for the interrupted founding, and the outcome is read from the home as no store."
+            ),
+            "figure": "none stated",
+            "bound": "a completed store founding",
+            "refusal_reason": "store founding interrupted",
+        },
+        "agentic_form": None,
+    },
+    "signing key unavailable": {
+        "name": "signing key unavailable",
+        "named_reader": "operator",
+        "simple_form": {
+            "wording": (
+                "No signing key stands available, so the append is turned away. The store stands unchanged."
+            ),
+            "figure": "none stated",
+            "bound": "an obtained signing key",
+            "refusal_reason": "signing key unavailable",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: where no signing key stands obtained, the append is refused with this named error and the same name stands as a verify case, under plan subsection 20.87 points four and six and the STORE scope catalogue passage. No record is appended unsigned on that act."
+            ),
+            "figure": "none stated",
+            "bound": "an obtained signing key",
+            "refusal_reason": "signing key unavailable",
+        },
+        "agentic_form": None,
+    },
+    "signature object missing": {
+        "name": "signature object missing",
+        "named_reader": "operator",
+        "simple_form": {
+            "wording": (
+                "The signature object is missing, so the store cannot be verified on that check. The store stands reported as unverifiable for that case."
+            ),
+            "figure": "none stated",
+            "bound": "the signature object for the store",
+            "refusal_reason": "signature object missing",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: verify carries the case signature object missing where the object the verify act needs does not stand, under plan subsection 20.87 point six and the STORE scope catalogue passage. The outcome is unverifiable naming its case, never a pass and never a silent repair."
+            ),
+            "figure": "none stated",
+            "bound": "the signature object for the store",
+            "refusal_reason": "signature object missing",
+        },
+        "agentic_form": None,
+    },
+    "sync failure": {
+        "name": "sync failure",
+        "named_reader": "operator",
+        "simple_form": {
+            "wording": (
+                "A sync step failed, so the store moves to suspect at once. Ordinary appends are barred while that state stands."
+            ),
+            "figure": "none stated",
+            "bound": "file sync and directory sync completing without error",
+            "refusal_reason": "sync failure",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: section 4.4 gains one row for sync failure, covering file sync and directory sync, under plan subsection 18.6 clause three. Any file sync or directory sync error in an append, a founding, or a manifest replacement takes the store to suspect at once, and no later sync success, on the same descriptor or on a reopened file, clears the suspect state or certifies earlier writes."
+            ),
+            "figure": "none stated",
+            "bound": "file sync and directory sync completing without error",
+            "refusal_reason": "sync failure",
+        },
+        "agentic_form": None,
+    },
+    "declared training technique refused": {
+        "name": "declared training technique refused",
+        "named_reader": "agent",
+        "simple_form": {
+            "wording": (
+                "The declared technique stands outside the allowed list, so the declaration is turned away. The declared record stands unchanged."
+            ),
+            "figure": "none stated",
+            "bound": "the closed list of allowed technique declarations",
+            "refusal_reason": "declared technique outside the allowed list",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: the allowed technique declaration list is closed and no training technique name stands on it, under plan subsection 19.33. Any declaration outside the list is refused in this named error, including a training technique under any other name and any case or spacing variant of a listed name, matched after case folding and whitespace collapse. The shipped refused set is the exact strings sft, dpo, and grpo."
+            ),
+            "figure": "none stated",
+            "bound": "the closed list of allowed technique declarations",
+            "refusal_reason": "declared technique outside the allowed list",
+        },
+        "agentic_form": {
+            "wording": (
+                "Agent action: do not declare a training technique for the first version, under any name or variant. Declare only a technique on the allowed list, or stop and report the declaration gap."
+            ),
+            "figure": "none stated",
+            "bound": "the closed list of allowed technique declarations",
+            "refusal_reason": "declared technique outside the allowed list",
+        },
+    },
+    "flagged material inside candidate bundle": {
+        "name": "flagged material inside candidate bundle",
+        "named_reader": "agent",
+        "simple_form": {
+            "wording": (
+                "Flagged material stands inside the candidate bundle, so the bundle is turned away and no promotion proceeds on it. The evaluation stands recorded as not scored, with its typed reason."
+            ),
+            "figure": "none stated",
+            "bound": "flagged material standing outside the candidate bundle",
+            "refusal_reason": "flagged material inside candidate bundle",
+        },
+        "advanced_form": {
+            "wording": (
+                "Basis in full: the cross split audit refusal where flagged material sits inside the candidate bundle carries this literal name at every call point, under plan subsection 19.36 point two. Its raising module is the cross split audit module at the evaluation and promotion call points. The attempt stands charged as one completed evaluation where any case was scored before the refusal, and as no completed evaluation where no case was scored."
+            ),
+            "figure": "none stated",
+            "bound": "flagged material standing outside the candidate bundle",
+            "refusal_reason": "flagged material inside candidate bundle",
+        },
+        "agentic_form": {
+            "wording": (
+                "Agent action: do not promote or score the bundle. Report the flagged material finding from the evaluation record and stop."
+            ),
+            "figure": "none stated",
+            "bound": "flagged material standing outside the candidate bundle",
+            "refusal_reason": "flagged material inside candidate bundle",
+        },
+    },
 }
 
 _OWING_ROWS = _OWING_PRESENTATION
@@ -334,7 +1040,7 @@ def error_catalogue():
 
 
 def section_4_4_core_rows():
-    return list(_CATALOGUE_ORDER)
+    return list(_CORE_ROW_NAMES)
 
 
 def catalogue_row_with_value(kind, form):
