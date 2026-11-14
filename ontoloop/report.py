@@ -651,6 +651,42 @@ _CLAIM_CONCEPT_ROOTS = (
     "attackproof",
     "intrusionproof",
     "sworn",
+    "imperv",
+    "etern",
+    "perpet",
+    "indissol",
+    "inalter",
+    "unchang",
+    "wall",
+    "proofread",
+    "vett",
+    "screen",
+    "review",
+    "unhack",
+    "crackproof",
+    "theftproof",
+    "pickproof",
+    "corrupt",
+    "incorrupt",
+    "uneras",
+    "undelet",
+    "unmodif",
+    "unpenetrab",
+    "stamp",
+    "enroll",
+    "register",
+    "read",
+    "copi",
+    "accesse",
+    "view",
+    "open",
+    "list",
+    "disclos",
+    "export",
+    "edit",
+    "overwrit",
+    "updat",
+    "replac",
 )
 
 # The exact assertion words, beside the assertion roots
@@ -743,6 +779,22 @@ _ASSERTION_ROOTS = (
     "present",
     "constitut",
     "produc",
+    "giv",
+    "safeguard",
+    "defend",
+    "promot",
+    "support",
+    "foster",
+    "bolster",
+    "strengthen",
+    "fortif",
+    "reinforc",
+    "underpin",
+    "vouch",
+    "effect",
+    "realiz",
+    "represent",
+    "bring",
 )
 
 # The wordings that mark a claim statement as standing
@@ -894,6 +946,8 @@ def _clause_claim(clause):
     prefixes = (
         "double", "pre", "re", "cross", "co", "sub", "over",
         "self", "auto", "counter",
+        "inter", "post", "multi", "semi", "non", "un",
+        "hyper", "micro", "macro", "pseudo", "quasi", "ultra",
     )
     verification_roots = ("check", "verif", "validat", "confirm", "certif")
     for word in words:
@@ -980,6 +1034,19 @@ _SUBORDINATE_INTRODUCERS = (
     "save",
     "barring",
     "failing",
+    "upon",
+    "using",
+    "believing",
+    "regarding",
+    "concerning",
+    "providing",
+    "imagining",
+    "presuming",
+    "stipulating",
+    "remembering",
+    "forgetting",
+    "witnessing",
+    "accepting",
 )
 
 
@@ -1017,6 +1084,8 @@ def _main_segment(clause):
                 "is", "are", "was", "were", "does", "do", "did",
                 "never", "has", "have", "can", "cannot", "must",
                 "will", "shall",
+                "could", "might", "should", "would", "ought",
+                "dare", "may",
             )
             and _clause_asserted(" ".join(words[:index]))
         ):
@@ -1028,6 +1097,16 @@ def _main_segment(clause):
             and _clause_asserted(" ".join(words[:index]))
         ):
             return " ".join(words[:index])
+        if (
+            index >= 4
+            and word in (
+                "could", "might", "should", "would", "ought", "dare",
+            )
+            and index + 1 < len(words)
+            and words[index + 1] in ("not", "never")
+            and _clause_asserted(" ".join(words[:index - 1]))
+        ):
+            return " ".join(words[:index - 1])
     return clause
 
 
@@ -1060,8 +1139,10 @@ def _governing_condition_holds(text):
             if position < 0:
                 break
             complement = text[position + len(phrase):].strip()
-            if complement.startswith("the "):
-                complement = complement[4:]
+            for article in ("the ", "an ", "a "):
+                if complement.startswith(article):
+                    complement = complement[len(article):]
+                    break
             if complement.startswith(
                 "deployment confinement fact"
             ) or complement.startswith("signed strength"):
@@ -1127,15 +1208,22 @@ def _clause_inability_form(clause):
         "forg", "sign", "reach",
         "delet", "eras", "falsif", "destroy", "remov",
         "unseal", "seal",
+        "edit", "updat", "overwrit", "replac",
+        "read", "copi", "access", "view", "open", "list",
+        "leak", "disclos", "export", "verif",
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
         "simply", "really",
         "under", "any", "circumstances", "in", "way",
         "at", "time", "no",
+        "by", "means", "all", "conceivable", "circumstance",
+        "condition", "case", "reason", "respect", "whatsoever",
+        "to", "for",
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
+        "should", "would", "ought",
     )
     for index, word in enumerate(words):
         if word == "cannot":
@@ -1144,6 +1232,13 @@ def _clause_inability_form(clause):
             word in modals
             and index + 1 < len(words)
             and words[index + 1] in ("never", "ever", "not")
+        ):
+            start = index + 1
+        elif (
+            word in modals
+            and index + 2 < len(words)
+            and words[index + 1] == "be"
+            and words[index + 2] in ("never", "ever", "not")
         ):
             start = index + 1
         elif (
@@ -1164,7 +1259,7 @@ def _clause_inability_form(clause):
         steps = 0
         while (
             cursor < len(words)
-            and steps < 8
+            and steps < 12
             and words[cursor] in fillers
         ):
             cursor += 1
@@ -1211,10 +1306,11 @@ def _seal_claim_scan(assembly_text):
             r",|\(|\)|\[|\]|:|/|\s-\s|"
             "\u2013|\u2014"
             r"|\||\{|\}|~|&"
-            r"|\*|\^|=|#|@|\\|>|\+|--"
+            r"|\*|\^|=|#|@|\\|>|\+|--|%"
             r"|\band\b|\bbut\b|\byet\b|\bor\b|\bnor\b|\bplus\b"
             r"|\bhowever\b|\bmeanwhile\b|\bnevertheless\b"
-            r"|\bnonetheless\b|\bfurthermore\b",
+            r"|\bnonetheless\b|\bfurthermore\b"
+            r"|\bmoreover\b|\btherefore\b",
             statement)
         governed_by_fragment = any(
             _fragment_governs(clause) for clause in clauses
@@ -1238,7 +1334,11 @@ def _seal_claim_scan(assembly_text):
                 and clause_words[len(main_words)]
                 in ("if", "when", "where")
             ):
-                continue
+                complement = " ".join(clause_words[len(main_words) + 1:])
+                if _governing_condition_holds(
+                    "conditional on " + complement
+                ):
+                    continue
             words = main_words
             negated = (
                 "not" in words
@@ -1596,11 +1696,13 @@ def production_report_form(produced_pairs=None, produced_records=None):
                 )
                 if pair_count:
                     per_kind[kind] = pair_count
+    from collections.abc import Mapping
+
     per_shape = {}
     per_family = {}
     if isinstance(produced_records, (list, tuple)):
         for record in produced_records:
-            if not isinstance(record, dict):
+            if not isinstance(record, Mapping):
                 continue
             shape = record.get("shape")
             if shape is not None:
