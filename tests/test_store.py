@@ -216,6 +216,91 @@ class TestStoreFixR1(unittest.TestCase):
         self.assertEqual(result["case"], "signing key unavailable")
 
 
+class TestStoreFixR3(unittest.TestCase):
+    """Fix round 3 STORE and sealing cures, written test first.
+
+    Covers S15-R3-001 (a record whose content field differs
+    from the content its canonical bytes encode stands
+    detected by verify, with a content_mismatch item among
+    the failed checks), S15-R3-002 (the first lock taking in
+    append_under_contention stands bounded by the D-19 wait
+    of up to 10 seconds), and S15-R3-015 (the chain
+    consistent prefix reading stands returned only where an
+    intact prefix of at least one record stands; a store
+    with no intact record returns the unverifiable form
+    naming the case no intact record).
+    """
+
+    def test_verify_detects_a_content_field_swapped_from_its_canonical_bytes(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        store = module.golden_record_store()
+        record = store["records"][-1]
+        record["content"] = {
+            "record_type": "golden record",
+            "payload": "a different valid record body",
+        }
+        result = module.verify(store)
+        self.assertNotEqual(result.get("output"), "agreement")
+        self.assertIn("content_mismatch", result.get("failed_checks", []))
+        direct = sealing.verify(store)
+        self.assertIn("content_mismatch", direct.get("failed_checks", []))
+
+    def test_verify_still_agrees_where_the_body_stands_as_recorded(self):
+        module = require(MODULE)
+        result = module.verify(module.golden_record_store())
+        self.assertEqual(result["output"], "agreement")
+
+    def test_append_under_contention_first_taking_stands_bounded(self):
+        import threading
+        import time
+
+        module = require(MODULE)
+        case = module.lock_contention_case()
+        lock = module._APPEND_LOCK
+        lock.acquire()
+        outcome = {}
+
+        def run():
+            outcome["result"] = module.append_under_contention(case)
+
+        thread = threading.Thread(target=run)
+        started = time.monotonic()
+        thread.start()
+        thread.join(14)
+        alive_after_bound = thread.is_alive()
+        if alive_after_bound:
+            lock.release()
+            thread.join(20)
+        else:
+            lock.release()
+        elapsed = time.monotonic() - started
+        self.assertFalse(alive_after_bound)
+        self.assertLess(elapsed, 14)
+        self.assertGreaterEqual(elapsed, 9.0)
+        result = outcome["result"]
+        self.assertEqual(result["error"], LOCK_CONTENTION_REFUSAL)
+        self.assertTrue(result["waited_to_bound"])
+        self.assertFalse(result["appended"])
+
+    def test_verify_with_no_intact_record_returns_unverifiable(self):
+        module = require(MODULE)
+        for records in ([1, 2], [None, None], [{}, {}], "junk"):
+            store = module.golden_record_store()
+            store["records"] = records
+            result = module.verify(store)
+            self.assertEqual(result.get("output"), "unverifiable")
+            self.assertEqual(result.get("case"), "no intact record")
+            self.assertNotIn("reading", result)
+
+    def test_verify_genuine_prefix_case_still_returns_the_prefix_reading(self):
+        module = require(MODULE)
+        store = module.interrupted_store("non final tear")
+        result = module.verify(store)
+        self.assertEqual(result["reading"], "chain consistent prefix")
+        self.assertFalse(result["supports_judging_use"])
+
+
 class TestStoreT05(unittest.TestCase):
     """STORE-T05: sync and write failures, platform refusal kept."""
 

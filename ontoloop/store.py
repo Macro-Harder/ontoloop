@@ -803,7 +803,12 @@ def append_under_contention(case):
     calls append_record over that store, whose own poll
     loop then waits to the D-19 bound, guessed, and refuses
     by name, and that refusal stands returned whole, with
-    nothing appended. Where the case states no held lock
+    nothing appended. The first taking itself stands bounded
+    by the same D-19 wait: where the lock already stands held
+    before this act calls, the taking runs in the bounded
+    poll loop form, and on expiry the lock contention refusal
+    stands returned with waited_to_bound True and nothing
+    appended. Where the case states no held lock
     over a store, no wait stands performed and the return
     claims none: waited_to_bound stands False and no
     contention refusal stands reported as performed.
@@ -816,7 +821,18 @@ def append_under_contention(case):
             "appended": False,
             "reported_appended": False,
         }
-    _APPEND_LOCK.acquire()
+    acquire = globals().get("_acquire_append_lock")
+    if callable(acquire):
+        taken = acquire()
+    else:
+        taken = _APPEND_LOCK.acquire(timeout=10.0)
+    if not taken:
+        return {
+            "error": _LOCK_CONTENTION_REFUSAL,
+            "waited_to_bound": True,
+            "appended": False,
+            "reported_appended": False,
+        }
     try:
         return append_record(
             store,

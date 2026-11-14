@@ -29,6 +29,7 @@ import hashlib
 import hmac
 
 from ontoloop.canonical import canonical_form as _canonical_form
+from ontoloop.canonical import decode_canonical as _decode_canonical
 
 NOT_BUILT_PREFIX = "NOT BUILT (Step 14): "
 MODULE_NAME = "ontoloop.sealing"
@@ -454,6 +455,23 @@ def _chain_check(records):
         canonical = record.get("canonical_bytes")
         if canonical is not None:
             recomputed = sha256_hex(canonical)
+            try:
+                decoded = _decode_canonical(canonical, JOURNAL_RECORD_KIND)
+            except Exception:
+                decoded = None
+            if isinstance(decoded, dict):
+                carried = {
+                    "content": record.get("content"),
+                    "predecessor_hash": record.get("predecessor_hash"),
+                    "store_sequence": record.get("store_sequence"),
+                    "record_type": record.get("record_type"),
+                }
+                if decoded != carried:
+                    return {
+                        "consistent": False,
+                        "fail_index": index,
+                        "failed_checks": ["content_mismatch"],
+                    }
         elif "content" in record:
             recomputed = hash_journal_record(
                 record.get("content"),
@@ -560,6 +578,15 @@ def verify(store):
     beside it, and on no other output does any sentence stand in
     the result.
 
+    Where a record carries canonical bytes, the record fields
+    stand compared against the fields those bytes decode to,
+    and a record whose two carried forms disagree returns
+    disagreement with a content_mismatch item among the failed
+    checks. The chain consistent prefix reading stands returned
+    only where an intact prefix of at least one record stands:
+    a chain failure at the first record of a multi record store
+    returns unverifiable naming the case no intact record.
+
     A chain failure at the final record (the torn final line
     case) returns unverifiable naming that case, in the
     governed output form subsection 20.87 points six and seven
@@ -590,6 +617,12 @@ def verify(store):
     chain = _chain_check(records)
     if not chain["consistent"]:
         fail_index = chain["fail_index"]
+        if "content_mismatch" in (chain.get("failed_checks") or []):
+            result = _disagreement()
+            result["failed_checks"] = ["content_mismatch"]
+            return result
+        if fail_index == 0 and len(records) > 1:
+            return {"output": "unverifiable", "case": "no intact record"}
         if fail_index < len(records) - 1:
             return _prefix_reading()
         return {"output": "unverifiable", "case": TORN_FINAL_LINE}
