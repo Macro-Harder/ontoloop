@@ -95,24 +95,37 @@ def relations():
 
 
 import array as _array_module
+import collections as _collections_module
+from collections import UserString as _UserString
+from collections.abc import ItemsView as _ItemsView
+from collections.abc import KeysView as _KeysView
 from collections.abc import Mapping as _Mapping
+from collections.abc import ValuesView as _ValuesView
 
 
 def _byte_content(value):
     """Return the byte content a byte like value carries.
 
     A memoryview stands read as the byte content it
-    views, and a byte array in the array form stands
-    read as the bytes it holds, in the same form as a
-    byte string or a bytearray.
+    views, and an array in the array form stands read
+    as the bytes it holds, in the same form as a byte
+    string or a bytearray, whatever typecode the array
+    stands in, in parity with a memoryview over the
+    same array. An array in the unicode typecode stands
+    read as the character content it holds, in the
+    same text form as a plain string, and a memoryview
+    over such an array stands read in that same form.
     """
     if isinstance(value, memoryview):
+        viewed = value.obj
+        if isinstance(
+            viewed, _array_module.array
+        ) and viewed.typecode == "u":
+            return viewed.tounicode().encode("utf-8")
         return value.tobytes()
-    if isinstance(value, _array_module.array) and value.typecode in (
-        "b",
-        "B",
-        "u",
-    ):
+    if isinstance(value, _array_module.array):
+        if value.typecode == "u":
+            return value.tounicode().encode("utf-8")
         return value.tobytes()
     if isinstance(value, (bytes, bytearray)):
         return bytes(value)
@@ -132,8 +145,11 @@ def _materialise_iterators(value, depth=0):
     so a later re-reading of the returned form stands
     over the same items. Mapping and collection forms
     stand rebuilt in re-iterable forms holding the
-    materialised values. Any other value stands as it
-    stands.
+    materialised values. A deque, a UserList, and a
+    dictionary view stand rebuilt in that same form,
+    an items view holding its pairs as tuples, so an
+    iterator inside any of them stands listed once in
+    the same way. Any other value stands as it stands.
     """
     if depth > 100:
         return value
@@ -142,7 +158,27 @@ def _materialise_iterators(value, depth=0):
             key: _materialise_iterators(inner, depth + 1)
             for key, inner in value.items()
         }
-    if isinstance(value, (list, tuple, set, frozenset)):
+    if isinstance(value, _ItemsView):
+        return [
+            (
+                key,
+                _materialise_iterators(inner, depth + 1),
+            )
+            for key, inner in value
+        ]
+    if isinstance(
+        value,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+            _KeysView,
+            _ValuesView,
+        ),
+    ):
         return [
             _materialise_iterators(element, depth + 1)
             for element in value
@@ -158,7 +194,10 @@ def _materialise_iterators(value, depth=0):
 def _resolve_text(value):
     """Read the text a value carries, in its stated forms.
 
-    A string stands as its own text. A mapping stands
+    A string stands as its own text, and a UserString
+    stands read as the text it wraps, in the same form
+    as a plain string, ahead of the general iterable
+    limb below. A mapping stands
     read for the text under its instruction_text, text,
     or content key, in that order, and that value may
     itself stand in any of these forms. A list, tuple,
@@ -178,6 +217,8 @@ def _resolve_text(value):
     """
     if isinstance(value, str):
         return value
+    if isinstance(value, _UserString):
+        return str(value)
     byte_content = _byte_content(value)
     if byte_content is not None:
         return byte_content.decode("utf-8", "replace")
@@ -211,6 +252,8 @@ def _resolve_text(value):
 def _item_fields(item):
     if isinstance(item, str):
         return {"group": None, "signature": None, "text": item}
+    if isinstance(item, _UserString):
+        return {"group": None, "signature": None, "text": str(item)}
     byte_content = _byte_content(item)
     if byte_content is not None:
         return {
@@ -239,7 +282,7 @@ def _split_items(material):
     """Partition bundle material into candidate and holdout items."""
     candidate = []
     holdout = []
-    if isinstance(material, dict):
+    if isinstance(material, _Mapping):
         for key in ("candidate_items", "candidate"):
             value = material.get(key)
             if isinstance(value, (list, tuple)):
@@ -252,7 +295,7 @@ def _split_items(material):
         if isinstance(items, (list, tuple)):
             for item in items:
                 side = None
-                if isinstance(item, dict):
+                if isinstance(item, _Mapping):
                     side = item.get("split") or item.get("side")
                 if side in ("holdout", "sealed holdout"):
                     holdout.append(item)
@@ -277,7 +320,7 @@ def _split_items(material):
     elif isinstance(material, (list, tuple)):
         for item in material:
             side = None
-            if isinstance(item, dict):
+            if isinstance(item, _Mapping):
                 side = item.get("split") or item.get("side")
             if side in ("holdout", "sealed holdout"):
                 holdout.append(item)
@@ -304,6 +347,20 @@ def _is_bundle(material):
     return False
 
 
+class _UnhashableIndexValue(Exception):
+    """A group or signature value stands in no hashable form."""
+
+
+def _index_key(relation, value):
+    try:
+        hash(value)
+    except (TypeError, ValueError):
+        raise _UnhashableIndexValue(
+            "unhashable index value for relation %r" % (relation,)
+        )
+    return (relation, value)
+
+
 def _keyed_index(items):
     index = {}
     for position, item in enumerate(items):
@@ -311,7 +368,9 @@ def _keyed_index(items):
         for relation in ("group", "signature"):
             value = fields[relation]
             if value is not None:
-                index.setdefault((relation, value), []).append(position)
+                index.setdefault(
+                    _index_key(relation, value), []
+                ).append(position)
     return index
 
 
@@ -332,7 +391,7 @@ def _selected_pairs(candidate, holdout):
             value = fields[relation]
             if value is None:
                 continue
-            for hold_pos in index.get((relation, value), []):
+            for hold_pos in index.get(_index_key(relation, value), []):
                 pair = (cand_pos, hold_pos)
                 if pair not in seen:
                     seen.add(pair)
@@ -396,9 +455,17 @@ def indexed_comparisons(material):
     keyed index only. Pairs sharing neither relation
     are not compared and are not counted. The cost
     stands at the Example E weight per pair compared.
+    A text form its reading recurses past the
+    interpreter limit, and a group or signature value
+    standing in no hashable form, each meet the stated
+    no count form of this surface, with no exception
+    escaping.
     """
     if _is_bundle(material):
-        bundle = _audit_bundle(material)
+        try:
+            bundle = _audit_bundle(material)
+        except (RecursionError, _UnhashableIndexValue):
+            bundle = {"comparisons": 0}
         comparisons = bundle["comparisons"]
     else:
         comparisons = 0
@@ -466,7 +533,7 @@ def _audit(material, scored_before_refusal):
     if _is_bundle(material):
         try:
             bundle = _audit_bundle(material)
-        except RecursionError:
+        except (RecursionError, _UnhashableIndexValue):
             return True, {
                 "comparisons": 0,
                 "cost_units": 0,
@@ -538,6 +605,8 @@ def _holdout_items_of(holdout_material):
         return []
     if isinstance(holdout_material, str):
         return [holdout_material]
+    if isinstance(holdout_material, _UserString):
+        return [str(holdout_material)]
     byte_content = _byte_content(holdout_material)
     if byte_content is not None:
         return [byte_content.decode("utf-8", "replace")]
