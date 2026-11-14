@@ -140,6 +140,13 @@ class Unrowed1986Tests(unittest.TestCase):
         claim = mod.clearance_claim_covering_instruction_items(
             promotion_record=standing_with_no_position)
         self.assertFalse(claim["claim_stands"])
+        # Fix round 4, N-11: a non mapping promotion record stands
+        # presented, a string, and the claim does not stand on it,
+        # because a string is not a promotion record carrying the
+        # instruction test result.
+        claim = mod.clearance_claim_covering_instruction_items(
+            promotion_record="Promotion Record")
+        self.assertFalse(claim["claim_stands"])
         record = mod.promotion_record_carrying_instruction_test_result()
         claim = mod.clearance_claim_covering_instruction_items(promotion_record=record)
         self.assertTrue(claim["claim_stands"])
@@ -240,6 +247,16 @@ class Unrowed1987Tests(unittest.TestCase):
         result = mod.confirm_provisional(record)
         self.assertEqual(result["outcome"], "barred")
         self.assertEqual(result["bar_reason"], "no comparison in the provisional record")
+        # Fix round 4, N-10: a confirm record carrying no comparison
+        # key at all stands presented, in the empty mapping form and
+        # in a mapping carrying another position and no comparison
+        # key, and confirmation stands barred on each.
+        for no_key_record in ({}, {"record_home": "Provisional Record"}):
+            self.assertNotIn("comparison", no_key_record)
+            result = mod.confirm_provisional(no_key_record)
+            self.assertEqual(result["outcome"], "barred")
+            self.assertEqual(result["bar_reason"],
+                             "no comparison in the provisional record")
 
     # Fix round 3, S15-R3-014: the success side of the confirmation
     # bar stands pinned, on a record carrying a comparison, so an act
@@ -258,6 +275,16 @@ class Unrowed1987Tests(unittest.TestCase):
         self.assertTrue(record["comparison_basis_named"])
         self.assertTrue(record["comparison_basis_reason_recorded"])
         self.assertNotEqual(record["comparison_basis"], "")
+        # Fix round 4, N-09: the basis name value itself and the
+        # reason substance stand pinned, so a record naming some
+        # other basis entirely with an empty reason cannot pass.
+        self.assertEqual(record["comparison_basis"],
+                         "operator named baseline period")
+        self.assertEqual(
+            record["comparison_basis_reason"],
+            "no comparable displaced period stands, so the "
+            "operator named baseline period stands as the basis")
+        self.assertNotEqual(record["comparison_basis_reason"], "")
 
 
 # ---------------------------------------------------------------------
