@@ -79,6 +79,39 @@ class TestUnrowed1917Preview(unittest.TestCase):
         self.assertTrue(outcome["failed"])
         self.assertFalse(outcome["purge_proceeded"])
 
+    def test_preview_reading_is_the_authorisation_timing_reading(self):
+        module = require("ontoloop.ops")
+        preview = module.purge_preview()
+        self.assertEqual(
+            preview["authorisation_timing_event"],
+            "purge authorisation timing",
+        )
+        self.assertIs(
+            preview["preview_reading_for_authorisation_timing"],
+            True,
+        )
+        self.assertEqual(
+            preview["authorisation_record_home"],
+            "rehearsal register",
+        )
+        self.assertEqual(
+            preview["authorisation_owning_seat"],
+            "OPS-MIGRATE slice owner seat",
+        )
+        self.assertEqual(
+            preview["authorisation_fallback_seat"],
+            "Live-proof Owner",
+        )
+        real_preview = module.purge_preview(occasion="real")
+        self.assertEqual(
+            real_preview["authorisation_record_home"],
+            "purge record",
+        )
+        self.assertIs(
+            real_preview["preview_reading_for_authorisation_timing"],
+            True,
+        )
+
 
 # ------------------------------------------------------------------
 # Subsection 19.33, the declaration refusal.

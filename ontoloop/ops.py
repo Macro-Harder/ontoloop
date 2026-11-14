@@ -24,13 +24,18 @@ surface of this module signs nothing, and the
 governing state rule stands stated in this module,
 and no withdrawal order stands restated in it.
 
+The incident family of plan subsection 19.5 and
+the purge preview family of plan subsection 19.17
+stand built in this module, in the final section
+of this file. Each of those surfaces computes its
+return from the material passed to it, and no act
+of this module writes a journal byte by any path
+of its own: a journal append an incident act
+needs stands delegated to the store module, the
+one journal writer.
+
 What this slice does not build stands absent from
-this module altogether. The absent names are
-incident_entry, resolve_dispute,
-incident_append_order, take_loading_stop,
-discovery_after_stop, journal_record_after_append,
-purge_preview, driven_purge_sequence, and
-purge_without_preview. A lookup of any such name
+this module altogether. A lookup of any such name
 raises AssertionError in the NOT BUILT form the
 suite harness uses, through the module level guard
 at the foot of this file. A lookup of a private or
@@ -49,12 +54,19 @@ __all__ = [
     "classify_compatibility",
     "complete_operator_led_rebuild",
     "current_pointer",
+    "discovery_after_stop",
+    "driven_purge_sequence",
     "export",
     "import_bundle",
+    "incident_append_order",
+    "incident_entry",
     "interrupt_migration",
     "interrupt_migration_with_defect",
+    "journal_record_after_append",
     "named_error",
     "print_claim_inside_artifact",
+    "purge_preview",
+    "purge_without_preview",
     "read",
     "read_all_paths",
     "read_paths",
@@ -63,7 +75,9 @@ __all__ = [
     "release_assembly",
     "residual_owing_row_substitutes_for_owing_rows_1_to_5",
     "residual_record_for",
+    "resolve_dispute",
     "run_migration_command",
+    "take_loading_stop",
     "terminal_position_cases",
     "verify",
     "whole_bundle",
@@ -1347,6 +1361,528 @@ def complete_operator_led_rebuild(entry):
     return {
         "counted_as_recovered": True,
         "act": entry["act"],
+    }
+
+
+# The incident questions. Three grounded question
+# labels, in the order plan subsection 19.5 states
+# the questions: first whether sealed or secret
+# material is involved, second whether the store is
+# suspect, and third whether a bundle is wrongly
+# loadable. The labels stand as the record keys of
+# the incident entry return.
+_INCIDENT_QUESTIONS = (
+    "sealed or secret material involved",
+    "store suspect",
+    "bundle wrongly loadable",
+)
+
+# The consequence of a yes at each incident
+# question, in the brief form plan subsection 19.5
+# carries by reference. One grounded string per
+# question, keyed by the question label above.
+_INCIDENT_CONSEQUENCES = {
+    "sealed or secret material involved": (
+        "redaction miss and purge path"
+    ),
+    "store suspect": (
+        "suspect path, evaluation and promotion refused"
+    ),
+    "bundle wrongly loadable": (
+        "bundle loading stopped at the next run boundary"
+    ),
+}
+
+# The append acts of the incident precedence. Three
+# grounded act names. Plan subsection 19.5 states
+# one precedence among them: repair verification
+# precedes each of the other two, and it states no
+# order between the purge append and the stop
+# append.
+_REPAIR_VERIFICATION = "repair verification"
+_INCIDENT_APPEND_ACTS = (
+    "repair verification",
+    "purge append",
+    "stop append",
+)
+
+# The driven purge sequence steps. Four grounded
+# step names, in driven order, the preview standing
+# before the tombstone append and the purge append,
+# as plan subsection 19.17 states.
+_DRIVEN_PURGE_SEQUENCE = (
+    "purge preview",
+    "tombstone append",
+    "purge append",
+    "journal rebuild",
+)
+
+
+def _ordered_unique(values):
+    """Return the values as a fresh list, each value
+    standing once, in first occurrence order."""
+    result = []
+    for value in values:
+        if value not in result:
+            result.append(value)
+    return result
+
+
+def incident_entry(answers=None):
+    """Return the incident entry record, plan
+    subsection 19.5.
+
+    Takes the answers called by keyword in the
+    tests, standing as a list or tuple of three
+    answer strings in question order, as a mapping
+    from question label to answer string, or as
+    None, which stands as three no answers. Each
+    answer stands at yes or no; any other answer
+    form raises ValueError.
+
+    The three questions stand asked and recorded in
+    their stated order on every call, even where an
+    earlier answer stands at yes. Returns a fresh
+    mapping carrying four keys: the questions as a
+    fresh list in their order, the answers as a
+    fresh mapping keyed by the question labels in
+    that same order, the consequences as a fresh
+    mapping holding the consequence string of each
+    question answered yes and no other question,
+    computed from the answers passed, and the
+    record home standing at the string incident
+    record.
+    """
+    if answers is None:
+        answer_values = ["no", "no", "no"]
+    elif isinstance(answers, dict):
+        answer_values = []
+        for question in _INCIDENT_QUESTIONS:
+            if question not in answers:
+                raise ValueError(
+                    "answers lacks the question: %r" % (question,)
+                )
+            answer_values.append(answers[question])
+    elif isinstance(answers, (list, tuple)):
+        if len(answers) != len(_INCIDENT_QUESTIONS):
+            raise ValueError("answers must hold three answers")
+        answer_values = list(answers)
+    else:
+        raise ValueError("answers must be a list, tuple, mapping, or None")
+    for value in answer_values:
+        if value not in ("yes", "no"):
+            raise ValueError("each answer must be yes or no")
+    answers_record = {}
+    consequences = {}
+    for question, value in zip(_INCIDENT_QUESTIONS, answer_values):
+        answers_record[question] = value
+        if value == "yes":
+            consequences[question] = _INCIDENT_CONSEQUENCES[question]
+    return {
+        "questions": list(_INCIDENT_QUESTIONS),
+        "answers": answers_record,
+        "consequences": consequences,
+        "record_home": "incident record",
+    }
+
+
+def resolve_dispute(disputed=False, journal_records=None):
+    """Return the dispute resolution form, plan
+    subsection 19.5, the recorder first rule.
+
+    Takes the disputed flag and the journal records,
+    both called by keyword in the tests. The journal
+    records stand as a list of record values in
+    journal order, or as None, which stands as an
+    empty journal.
+
+    Where the disputed flag stands True, the first
+    act stands at journal reconstruction: the
+    journal records passed stand reconstructed in
+    their order and read, and no recollection stands
+    relied on. Returns a fresh mapping carrying six
+    keys in that case: the first act standing at the
+    string journal reconstruction, the recollection
+    relied on position standing False, the journal
+    reconstructed and journal read positions
+    standing True, and the reconstructed material
+    and the material read, each a fresh list holding
+    the journal records passed, in their order, so
+    the read material stands equal to the
+    reconstructed material by construction. Where
+    the disputed flag stands False, the first act
+    stands at None and the reconstructed and read
+    positions and materials stand empty in the same
+    six key form.
+    """
+    if journal_records is None:
+        records = []
+    elif isinstance(journal_records, (list, tuple)):
+        records = list(journal_records)
+    else:
+        raise ValueError("journal records must be a list or None")
+    if not disputed:
+        return {
+            "first_act": None,
+            "recollection_relied_on": False,
+            "journal_reconstructed": False,
+            "journal_read": False,
+            "reconstructed_material": [],
+            "material_read": [],
+        }
+    return {
+        "first_act": "journal reconstruction",
+        "recollection_relied_on": False,
+        "journal_reconstructed": True,
+        "journal_read": True,
+        "reconstructed_material": records,
+        "material_read": list(records),
+    }
+
+
+def incident_append_order(acts=None):
+    """Return the incident append order, plan
+    subsection 19.5, in its partial order form.
+
+    Takes the acts called by keyword or not at all,
+    standing as a list or tuple holding any of the
+    three append act names, or as None, which stands
+    as all three acts in their listed order. An act
+    outside the three names raises ValueError.
+
+    Returns a fresh list holding the acts passed,
+    ordered by the one precedence the subsection
+    states: repair verification stands before the
+    purge append and before the stop append. The
+    purge append and the stop append keep the
+    relative order they stood in as passed, because
+    the subsection states no order between them.
+    The ordering stands computed by a stable sort on
+    that precedence alone.
+    """
+    if acts is None:
+        act_values = list(_INCIDENT_APPEND_ACTS)
+    elif isinstance(acts, (list, tuple)):
+        act_values = list(acts)
+    else:
+        raise ValueError("acts must be a list, tuple, or None")
+    for act in act_values:
+        if act not in _INCIDENT_APPEND_ACTS:
+            raise ValueError("unknown append act: %r" % (act,))
+
+    def precedence_rank(act):
+        if act == _REPAIR_VERIFICATION:
+            return 0
+        return 1
+
+    return sorted(act_values, key=precedence_rank)
+
+
+def take_loading_stop(bundle=None):
+    """Return the incident loading stop, plan
+    subsection 19.5.
+
+    Takes the bundle called by keyword or not at
+    all, standing as a value naming the wrongly
+    loadable bundle, or as None. The stop acts on
+    loading without an append: it stands effective
+    on loading at the moment it is taken, before
+    its journal record lands.
+
+    Returns a fresh mapping carrying six keys: the
+    act standing at the string incident loading
+    stop, the named act form under which the stop
+    stands in the OPS-MIGRATE home and in the
+    contract inventory the subsection names; the
+    effective on loading position standing True;
+    the journal record landed position standing
+    False; the recorded on position standing at the
+    string operator surface; the effective at
+    position standing at the string next run
+    boundary; and the bundle standing at the bundle
+    argument, the bundle the stop was taken for.
+    """
+    return {
+        "act": "incident loading stop",
+        "effective_on_loading": True,
+        "journal_record_landed": False,
+        "recorded_on": "operator surface",
+        "effective_at": "next run boundary",
+        "bundle": bundle,
+    }
+
+
+def discovery_after_stop(stop, bundle=None):
+    """Return discovery after a loading stop, plan
+    subsection 19.5.
+
+    Takes the stop called positionally in the
+    tests, standing as a mapping in the form the
+    loading stop surface returns, and the bundle
+    called by keyword or not at all. Where the stop
+    stands effective on loading, discovery returns
+    no promotion for the wrongly loadable bundle
+    from the moment the stop was taken. Where the
+    stop stands in no effective form, discovery
+    returns the bundle argument as the promotion.
+
+    Returns a fresh mapping carrying two keys: the
+    promotion standing at None where the stop
+    stands effective and at the bundle argument
+    where it does not, and the bundle standing at
+    the bundle the stop names where the stop
+    carries one and at the bundle argument where
+    it does not.
+    """
+    if isinstance(stop, dict):
+        effective = stop.get("effective_on_loading") is True
+        stop_bundle = stop.get("bundle", bundle)
+    else:
+        effective = False
+        stop_bundle = bundle
+    if effective:
+        promotion = None
+    else:
+        promotion = bundle
+    return {
+        "promotion": promotion,
+        "bundle": stop_bundle,
+    }
+
+
+def journal_record_after_append(stop, store=None):
+    """Return the stop record after an append, plan
+    subsection 19.5.
+
+    Takes the stop called positionally in the
+    tests, standing as a mapping in the form the
+    loading stop surface returns, and the store
+    called by keyword or not at all. The stop
+    record stands written into the journal when the
+    journal next accepts an append, and that append
+    occasion is this call.
+
+    This surface writes no journal byte by any path
+    of its own. Where a store stands passed, the
+    append stands delegated to the store module
+    append act, the one journal writer, and the
+    landed position stands read from that act
+    result. Where no store stands passed, the call
+    itself stands as the append occasion in value
+    form and the landed position stands True.
+
+    Returns a fresh mapping carrying two keys: the
+    journal record landed position, and the stop as
+    a fresh mapping holding the stop passed.
+    """
+    if isinstance(stop, dict):
+        stop_value = dict(stop)
+    else:
+        stop_value = stop
+    if store is None:
+        return {
+            "journal_record_landed": True,
+            "stop": stop_value,
+        }
+    from ontoloop import store as _store_module
+
+    content = {
+        "act": "incident loading stop",
+        "recorded_on": "operator surface",
+        "effective_at": "next run boundary",
+        "bundle": stop_value.get("bundle") if isinstance(stop_value, dict) else None,
+    }
+    result = _store_module.append_record(
+        store, content, record_type="incident loading stop"
+    )
+    if isinstance(result, dict):
+        landed = bool(
+            result.get("reported_appended") or result.get("appended")
+        )
+    else:
+        landed = False
+    return {
+        "journal_record_landed": landed,
+        "stop": stop_value,
+    }
+
+
+def purge_preview(identities_affected=None, datasets_to_be_marked=None,
+                  promotions_to_be_marked=None,
+                  exports_presumed_holding=None,
+                  backups_presumed_holding=None, occasion="rehearsed"):
+    """Return the purge preview, plan subsection
+    19.17.
+
+    Takes the five contents called by keyword or
+    not at all, each standing as a list of values
+    or as None, and the occasion standing at
+    rehearsed or real. Any other occasion raises
+    ValueError.
+
+    The preview shows three contents for a proposed
+    purge: the identities affected, the datasets
+    and promotions that would be marked, and the
+    exports and backups presumed still to hold the
+    material. Each content stands computed from the
+    material passed: a content list passed stands
+    returned as a fresh list holding each value
+    once, in first occurrence order. A content list
+    standing at None stands derived from the
+    identities affected, which themselves stand at
+    the tombstoned identities of this module with
+    the tombstoned materials of this module where
+    no identity list stands passed: each derived
+    entry names the identity it derives from, in
+    the form dataset holding, promotion holding,
+    export presumed holding, or backup presumed
+    holding, followed by that identity.
+
+    Returns a fresh mapping carrying fourteen keys:
+    the five contents in the forms above; the
+    record home standing at the string operator
+    surface record for the purge occasion; the kept
+    with position standing at the string purge
+    records; the occasion at the occasion argument;
+    the authorisation timing event standing at the
+    string purge authorisation timing; the preview
+    reading for authorisation timing position
+    standing True, the preview reading standing as
+    the reading the purge authorisation timing
+    prices, in the form plan subsection 19.17 point
+    two states; the authorisation record home
+    standing at rehearsal register where the
+    occasion stands rehearsed and at purge record
+    where it stands real, in the form the purge
+    authorisation timing row of plan section 7.4
+    states; the authorisation owning seat standing
+    at the OPS-MIGRATE slice owner seat string of
+    that row; the authorisation fallback seat
+    standing at the Live-proof Owner string of that
+    row; and the purge record position standing
+    False, the preview standing as no purge record
+    in the form point three of the subsection
+    states.
+    """
+    if occasion not in ("rehearsed", "real"):
+        raise ValueError("unknown purge occasion: %r" % (occasion,))
+
+    def content_or_derived(values, prefix):
+        if values is not None:
+            if not isinstance(values, (list, tuple)):
+                raise ValueError("preview contents must be lists or None")
+            return _ordered_unique(list(values))
+        return [prefix + identity for identity in identities]
+
+    if identities_affected is not None:
+        if not isinstance(identities_affected, (list, tuple)):
+            raise ValueError("identities affected must be a list or None")
+        identities = _ordered_unique(list(identities_affected))
+    else:
+        identities = _ordered_unique(
+            list(_TOMBSTONED_IDENTITIES)
+            + sorted(_TOMBSTONED_MATERIALS)
+        )
+    datasets = content_or_derived(datasets_to_be_marked, "dataset holding ")
+    promotions = content_or_derived(
+        promotions_to_be_marked, "promotion holding ")
+    exports = content_or_derived(
+        exports_presumed_holding, "export presumed holding ")
+    backups = content_or_derived(
+        backups_presumed_holding, "backup presumed holding ")
+    if occasion == "rehearsed":
+        authorisation_record_home = "rehearsal register"
+    else:
+        authorisation_record_home = "purge record"
+    return {
+        "identities_affected": identities,
+        "datasets_to_be_marked": datasets,
+        "promotions_to_be_marked": promotions,
+        "exports_presumed_holding": exports,
+        "backups_presumed_holding": backups,
+        "record_home": "operator surface record for the purge occasion",
+        "kept_with": "purge records",
+        "occasion": occasion,
+        "authorisation_timing_event": "purge authorisation timing",
+        "preview_reading_for_authorisation_timing": True,
+        "authorisation_record_home": authorisation_record_home,
+        "authorisation_owning_seat": "OPS-MIGRATE slice owner seat",
+        "authorisation_fallback_seat": "Live-proof Owner",
+        "is_purge_record": False,
+    }
+
+
+def driven_purge_sequence(steps=None):
+    """Return the driven purge sequence, plan
+    subsection 19.17.
+
+    Takes the steps called by keyword or not at
+    all, standing as a list of step names or as
+    None, which stands as the four driven steps in
+    their driven order. Returns a fresh list
+    holding the steps passed with the purge preview
+    step standing before the first tombstone or
+    purge append step: where the steps passed hold
+    the preview in any other position, it stands
+    moved to that position, and where they hold no
+    preview step, it stands placed there. Where the
+    steps passed hold no append step, the preview
+    stands at the head of the list. The remaining
+    steps keep the order they stood in as passed.
+    """
+    if steps is None:
+        return list(_DRIVEN_PURGE_SEQUENCE)
+    if not isinstance(steps, (list, tuple)):
+        raise ValueError("steps must be a list, tuple, or None")
+    rest = [step for step in steps if step != "purge preview"]
+    insert_at = len(rest)
+    for index, step in enumerate(rest):
+        if step in ("tombstone append", "purge append"):
+            insert_at = index
+            break
+    else:
+        insert_at = 0
+    result = list(rest)
+    result.insert(insert_at, "purge preview")
+    return result
+
+
+def purge_without_preview(preview=None, preview_shown=False):
+    """Return the purge without preview outcome,
+    plan subsection 19.17.
+
+    Takes the preview called by keyword or not at
+    all, standing as a preview mapping in the form
+    the preview surface returns or as None, and the
+    preview shown flag. No purge act on a store
+    stands taken on a preview that has not been
+    shown for that act: where no preview stands
+    shown, the attempt stands failed and the purge
+    does not proceed. Where a preview stands shown,
+    by the preview argument standing passed or by
+    the flag standing True, the failure form does
+    not stand and the purge stands as proceeding on
+    its preview.
+
+    Returns a fresh mapping. In the no preview
+    case it carries three keys: the failed position
+    standing True, the purge proceeded position
+    standing False, and the reason standing at the
+    string no preview shown for that act. In the
+    preview shown case it carries two keys: the
+    failed position standing False and the purge
+    proceeded position standing True.
+    """
+    shown = bool(preview_shown) or preview is not None
+    if shown:
+        return {
+            "failed": False,
+            "purge_proceeded": True,
+        }
+    return {
+        "failed": True,
+        "purge_proceeded": False,
+        "reason": "no preview shown for that act",
     }
 
 
