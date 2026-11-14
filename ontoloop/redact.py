@@ -1900,6 +1900,51 @@ def _assembly_state_value(assembly):
     return None
 
 
+def _is_top_state_entry(element):
+    """Return True where an element stands as the top level state entry.
+
+    An element stands as that entry where it carries
+    the assembly_state name in a walked pair form: a
+    mapping form element carrying that key, a pair
+    element standing as a dictionary items view
+    carrying an entry for that key, a pair element
+    standing in a set form carrying that name among
+    its elements, and an indexable sequence pair
+    element whose first element stands as that name.
+    A keys view or values view element states no
+    pair, in the standing form of the state read, and
+    stands as no entry here in the same way.
+    """
+    if _is_mapping_form(element):
+        try:
+            return "assembly_state" in element
+        except Exception:
+            return False
+    if _is_view_form(element):
+        if _view_kind(element) == "items":
+            try:
+                for key, _value in element:
+                    if key == "assembly_state":
+                        return True
+            except (TypeError, ValueError):
+                return False
+        return False
+    if _is_set_form(element):
+        try:
+            return "assembly_state" in element
+        except Exception:
+            return False
+    if _is_indexable_sequence_form(element):
+        try:
+            return (
+                len(element) >= 1
+                and element[0] == "assembly_state"
+            )
+        except Exception:
+            return False
+    return False
+
+
 def _assembly_content(assembly, _path=None, _top=True,
                       _skip_top_state=False):
     """Return the scannable content items of an assembly.
@@ -1921,7 +1966,19 @@ def _assembly_content(assembly, _path=None, _top=True,
     alone: a gathering under that flag skips the top
     level assembly_state value, so the floor reads the
     value content beside the state value, in the form
-    exit_scan states. An assembly in string or
+    exit_scan states. That skip stands honoured in
+    every branch this gathering walks, beside the
+    mapping branch: a sequence or set branch skips a
+    top level pair element naming assembly_state in
+    any walked pair form, in the form
+    _is_top_state_entry states, and a view branch
+    skips a top level view entry for that key, a keys
+    view entry standing as that name, an items view
+    entry whose key stands as that name, and a values
+    view entry standing as the value that key answers
+    in the mapping the view views, so the top level
+    state entry itself stands counted as no content
+    on any assembly form. An assembly in string or
     byte form carries itself as its content. A value in
     no such form carries no scannable content. A mapping
     or sequence that stands on its own gathering path
@@ -1981,6 +2038,41 @@ def _assembly_content(assembly, _path=None, _top=True,
         _path.add(marker)
         try:
             content = []
+            if _top and _skip_top_state:
+                if _view_kind(assembly) == "values":
+                    underlying = getattr(assembly, "mapping", None)
+                    if underlying is None:
+                        underlying = getattr(
+                            assembly, "_mapping", None
+                        )
+                    if underlying is not None and _is_mapping_form(
+                        underlying
+                    ):
+                        for key, value in _mapping_pairs(underlying):
+                            if key == "assembly_state":
+                                continue
+                            content.extend(
+                                _assembly_content(
+                                    value, _path, False
+                                )
+                            )
+                        return content
+                for entry in assembly:
+                    if _view_kind(assembly) == "keys" and (
+                        entry == "assembly_state"
+                    ):
+                        continue
+                    if _view_kind(assembly) == "items":
+                        try:
+                            entry_key = entry[0]
+                        except Exception:
+                            entry_key = None
+                        if entry_key == "assembly_state":
+                            continue
+                    content.extend(
+                        _assembly_content(entry, _path, False)
+                    )
+                return content
             for entry in assembly:
                 content.extend(
                     _assembly_content(entry, _path, False)
@@ -2016,6 +2108,12 @@ def _assembly_content(assembly, _path=None, _top=True,
         try:
             content = []
             for element in assembly:
+                if (
+                    _top
+                    and _skip_top_state
+                    and _is_top_state_entry(element)
+                ):
+                    continue
                 content.extend(
                     _assembly_content(element, _path, False)
                 )

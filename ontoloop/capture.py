@@ -622,7 +622,14 @@ def _byte_form_container(value):
     plain mapping and of a wrapper mapping each meet,
     and the general iterable form, a container carrying
     an iteration act and standing as no iterator, read
-    through the abstract iterable test. String and byte
+    through the abstract iterable test. Beside those
+    forms, the walked forms stand as the container form
+    that iterates by indexed access alone, a container
+    carrying a length act and an indexed access act and
+    no iteration act, read through the presence of those
+    two acts, in parity with the cross split readings of
+    the same system, which read that form in substance.
+    String and byte
     values stand decided in their own limbs before
     this test, and this test returns False for them.
     A value standing as an iterator, a generator among
@@ -639,7 +646,7 @@ def _byte_form_container(value):
         value, "__next__"
     ):
         return False
-    return isinstance(
+    if isinstance(
         value,
         (
             dict,
@@ -655,7 +662,9 @@ def _byte_form_container(value):
             collections.abc.MappingView,
             collections.abc.Iterable,
         ),
-    ) or isinstance(value, _BYTE_FORM_VIEW_TYPES)
+    ) or isinstance(value, _BYTE_FORM_VIEW_TYPES):
+        return True
+    return hasattr(value, "__getitem__") and hasattr(value, "__len__")
 
 
 def _value_byte_form(value, _path=None):
@@ -686,7 +695,19 @@ def _value_byte_form(value, _path=None):
     as the concrete forms, and a value standing in a
     mapping view form or in a general iterable form
     stands read in substance in the same way, under
-    the same cycle guard discipline. Any other value
+    the same cycle guard discipline. A value standing
+    in the container form that iterates by indexed
+    access alone stands read in substance in the same
+    way, through the elements its indexed access
+    yields, under the same cycle guard discipline.
+    A ChainMap value stands read through the pairs of
+    every map it chains, in chain order, in parity
+    with the exit scan gathering of the same scope,
+    so an entry standing in a later map under a key
+    an earlier map also carries stands measured by
+    the key and value it carries, and not by the
+    value the earlier map answers for that key alone.
+    Any other value
     stands in the UTF-8 byte form of its string form.
     It reads recursively.
     """
@@ -702,6 +723,15 @@ def _value_byte_form(value, _path=None):
             return b""
         _path.add(marker)
         try:
+            if isinstance(value, collections.ChainMap):
+                parts = []
+                for chained in value.maps:
+                    for key in chained:
+                        parts.append(_value_byte_form(key, _path))
+                        parts.append(
+                            _value_byte_form(chained[key], _path)
+                        )
+                return b"".join(parts)
             if isinstance(value, collections.abc.Mapping):
                 parts = []
                 for key in value:
