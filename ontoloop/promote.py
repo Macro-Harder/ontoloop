@@ -769,10 +769,18 @@ def provisional_record(with_comparison=True, comparable_displaced_period=True,
     its comparison basis and records the reason it was
     chosen.
     """
-    prov_out = list(provisional_outcomes or ["pass", "pass", "fail"])
-    disp_out = list(displaced_outcomes or ["pass", "fail", "fail"])
-    prov_cor = list(provisional_corrections or ["corrected", "open"])
-    disp_cor = list(displaced_corrections or ["corrected", "open"])
+    prov_out = list(
+        ["pass", "pass", "fail"]
+        if provisional_outcomes is None else provisional_outcomes)
+    disp_out = list(
+        ["pass", "fail", "fail"]
+        if displaced_outcomes is None else displaced_outcomes)
+    prov_cor = list(
+        ["corrected", "open"]
+        if provisional_corrections is None else provisional_corrections)
+    disp_cor = list(
+        ["corrected", "open"]
+        if displaced_corrections is None else displaced_corrections)
 
     def mix(values):
         result = {}
