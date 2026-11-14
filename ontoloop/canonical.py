@@ -777,7 +777,7 @@ def reading(cases, reader="first"):
             try:
                 classified[case["case"]] = classes.get(
                     case["kind"], "unclassified")
-            except TypeError:
+            except (TypeError, ValueError):
                 classified[case["case"]] = "unclassified"
         return classified
     raise ValueError("unknown reader: %r" % (reader,))

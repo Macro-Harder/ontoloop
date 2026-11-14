@@ -1063,12 +1063,12 @@ def catalogue_row_with_value(kind, form):
         row = _OWING_PRESENTATION[name]
         try:
             form_value = row.get(form)
-        except TypeError:
+        except (TypeError, ValueError):
             return None
         if isinstance(form_value, dict):
             try:
                 matched = kind in form_value
-            except TypeError:
+            except (TypeError, ValueError):
                 return None
             if matched:
                 return _fresh_owing_row(row)
@@ -1199,7 +1199,7 @@ def refusal_reason(name):
     # form for such a name, None, with no exception.
     try:
         row = rows.get(name)
-    except TypeError:
+    except (TypeError, ValueError):
         return None
     if row is None:
         return None
@@ -1758,7 +1758,7 @@ def check_owing_forms(row):
         # as an unidentified name, in the same failure form.
         try:
             name_unknown = name not in stored_rows
-        except TypeError:
+        except (TypeError, ValueError):
             name_unknown = True
         if name_unknown:
             return {
@@ -2348,7 +2348,7 @@ def meaning_check(check_id=None, affected_class=None, fixture=None,
     try:
         _probe = {check_id: True}
         _identifier_hashable = True
-    except TypeError:
+    except (TypeError, ValueError):
         _identifier_hashable = False
     if not _identifier_hashable:
         direction = "meaning held"
@@ -2463,7 +2463,7 @@ def state_transition(state, act):
     """
     try:
         return _STATE_TRANSITIONS[(state, act)]
-    except TypeError:
+    except (TypeError, ValueError):
         raise KeyError((state, act)) from None
 
 
