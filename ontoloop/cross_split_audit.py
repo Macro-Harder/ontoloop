@@ -558,6 +558,26 @@ def _position_elements(value):
     return list(value)
 
 
+def _enumerate_carried(element):
+    """Return the item an enumerate index pair carries.
+
+    An element standing as a two element list or tuple
+    with an integer standing in first place stands as an
+    index pair an enumerate object yields, and the item
+    it carries stands in second place. Index pairs
+    standing nested, as a further enumerate layer yields
+    them, stand stripped in the same way until no index
+    pair stands. Any other element stands as it stands.
+    """
+    while (
+        isinstance(element, (list, tuple))
+        and len(element) == 2
+        and isinstance(element[0], int)
+    ):
+        element = element[1]
+    return element
+
+
 def _pairs_position_elements(value):
     """List a pairs position value once, or return None.
 
@@ -569,31 +589,36 @@ def _pairs_position_elements(value):
     stands read for the pair each one element tuple it
     yields carries, beside the parallel iterables form a
     zip object also presents, whose tuples stand as the
-    pairs themselves. Any other partitionable form
+    pairs themselves. A pairs position standing as a
+    dictionary items view stands read for the pair each
+    entry it yields carries in second place, in parity
+    with the enumerate reading of the same shape. Listed
+    elements still standing as enumerate index pairs, as
+    a further enumerate layer standing inside the
+    position yields them, stand stripped to the pair
+    each one carries. Any other partitionable form
     stands listed in the standing position reading, and
     a value standing in no such form returns None.
     """
     if isinstance(value, enumerate):
-        listed = []
-        for element in list(value):
-            if (
-                isinstance(element, (list, tuple))
-                and len(element) == 2
-                and isinstance(element[0], int)
-            ):
-                listed.append(element[1])
-            else:
-                listed.append(element)
+        listed = [
+            _enumerate_carried(element) for element in list(value)
+        ]
         return listed
     if isinstance(value, zip):
         listed = []
         for element in list(value):
             if isinstance(element, tuple) and len(element) == 1:
-                listed.append(element[0])
+                listed.append(_enumerate_carried(element[0]))
             else:
-                listed.append(element)
+                listed.append(_enumerate_carried(element))
         return listed
-    return _position_elements(value)
+    if isinstance(value, _ItemsView):
+        return [inner for _key, inner in value]
+    listed = _position_elements(value)
+    if listed is None:
+        return None
+    return [_enumerate_carried(element) for element in listed]
 
 
 def _pair_elements(pair):
@@ -608,8 +633,14 @@ def _pair_elements(pair):
     to the one tuple it yields, and that listed form of
     one element standing as a two element tuple stands
     read as that tuple, in parity with the neighbouring
-    iterator pair forms. A pair standing as a dictionary
-    view or in a container form that iterates by indexed
+    iterator pair forms. A pair standing as an enumerate
+    object stands read for the items its index pairs
+    carry: two carried items stand as the two sides, and
+    one carried item stands read as a pair in its own
+    right, so a malformed pair presented through an
+    enumerate object returns no sides here, in parity
+    with the same pair in list form. A pair standing as
+    a dictionary view or in a container form that iterates by indexed
     access alone stands in no pair form here and returns
     None, in its standing form, so no such pair stands
     selected for a comparison by this reading. Any other
@@ -620,6 +651,15 @@ def _pair_elements(pair):
     if hasattr(pair, "__getitem__") and not hasattr(
         pair, "__iter__"
     ):
+        return None
+    if isinstance(pair, enumerate):
+        carried = [
+            _enumerate_carried(element) for element in list(pair)
+        ]
+        if len(carried) == 2:
+            return carried[0], carried[1]
+        if len(carried) == 1:
+            return _pair_elements(carried[0])
         return None
     if isinstance(pair, _Mapping):
         cand = pair.get("candidate")
@@ -966,7 +1006,10 @@ def _materialised_pairs_material(material):
     shallow copy of the bundle, so the governed refusal
     reading and the partitioning act that follow stand
     over the same pairs and no presented pair stands
-    consumed by an earlier read. A bundle carrying no
+    consumed by an earlier read. A pair standing as an
+    enumerate object stands listed in that same form as
+    the items its index pairs carry, so the pair stands
+    judged in the form it presents. A bundle carrying no
     iterator at its pairs position stands as it stands.
     """
     if not isinstance(material, _Mapping):
@@ -987,7 +1030,14 @@ def _materialised_pairs_material(material):
         return material
     new_pairs = []
     for pair in listed:
-        if hasattr(pair, "__next__"):
+        if isinstance(pair, enumerate):
+            new_pairs.append(
+                [
+                    _enumerate_carried(element)
+                    for element in list(pair)
+                ]
+            )
+        elif hasattr(pair, "__next__"):
             new_pairs.append(list(pair))
         else:
             new_pairs.append(pair)
@@ -1103,6 +1153,24 @@ def _unread_position_items(value):
     return []
 
 
+def _mapping_position_values(value):
+    """Return the values a mapping bundle position carries.
+
+    A mapping standing at a bundle position and carrying
+    no item field of its own stands as a container of
+    items, and the items it carries stand in its values,
+    in parity with the generic mapping reading the
+    direct act gives that same mapping at its top level.
+    A mapping carrying an item field stands as the one
+    item it stands as, and returns None here.
+    """
+    if isinstance(value, _Mapping) and not any(
+        key in value for key in _ITEM_FIELD_KEYS
+    ):
+        return list(value.values())
+    return None
+
+
 def _direct_bundle_extra_holdout(bundle):
     """Return holdout items from bundle positions in no read form.
 
@@ -1116,7 +1184,14 @@ def _direct_bundle_extra_holdout(bundle):
     parity with the readings the bundle surfaces and
     the direct act top level forms already give, so no
     holdout item the bundle presents stands dropped on
-    that route in silence.
+    that route in silence. A position standing as a
+    mapping carrying no item field of its own stands
+    read here for the holdout material its values carry,
+    in that same parity. A pairs position standing in a
+    plain container form as a single pair stands read
+    here for the holdout side that pair carries, where
+    no element of the position stands as a pair in its
+    own right.
     """
     extra = []
     for key in ("holdout_items", "holdout"):
@@ -1124,12 +1199,22 @@ def _direct_bundle_extra_holdout(bundle):
             value = bundle[key]
             if value is None or _is_partitionable_form(value):
                 continue
+            values = _mapping_position_values(value)
+            if values is not None:
+                for element in values:
+                    extra.extend(_unwrapped_items(element))
+                continue
             for element in _unread_position_items(value):
                 extra.extend(_unwrapped_items(element))
     if "items" in bundle:
         value = bundle["items"]
         if value is not None and not _is_partitionable_form(value):
-            for element in _unread_position_items(value):
+            values = _mapping_position_values(value)
+            if values is not None:
+                elements = values
+            else:
+                elements = _unread_position_items(value)
+            for element in elements:
                 for item in _unwrapped_items(element):
                     side = None
                     if isinstance(item, _Mapping):
@@ -1138,11 +1223,40 @@ def _direct_bundle_extra_holdout(bundle):
                         extra.append(item)
     if "pairs" in bundle:
         value = bundle["pairs"]
-        if value is not None and not _is_partitionable_form(value):
-            for element in _unread_position_items(value):
-                sides = _pair_elements(element)
+        if value is not None:
+            values = _mapping_position_values(value)
+            if isinstance(value, _Mapping) and (
+                _pair_elements(value) is not None
+            ):
+                sides = _pair_elements(value)
+                extra.extend(_unwrapped_items(sides[1]))
+            elif values is not None:
+                for element in values:
+                    sides = _pair_elements(element)
+                    if sides is not None:
+                        extra.extend(_unwrapped_items(sides[1]))
+            elif not _is_partitionable_form(value):
+                for element in _unread_position_items(value):
+                    sides = _pair_elements(element)
+                    if sides is not None:
+                        extra.extend(_unwrapped_items(sides[1]))
+            elif isinstance(
+                value,
+                (
+                    list,
+                    tuple,
+                    _collections_module.deque,
+                    _collections_module.UserList,
+                ),
+            ):
+                sides = _pair_elements(value)
                 if sides is not None:
-                    extra.extend(_unwrapped_items(sides[1]))
+                    listed = _pairs_position_elements(value)
+                    if listed is not None and not any(
+                        _pair_elements(element) is not None
+                        for element in listed
+                    ):
+                        extra.extend(_unwrapped_items(sides[1]))
     return extra
 
 
