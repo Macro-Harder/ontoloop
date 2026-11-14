@@ -215,5 +215,33 @@ class TestGoldenReReadWindowTypeFixR3(unittest.TestCase):
         )
 
 
+class TestGoldenSealClaimScanFixR4(unittest.TestCase):
+    """Fix round 4, Region 2: the seal claim scan substance acts.
+
+    The golden home pins the scan through the report travel
+    lint beside the standing verify sentence form: an
+    unconditional signed statement fails, and the governed
+    verify sentence, whose heads stand signed at signed
+    strength only, passes whole. The GOLDEN-T04 segment
+    above stands untouched in its exact form.
+    """
+
+    def test_unconditional_signed_statement_fails_travel_lint(self):
+        report = require("ontoloop.report")
+        result = report.fixed_text_travel_lint(
+            assembly="export",
+            content="The bundle stands signed for every actor.")
+        self.assertFalse(result["passed"])
+
+    def test_governed_verify_sentence_passes_the_scan(self):
+        from ontoloop import sealing
+
+        report = require("ontoloop.report")
+        self.assertTrue(report._seal_claim_scan(sealing.VERIFY_SENTENCE))
+        result = report.fixed_text_travel_lint(
+            assembly="export", content=sealing.VERIFY_SENTENCE)
+        self.assertTrue(result["passed"])
+
+
 if __name__ == "__main__":
     unittest.main()

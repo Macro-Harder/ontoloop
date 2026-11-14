@@ -565,7 +565,15 @@ _SEAL_CLAIM_PHRASES = (
 # concepts, then confinement concepts.
 _CLAIM_CONCEPT_ROOTS = (
     "seal",
+    "sign",
+    "anchor",
     "tamper",
+    "alter",
+    "unalter",
+    "shield",
+    "impenetrab",
+    "impregnab",
+    "watertight",
     "integrity",
     "protect",
     "verif",
@@ -795,6 +803,94 @@ def _clause_claim(clause):
     )
 
 
+# The words that open a subordinate clause inside a
+# claim clause. A conditional or negated marker standing
+# after one of these words, in the subordinate clause,
+# speaks of the subordinate matter, expiry or the
+# weather, and governs that matter only, not the claim
+# standing in the main segment before it.
+_SUBORDINATE_INTRODUCERS = (
+    "that",
+    "which",
+    "while",
+    "when",
+    "where",
+    "whereas",
+    "although",
+    "though",
+    "because",
+    "since",
+    "who",
+    "whom",
+    "whose",
+)
+
+
+def _main_segment(clause):
+    """Return the main segment of a clause, in word form.
+
+    The main segment stands as the words of the clause
+    before the first word opening a subordinate clause,
+    or as the whole clause where no such word stands.
+    The governing test reads this segment only, so a
+    marker inside a subordinate clause excuses nothing.
+    """
+    words = _clause_words(clause)
+    for index, word in enumerate(words):
+        if word in _SUBORDINATE_INTRODUCERS:
+            return " ".join(words[:index])
+    return clause
+
+
+def _fragment_governs(clause):
+    """Return True where a fragment clause stands as a condition.
+
+    A fragment governs a claim of its statement only
+    where the fragment itself stands as the condition:
+    it carries no finite verb of its own and it opens
+    with a governing condition phrase, so its whole
+    substance is the condition and its complement. A
+    noun phrase fragment that happens to carry a
+    governing phrase inside it, naming a thing and
+    conditioning nothing, governs nothing.
+    """
+    words = _clause_words(clause)
+    if any(word in _FINITE_VERB_WORDS for word in words):
+        return False
+    text = " ".join(words)
+    return any(
+        text.startswith(phrase)
+        for phrase in _GOVERNING_CONDITION_PHRASES
+    )
+
+
+def _clause_inability_form(clause):
+    """Return True where a clause asserts a thing cannot be reached.
+
+    In this form the negation is the claim itself, not a
+    denial of a claim: a record that cannot be altered,
+    and a store standing unalterable, impenetrable,
+    impregnable, or watertight, each state the sealing
+    or confinement position in substance. Such a clause
+    stands judged as a claim clause on its substance,
+    and its cannot wording excuses nothing.
+    """
+    words = _clause_words(clause)
+    for word in words:
+        if word.startswith(
+                ("unalter", "impenetrab", "impregnab", "watertight")):
+            return True
+    for index, word in enumerate(words):
+        if word != "cannot":
+            continue
+        following = words[index + 1:index + 3]
+        if any(
+            item.startswith(("alter", "shield")) for item in following
+        ):
+            return True
+    return False
+
+
 def _seal_claim_scan(assembly_text):
     """Return True where no unconditional claim stands.
 
@@ -806,15 +902,20 @@ def _seal_claim_scan(assembly_text):
     conditional form and no negation governs that
     clause: a conditional or negated marker excuses a
     claim only where it governs that claim, standing in
-    the claim clause itself, or, for a condition,
-    standing in a fragment clause of the same statement
-    that reads as the condition of the statement claim.
-    A compound statement joining an unconditional claim
-    clause to an unrelated conditional or negated clause
-    therefore fails on the claim clause, as the same
-    clause standing alone fails. The listed phrases
-    above stand as examples inside this judgement,
-    refused outright, not as its boundary.
+    the main segment of the claim clause itself, or,
+    for a condition, standing in a fragment clause of
+    the same statement that itself stands as the
+    condition of the statement claim. A marker standing
+    in a subordinate clause, a parenthetical, or a
+    colon joined clause governs the matter it stands
+    in, not the claim, and a fragment that conditions
+    nothing excuses nothing. A compound statement
+    joining an unconditional claim clause to an
+    unrelated conditional or negated clause therefore
+    fails on the claim clause, as the same clause
+    standing alone fails. The listed phrases above
+    stand as examples inside this judgement, refused
+    outright, not as its boundary.
     """
     import re
 
@@ -823,17 +924,10 @@ def _seal_claim_scan(assembly_text):
         if phrase in lowered:
             return False
     for statement in re.split(r"[.;\n]+", lowered):
-        clauses = re.split(r",|\band\b|\bbut\b|\byet\b", statement)
+        clauses = re.split(
+            r",|\(|\)|:|\band\b|\bbut\b|\byet\b", statement)
         governed_by_fragment = any(
-            not any(
-                word in _FINITE_VERB_WORDS
-                for word in _clause_words(clause)
-            )
-            and any(
-                phrase in clause
-                for phrase in _GOVERNING_CONDITION_PHRASES
-            )
-            for clause in clauses
+            _fragment_governs(clause) for clause in clauses
         )
         for clause in clauses:
             if not _clause_claim(clause):
@@ -842,17 +936,28 @@ def _seal_claim_scan(assembly_text):
                 marker in clause for marker in _UNCONDITIONAL_MARKERS
             ):
                 return False
+            main = _main_segment(clause)
+            main_words = _clause_words(main)
+            clause_words = _clause_words(clause)
             if any(
-                phrase in clause
+                phrase in main
                 for phrase in _GOVERNING_CONDITION_PHRASES
             ):
                 continue
-            words = _clause_words(clause)
+            if (
+                main_words
+                and len(main_words) < len(clause_words)
+                and main_words[-1] == "only"
+                and clause_words[len(main_words)]
+                in ("if", "when", "where")
+            ):
+                continue
+            words = main_words
             negated = (
                 "not" in words
                 or "never" in words
                 or any(
-                    marker in clause for marker in _NEGATED_CLAIM_MARKERS
+                    marker in main for marker in _NEGATED_CLAIM_MARKERS
                 )
                 or any(
                     word == "no"
@@ -867,6 +972,8 @@ def _seal_claim_scan(assembly_text):
                     for index, word in enumerate(words)
                 )
             )
+            if _clause_inability_form(clause):
+                negated = False
             if negated:
                 continue
             if governed_by_fragment:

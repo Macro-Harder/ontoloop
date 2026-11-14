@@ -473,5 +473,172 @@ class SealClaimScanSubstanceFixR3Tests(unittest.TestCase):
         self.assertTrue(travel["passed"])
 
 
+class SealClaimScanSigningAnchoringFixR4Tests(unittest.TestCase):
+    """Fix round 4, N-01, ruling 19: signing and anchoring claims.
+
+    The claim judgement reaches signing and anchoring claim
+    clauses in substance, so an unconditional statement that a
+    bundle or a head stands signed or anchored fails the scan,
+    in the same clause governing form as the standing families:
+    a conditional or negated marker excuses such a clause only
+    where it governs that clause. The governed signed strength
+    forms and the standing clean assemblies still pass.
+    """
+
+    UNCONDITIONAL = (
+        "The bundle stands signed for every actor.",
+        "Every bundle is anchored unconditionally.",
+        "The bundle was signed and anchored in all cases.",
+        "The journal head stands signed under the signing key "
+        "at all times.",
+        "Signing is guaranteed for every bundle.",
+    )
+
+    def test_unconditional_signed_and_anchored_statements_fail(self):
+        mod = harness.require("ontoloop.report")
+        for statement in self.UNCONDITIONAL:
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertFalse(result["passed"], statement)
+
+    def test_governed_signed_forms_and_clean_assemblies_pass(self):
+        mod = harness.require("ontoloop.report")
+        governed = (
+            "Heads are signed at signed strength only.",
+            "The bundle stands signed conditional on "
+            "the deployment confinement fact.",
+            "The bundle does not stand signed.",
+        )
+        for statement in governed:
+            self.assertTrue(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertTrue(result["passed"], statement)
+        result = mod.lint_report_construction()
+        self.assertTrue(result["seal_claim_lint_passed"])
+        self.assertTrue(result["fixed_text_travel_lint_passed"])
+        travel = mod.fixed_text_travel_lint(assembly="export")
+        self.assertTrue(travel["passed"])
+
+
+class SealClaimScanSubordinateFixR4Tests(unittest.TestCase):
+    """Fix round 4, N-02, ruling 20: the marker governing test.
+
+    A conditional or negated marker excuses a claim clause
+    only where it governs that claim clause itself. A marker
+    standing inside a subordinate clause, a parenthetical, or
+    a colon joined clause, speaking of expiry or of the
+    weather, excuses nothing, and a fragment clause that
+    conditions nothing, the Lead Engineer B-1 noun phrase
+    fragment form, counted in this act and nowhere else,
+    excuses nothing. A fragment that genuinely conditions
+    the claim, and the standing governed forms, still pass.
+    """
+
+    DEFEATED = (
+        "The seal guarantees protection that does not expire.",
+        "The seal guarantees protection while the policy "
+        "does not expire.",
+        "The seal guarantees protection that is conditional "
+        "on the weather.",
+        "The seal guarantees protection when the schedule "
+        "is conditional on the weather.",
+        "The seal guarantees protection (the schedule is "
+        "conditional on the weather).",
+        "The seal guarantees protection: the schedule is "
+        "conditional on the weather.",
+        "The seal guarantees protection, the conditional on "
+        "the deployment confinement fact poster on the wall.",
+    )
+
+    def test_subordinate_parenthetical_colon_and_fragment_fail(self):
+        mod = harness.require("ontoloop.report")
+        control = "The seal guarantees protection."
+        self.assertFalse(mod._seal_claim_scan(control))
+        for statement in self.DEFEATED:
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertFalse(result["passed"], statement)
+
+    def test_genuine_fragment_and_governed_forms_still_pass(self):
+        mod = harness.require("ontoloop.report")
+        governed = (
+            "The seal guarantees protection, conditional on "
+            "the deployment confinement fact.",
+            "The seal guarantees protection conditional on "
+            "the deployment confinement fact.",
+            "The seal stands conditional on signing "
+            "at signed strength only.",
+            "The seal does not guarantee protection.",
+        )
+        for statement in governed:
+            self.assertTrue(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertTrue(result["passed"], statement)
+        result = mod.lint_report_construction()
+        self.assertTrue(result["seal_claim_lint_passed"])
+        self.assertTrue(result["fixed_text_travel_lint_passed"])
+        travel = mod.fixed_text_travel_lint(assembly="export")
+        self.assertTrue(travel["passed"])
+
+
+class SealClaimScanLexiconFixR4Tests(unittest.TestCase):
+    """Fix round 4, N-05, ruling 23: the claim lexicon reach.
+
+    The claim judgement reaches claim statements in the
+    alteration, shielding, unalterable, impenetrable, and
+    watertight wordings, as claim statements in substance
+    in the charged families. The standing seal sentence
+    and the governed verify sentence, whose alteration
+    wording stands under its governing exception and its
+    signed strength condition, still pass, as do the
+    governed conditional and negated claims and the
+    standing clean assemblies.
+    """
+
+    OUTSIDE_WORDING = (
+        "Records cannot be altered after writing.",
+        "Every record is shielded from alteration.",
+        "Journal entries are unalterable.",
+        "The journal is impenetrable to outside writers.",
+        "The store is watertight against outside writers.",
+        "The store is impregnable.",
+    )
+
+    def test_alteration_family_wordings_fail(self):
+        mod = harness.require("ontoloop.report")
+        for statement in self.OUTSIDE_WORDING:
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertFalse(result["passed"], statement)
+
+    def test_governed_forms_and_clean_assemblies_still_pass(self):
+        from ontoloop import sealing
+
+        mod = harness.require("ontoloop.report")
+        governed = (
+            "Records stand attested conditional on "
+            "the deployment confinement fact.",
+            "The seal does not guarantee protection.",
+            "The seal stands conditional on signing "
+            "at signed strength only.",
+        )
+        for statement in governed:
+            self.assertTrue(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertTrue(result["passed"], statement)
+        self.assertTrue(mod._seal_claim_scan(sealing.VERIFY_SENTENCE))
+        result = mod.lint_report_construction()
+        self.assertTrue(result["seal_claim_lint_passed"])
+        self.assertTrue(result["fixed_text_travel_lint_passed"])
+        travel = mod.fixed_text_travel_lint(assembly="export")
+        self.assertTrue(travel["passed"])
+
+
 if __name__ == "__main__":
     unittest.main()
