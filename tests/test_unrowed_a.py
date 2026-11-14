@@ -34,14 +34,21 @@ from tests.harness import require, stage_carried
 # Transcription choice: written as one suite case,
 # TestUnrowed195IncidentEntryPoint, with one test method per
 # limb of the obligation, against the product surface the suite
-# names ontoloop.ops. The exact question order and the exact
-# precedence order are asserted as ordered tuples, because this
-# seat prizes exact value forms. The consequence of a yes at each
-# question is asserted at its brief passage value: a yes at the
-# first question opens the redaction miss and purge path, a yes
-# at the second takes the suspect path with evaluation and
-# promotion refused until it clears, and a yes at the third stops
-# the bundle loading at the next run boundary. The entry point
+# names ontoloop.ops. The question order is asserted as an
+# ordered tuple, because the subsection states the three
+# questions in order. The precedence form stands relaxed under
+# the Step 15 Round 1 triage ruling for UA-L1: the subsection
+# states only that repair verification precedes each of the
+# purge append and the stop append, and states no order between
+# those two appends, so the precedence test asserts that
+# partial order and no more. The consequence of a yes at each
+# question is asserted only in the limbs the subsection
+# states: a consequence stands recorded for the question
+# answered yes, and the bundle consequence carries the next
+# run boundary form the subsection states for the loading
+# stop. The exact consequence strings of the brief passage,
+# which the subsection incorporates by reference and does not
+# reproduce, stand unpinned. The entry point
 # record home is the incident record. The loading stop limbs are
 # asserted in full: recorded on the operator surface at the
 # moment it is taken, effect at the next run boundary, and its
@@ -59,18 +66,6 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         "store suspect",
         "bundle wrongly loadable",
     )
-
-    EXPECTED_CONSEQUENCES = {
-        "sealed or secret material involved": (
-            "redaction miss and purge path"
-        ),
-        "store suspect": (
-            "suspect path, evaluation and promotion refused"
-        ),
-        "bundle wrongly loadable": (
-            "bundle loading stopped at the next run boundary"
-        ),
-    }
 
     def test_three_questions_asked_and_recorded_in_order(self):
         module = require("ontoloop.ops")
@@ -97,10 +92,18 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             )
             record = module.incident_entry(answers=answers)
             self.assertIn(question, record["consequences"])
-            self.assertEqual(
-                record["consequences"][question],
-                self.EXPECTED_CONSEQUENCES[question],
-            )
+            consequence = record["consequences"][question]
+            self.assertIsInstance(consequence, str)
+            self.assertTrue(consequence)
+            for other in self.QUESTIONS_IN_ORDER:
+                if other != question:
+                    self.assertNotIn(other, record["consequences"])
+        record = module.incident_entry(
+            answers=("no", "no", "yes"))
+        self.assertIn(
+            "next run boundary",
+            record["consequences"]["bundle wrongly loadable"],
+        )
 
     def test_entry_point_record_stands_in_the_incident_record(self):
         module = require("ontoloop.ops")
@@ -112,13 +115,36 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         result = module.resolve_dispute(disputed=True)
         self.assertEqual(result["first_act"], "journal reconstruction")
         self.assertIs(result["recollection_relied_on"], False)
+        self.assertIs(result["journal_reconstructed"], True)
+        self.assertIs(result["journal_read"], True)
+        records = ["journal record one", "journal record two"]
+        read_result = module.resolve_dispute(
+            disputed=True, journal_records=records)
+        self.assertEqual(
+            read_result["reconstructed_material"], records)
+        self.assertEqual(read_result["material_read"], records)
+        self.assertIs(read_result["journal_read"], True)
+
+    def test_loading_stop_stands_as_a_named_act(self):
+        module = require("ontoloop.ops")
+        self.assertIn("take_loading_stop", module.__all__)
+        stop = module.take_loading_stop()
+        self.assertEqual(stop["act"], "incident loading stop")
 
     def test_joint_precedence_of_repair_verification(self):
         module = require("ontoloop.ops")
-        order = module.incident_append_order()
+        order = list(module.incident_append_order())
         self.assertEqual(
-            tuple(order),
-            ("repair verification", "purge append", "stop append"),
+            set(order),
+            {"repair verification", "purge append", "stop append"},
+        )
+        self.assertLess(
+            order.index("repair verification"),
+            order.index("purge append"),
+        )
+        self.assertLess(
+            order.index("repair verification"),
+            order.index("stop append"),
         )
 
     def test_loading_stop_takes_effect_before_its_journal_record(self):
@@ -195,13 +221,18 @@ class _FreshnessCheckPoint:
 
     def test_reaffirmation_restores_inclusion(self):
         module = require(self.MODULE)
+        before = module.freshness_check(self.CHECK_POINT)
+        formerly_stale = set(before["stale_material"])
+        self.assertTrue(formerly_stale)
         result = module.reaffirm(self.CHECK_POINT)
         self.assertIn("reaffirmation", result["dataset_record"])
         self.assertTrue(result["dataset_record"]["reaffirmation"])
+        self.assertEqual(
+            result["dataset_record"]["reaffirmation"]["actor"], "operator"
+        )
         self.assertIs(result["lifecycle_record"]["stale_flag_cleared"], True)
-        stale = set(result["stale_material"])
         included = set(result["included_material"])
-        self.assertTrue(stale <= included or not stale)
+        self.assertTrue(formerly_stale <= included)
 
     def test_unspent_sealed_material_retires_at_supersession_or_withdrawal(self):
         module = require(self.MODULE)
@@ -220,7 +251,17 @@ class _FreshnessCheckPoint:
         module = require(self.MODULE)
         refused = module.retire(self.CHECK_POINT, replacement_sealed=False)
         self.assertIs(refused["accepted"], False)
-        allowed = module.retire(self.CHECK_POINT, replacement_sealed=True)
+        with_material = module.retire(
+            self.CHECK_POINT,
+            replacement_sealed=True,
+            replacement_sealed_without_retiring_material=False,
+        )
+        self.assertIs(with_material["accepted"], False)
+        allowed = module.retire(
+            self.CHECK_POINT,
+            replacement_sealed=True,
+            replacement_sealed_without_retiring_material=True,
+        )
         self.assertIs(allowed["accepted"], True)
         self.assertEqual(
             allowed["lifecycle_record"]["transition"], "Retired"
@@ -230,8 +271,7 @@ class _FreshnessCheckPoint:
         module = require(self.MODULE)
         result = module.supersession_refusal(self.CHECK_POINT)
         self.assertIs(result["accepted"], False)
-        named = module.error_catalogue()["superseded version"]["error"]
-        self.assertEqual(result["error"], named)
+        self.assertEqual(result["error"], "superseded version")
         self.assertIn("superseded", result["error"])
 
 
@@ -251,6 +291,40 @@ class TestUnrowed196Promotion(_FreshnessCheckPoint, unittest.TestCase):
     """Subsection 19.6: freshness check at promotion."""
 
     CHECK_POINT = "promotion"
+
+
+# ------------------------------------------------------------------
+# Test act, subsection 19.35 point two, claim limit limb.
+#
+# Subsection 19.35 point two states that the low confidence stamp
+# fires below 30 holdout groups, with a claim limit effect and no
+# gate block. This pinning test stands in this file because the
+# DAT fix seat owns this file; its natural home beside the stamp
+# attachment tests in test_unrowed_b.py stands outside that
+# ownership, and that position is recorded in the fix paper.
+# No claim limit figure stands stated in the governing text, and
+# none is pinned here: the test pins the effect standing present
+# where the stamp attaches, absent where it does not, and no gate
+# blocked in either case.
+# ------------------------------------------------------------------
+
+
+class TestUnrowed1935ClaimLimitDataset(unittest.TestCase):
+    """Subsection 19.35 point two: low confidence claim limit."""
+
+    def test_low_confidence_carries_a_claim_limit_and_no_gate_block(self):
+        module = require("ontoloop.dataset")
+        outcome = module.attach_stamps_at_build(holdout_groups=29)
+        self.assertIn("low confidence", outcome["attached_stamps"])
+        self.assertIs(outcome["claim_limit_effect"], True)
+        self.assertIs(outcome["gate_blocked"], False)
+
+    def test_no_claim_limit_effect_where_low_confidence_does_not_attach(self):
+        module = require("ontoloop.dataset")
+        outcome = module.attach_stamps_at_build(holdout_groups=30)
+        self.assertNotIn("low confidence", outcome["attached_stamps"])
+        self.assertIs(outcome["claim_limit_effect"], False)
+        self.assertIs(outcome["gate_blocked"], False)
 
 
 if __name__ == "__main__":

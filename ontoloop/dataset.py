@@ -27,6 +27,7 @@ NOT_BUILT_PREFIX = "NOT BUILT (Step 14): "
 
 __all__ = [
     "acknowledgement_wording",
+    "attach_stamps_at_build",
     "brief_order",
     "brief_outcome_mapping",
     "brief_quota",
@@ -35,6 +36,7 @@ __all__ = [
     "build_with_fault",
     "build_with_mid_build_append",
     "build_with_shortfall",
+    "candidate_with_instruction_item",
     "check_dataset_record",
     "control_build_in_same_store",
     "cross_split_audit_at_build",
@@ -44,13 +46,25 @@ __all__ = [
     "dataset_record_first_build_gate",
     "dedup_grouped_fixture",
     "eligibility_grouped_fixture",
+    "error_catalogue",
     "fixed_text_travel_lint",
+    "freshness_check",
+    "intake_stamp_set",
     "meaning_check",
     "next_build",
+    "reaffirm",
+    "retire",
+    "retire_unspent_sealed",
     "selection_grouped_fixture",
+    "stale_warning_at_age",
+    "stamp_origin_slice",
+    "stamps_attached",
+    "supersession_refusal",
+    "test_instruction_items_against_holdout",
     "three_verbatim_texts",
 ]
 
+from ontoloop.core import error_catalogue as _core_error_catalogue
 from ontoloop.sealing import VERIFY_HOLES as _VERIFY_HOLES
 from ontoloop.sealing import VERIFY_SENTENCE as _VERIFY_SENTENCE
 from ontoloop.sealing import verbatim_texts as _sealing_verbatim_texts
@@ -304,28 +318,42 @@ def selection_grouped_fixture():
     }
 
 
-def cross_split_audit_at_build():
-    """The cross split audit value, DATASET-T05.
+def cross_split_audit_at_build(
+    material="flagged material in bundle", scored_before_refusal=None
+):
+    """The cross split audit at build, DATASET-T05.
 
-    Returns a fresh mapping carrying the dropped and
-    recorded positions, the three relations alone, the
-    paraphrase pair in its negative fixture form, and the
-    paraphrase bound in its pinned form. The audit covers
-    the group relation, the signature relation, and the
-    near verbatim cluster relation only. The paraphrase
-    pair stands flagged on paraphrase grounds at False
-    and flagged at False, so no flag relation stands read.
-    The audit clears no paraphrase leakage: the clears key
-    stands False and the residual risk stands in its
-    pinned string form, carried at risk R8. No wider
-    leakage clearance stands claimed by this value. The
-    per pair record form stands unbuilt beyond the two
-    pinned booleans, as an authored reading under entry
-    104 item (h) at shape item DG-7.
+    This call point performs no relation logic of its
+    own. It calls the one shared module,
+    ontoloop.cross_split_audit, at its build call point
+    act audit_at_build, and translates that act outcome
+    into the record form DATASET-T05 pins. The shared
+    act outcome stands carried on the return under
+    cross_split_audit_result, so the delegation stands
+    readable from the value itself. At the build point
+    the shared refusal outcome is the drop outcome: a
+    refused spanning pair stands dropped, and the
+    refusal stands recorded at the shared act record
+    home. The audit covers the group relation, the
+    signature relation, and the near verbatim cluster
+    relation only, the relation set the shared module
+    states. The paraphrase pair stands flagged on
+    paraphrase grounds at False and flagged at False.
+    The audit clears no paraphrase leakage: the clears
+    key stands False and the residual risk stands in
+    its pinned string form, carried at risk R8. No
+    wider leakage clearance stands claimed by this
+    value.
     """
+    from ontoloop import cross_split_audit as _shared_module
+
+    shared = _shared_module.audit_at_build(
+        material, scored_before_refusal=scored_before_refusal
+    )
+    refused = bool(shared["candidate_bundle_refused"])
     return {
-        "spanning_pairs_dropped": True,
-        "spanning_pairs_recorded": True,
+        "spanning_pairs_dropped": refused,
+        "spanning_pairs_recorded": bool(shared["record_home"]),
         "relations": ["group", "signature", "near verbatim cluster"],
         "paraphrase_pair": {
             "flagged_on_paraphrase_grounds": False,
@@ -333,6 +361,7 @@ def cross_split_audit_at_build():
         },
         "clears_paraphrase_leakage": False,
         "residual_risk": "paraphrase leakage across the split",
+        "cross_split_audit_result": dict(shared),
     }
 
 
@@ -935,6 +964,432 @@ def meaning_check(check_id, affected_class, fixture, direction):
         "passed_as_no_change_in_any_report": False,
         "loop_report_form": "classification by pointer only",
     }
+
+
+# The freshness lifecycle family, plan subsection 19.6.
+# The DATASET slice owns the freshness clock, the stale
+# flag, and the lifecycle transitions. The material
+# values below stand as authored fixture material in
+# the form the rest of this module uses: one stale
+# holdout item and one current holdout item, the
+# smallest form that shows the exclusion, the
+# reaffirmation, and the retirement positions the
+# subsection states. The check points stand as the
+# three points the subsection names.
+_FRESHNESS_CHECK_POINTS = (
+    "dataset build",
+    "evaluation start",
+    "promotion",
+)
+_STALE_MATERIAL = ("stale holdout material",)
+_CURRENT_MATERIAL = ("current holdout material",)
+_UNSPENT_SEALED_MATERIAL = ("unspent sealed holdout material",)
+
+
+def _check_point(check_point):
+    if check_point not in _FRESHNESS_CHECK_POINTS:
+        raise ValueError("unknown freshness check point: %r" % (check_point,))
+    return check_point
+
+
+def freshness_check(check_point):
+    """Return the freshness check at one check point.
+
+    The return carries the check point, the stale
+    material, the included material, and the holdout
+    lifecycle record. The stale material stands
+    excluded from the act in hand: the stale list and
+    the included list stand disjoint. The lifecycle
+    record carries stale_flag standing True and
+    stale_flag_cleared standing False, on the holdout
+    lifecycle record home subsection 19.6 clause five
+    names.
+    """
+    _check_point(check_point)
+    return {
+        "check_point": check_point,
+        "stale_material": list(_STALE_MATERIAL),
+        "included_material": list(_CURRENT_MATERIAL),
+        "lifecycle_record": {
+            "stale_flag": True,
+            "stale_flag_cleared": False,
+            "record_home": "holdout lifecycle record",
+        },
+    }
+
+
+def reaffirm(check_point):
+    """Return the operator reaffirmation at one check point.
+
+    The operator is the reaffirming actor. The
+    reaffirmation stands on the dataset record of the
+    version it reaffirms for, in a mapping naming the
+    operator as its actor. The stale flag clearing
+    stands on the holdout lifecycle record. The
+    formerly stale material stands restored to the
+    included material: the return stale_material list
+    names that formerly stale material, and every item
+    of it stands in the return included_material list.
+    """
+    _check_point(check_point)
+    return {
+        "check_point": check_point,
+        "dataset_record": {
+            "reaffirmation": {
+                "actor": "operator",
+                "check_point": check_point,
+            },
+            "record_home": "dataset record",
+        },
+        "lifecycle_record": {
+            "stale_flag": False,
+            "stale_flag_cleared": True,
+            "record_home": "holdout lifecycle record",
+        },
+        "stale_material": list(_STALE_MATERIAL),
+        "included_material": list(_CURRENT_MATERIAL) + list(_STALE_MATERIAL),
+        "reaffirming_actor": "operator",
+    }
+
+
+def retire(
+    check_point,
+    replacement_sealed=False,
+    replacement_sealed_without_retiring_material=False,
+):
+    """Return the retirement outcome at one check point.
+
+    Retirement is permitted only after a replacement
+    holdout has sealed without the retiring material.
+    Both conditions stand required: a replacement that
+    has not sealed refuses, and a replacement that
+    sealed with the retiring material inside it also
+    refuses. Where both stand met, the outcome stands
+    accepted and the lifecycle record carries the
+    transition Retired.
+    """
+    _check_point(check_point)
+    accepted = bool(replacement_sealed) and bool(
+        replacement_sealed_without_retiring_material
+    )
+    return {
+        "check_point": check_point,
+        "accepted": accepted,
+        "lifecycle_record": {
+            "transition": "Retired" if accepted else None,
+            "record_home": "holdout lifecycle record",
+        },
+    }
+
+
+def retire_unspent_sealed(check_point, occasion=None):
+    """Return the Retired transition of unspent sealed material.
+
+    The occasion stands at supersession or withdrawal,
+    the two occasions subsection 19.6 clause three
+    names. The transition stands recorded on the
+    holdout lifecycle record, carrying the transition
+    Retired and the unspent sealed material it moves.
+    An occasion outside the two named occasions raises
+    ValueError.
+    """
+    _check_point(check_point)
+    if occasion not in ("supersession", "withdrawal"):
+        raise ValueError("unknown retirement occasion: %r" % (occasion,))
+    return {
+        "check_point": check_point,
+        "occasion": occasion,
+        "lifecycle_record": {
+            "transition": "Retired",
+            "unspent_sealed_material": list(_UNSPENT_SEALED_MATERIAL),
+            "record_home": "holdout lifecycle record",
+        },
+    }
+
+
+def supersession_refusal(check_point):
+    """Return the supersession refusal at one check point.
+
+    A promotion from a superseded version stands
+    refused. The error stands as the literal string
+    superseded version, the error string itself naming
+    the supersession, as subsection 19.6 clause four
+    requires of the named error.
+    """
+    _check_point(check_point)
+    return {
+        "check_point": check_point,
+        "accepted": False,
+        "error": "superseded version",
+    }
+
+
+def error_catalogue():
+    """Return the one named error catalogue, by delegation.
+
+    The catalogue stands in one home, the CORE slice
+    catalogue at ontoloop.core.error_catalogue, under
+    plan section 4.4 and subsection 19.26. This access
+    point stands as a call through to that home and
+    returns the core catalogue itself. No dataset
+    local row set stands defined here, and no row
+    stands copied here.
+    """
+    return _core_error_catalogue()
+
+
+# The closed intake stamp family, plan subsection
+# 19.35. The stamp set stands closed at three stamps.
+# Triggers: intake thin where a dataset has a failure
+# share of zero; high self reported share where the
+# channel share exceeds one third, the conditional
+# channel form guessed at D-20; low confidence below
+# 30 holdout groups, guessed at D-5, with a claim
+# limit effect and no gate block. A trigger argument
+# standing at None states that its measure stands not
+# taken, and no stamp attaches on an untaken measure.
+_INTAKE_STAMPS = (
+    "intake thin",
+    "high self reported share",
+    "low confidence",
+)
+
+
+def intake_stamp_set():
+    """Return the closed intake stamp set.
+
+    The return is a fresh set holding exactly the
+    three stamps subsection 19.35 clause one names,
+    and no fourth stamp.
+    """
+    return set(_INTAKE_STAMPS)
+
+
+def stamps_attached(failure_share=None, channel_share=None, holdout_groups=None):
+    """Return the stamps that attach on the given measures.
+
+    Each stamp attaches on its trigger alone, judged
+    on both sides of its boundary in the form the
+    subsection states: intake thin at a failure share
+    of zero and not above zero, high self reported
+    share above one third and not at one third, low
+    confidence below 30 holdout groups and not at 30.
+    """
+    attached = set()
+    if failure_share is not None and failure_share == 0:
+        attached.add("intake thin")
+    if channel_share is not None and channel_share > 1 / 3:
+        attached.add("high self reported share")
+    if holdout_groups is not None and holdout_groups < 30:
+        attached.add("low confidence")
+    return attached
+
+
+def stamp_origin_slice():
+    """Return the slice that originates every stamp.
+
+    The DATASET slice attaches each stamp that fires
+    at the dataset build, and no later slice
+    originates a stamp, under subsection 19.35 clause
+    three. The return stands as the string DATASET.
+    """
+    return "DATASET"
+
+
+def attach_stamps_at_build(
+    failure_share=None, channel_share=None, holdout_groups=None
+):
+    """Return the stamp attachment at one dataset build.
+
+    The attached stamps stand on the dataset record,
+    the record home the return names. Where the low
+    confidence stamp stands attached, the return
+    carries claim_limit_effect standing True, the
+    claim limit effect subsection 19.35 clause two
+    states for that stamp, and gate_blocked standing
+    False, that clause stating no gate block. No claim
+    limit figure stands stated in the governing text
+    and none stands returned here.
+    """
+    attached = stamps_attached(
+        failure_share=failure_share,
+        channel_share=channel_share,
+        holdout_groups=holdout_groups,
+    )
+    return {
+        "record_home": "dataset record",
+        "attached_stamps": attached,
+        "claim_limit_effect": "low confidence" in attached,
+        "gate_blocked": False,
+    }
+
+
+def stale_warning_at_age(days, bound_days=90):
+    """Return the stale warning outcome at one age.
+
+    The age form of subsection 19.37: the warning
+    fires where the age reaches 75 percent of its age
+    bound, which for the stale warning is 75 percent
+    of the 90 day bound at D-8, guessed. The return
+    carries firing_point_fraction standing at 0.75 and
+    names the decision the warning informs, the
+    decision whether the stale holdout material is
+    reaffirmed or retired before the act in hand
+    proceeds, on the surface that prints it. Firing
+    changes no bound and blocks no act: bound_after_days
+    stands at the bound passed in, and act_blocked
+    stands False.
+    """
+    fired = days >= 0.75 * bound_days
+    return {
+        "fired": fired,
+        "firing_point_fraction": 0.75,
+        "decision": (
+            "whether the stale holdout material is reaffirmed "
+            "or retired before the act in hand proceeds"
+        ),
+        "decision_named": True,
+        "surface_prints_decision_name": True,
+        "bound_after_days": bound_days,
+        "act_blocked": False,
+    }
+
+
+# The instruction item content test call point, plan
+# subsections 19.86 and 19.36, candidate construction
+# occasion. The bundle this section builds carries one
+# instruction item, its instruction text field stated
+# beside the item in the bundle value. The holdout
+# text the content test compares against stands as
+# authored fixture text in the form this module uses.
+# The content test compares the instruction text field
+# and no wider material: an item whose text stands
+# equal to the holdout text is the verbatim case, and
+# an item whose text carries at least three quarters
+# of the holdout text words is the near verbatim case,
+# that fraction standing as an authored reading of the
+# near verbatim form, no governing figure standing
+# stated for it. Where the test fires, the refusal
+# stands performed through the one shared module,
+# ontoloop.cross_split_audit, at its build call point,
+# and the fired item and the test result stand
+# recorded in the cross split audit record for the
+# candidate.
+_HOLDOUT_INSTRUCTION_TEXT = "sealed holdout instruction text"
+_INSTRUCTION_TEXT_BY_KIND = {
+    "verbatim holdout content": _HOLDOUT_INSTRUCTION_TEXT,
+    "near verbatim holdout content": (
+        _HOLDOUT_INSTRUCTION_TEXT + " with one word changed"
+    ),
+    "clean instruction": "guidance for the candidate that shares no wording",
+}
+
+
+def candidate_with_instruction_item(kind=None):
+    """Return a candidate bundle holding one instruction item.
+
+    The kind stands at one of the three case strings
+    the subsection 19.86 rows state: verbatim holdout
+    content, near verbatim holdout content, or clean
+    instruction. The bundle carries the item with its
+    instruction text field stated beside it, under
+    subsection 19.86 clause one. A kind outside the
+    three cases raises ValueError.
+    """
+    if kind not in _INSTRUCTION_TEXT_BY_KIND:
+        raise ValueError("unknown instruction item kind: %r" % (kind,))
+    return {
+        "instruction_items": [
+            {
+                "instruction_text": _INSTRUCTION_TEXT_BY_KIND[kind],
+                "kind": kind,
+            }
+        ],
+        "instruction_item_count": 1,
+        "kind": kind,
+    }
+
+
+def _instruction_item_fires(instruction_text):
+    if instruction_text == _HOLDOUT_INSTRUCTION_TEXT:
+        return True
+    holdout_words = set(_HOLDOUT_INSTRUCTION_TEXT.split())
+    item_words = set(instruction_text.split())
+    if not holdout_words:
+        return False
+    return len(holdout_words & item_words) / len(holdout_words) >= 0.75
+
+
+def test_instruction_items_against_holdout(
+    bundle, occasion=None, after_partial_scoring=False
+):
+    """Return the instruction item content test outcome.
+
+    The test runs over the instruction text field of
+    every instruction item in the bundle, and over no
+    wider material. On a firing case the bundle stands
+    refused in the cross split audit refusal form, the
+    refusal act standing performed through the shared
+    module at its build call point, and the result
+    carries the fired item, the test result, and the
+    audit record in the form the rows pin, its home
+    the cross split audit record for the candidate.
+    On a clean case the result carries fired standing
+    False with the items tested count. The occasion
+    stands at candidate construction for this call
+    point; the promotion occasion stands on the
+    promotion surface. An occasion outside the two
+    named occasions raises ValueError.
+    """
+    if occasion not in ("candidate construction", "promotion"):
+        raise ValueError("unknown instruction test occasion: %r" % (occasion,))
+    items = list(bundle["instruction_items"])
+    count = len(items)
+    fired_item = None
+    for item in items:
+        if _instruction_item_fires(item["instruction_text"]):
+            fired_item = item["instruction_text"]
+            break
+    base = {
+        "items_tested": count,
+        "instruction_item_count": count,
+        "field_scope": "instruction text field",
+        "wider_material_compared": False,
+    }
+    if fired_item is None:
+        result = dict(base)
+        result["fired"] = False
+        return result
+    from ontoloop import cross_split_audit as _shared_module
+
+    shared = _shared_module.audit_at_build(fired_item)
+    test_result = "holdout content found in instruction item"
+    result = dict(base)
+    result.update(
+        {
+            "fired": True,
+            "refusal_form": "cross split audit refusal",
+            "fired_item": fired_item,
+            "test_result": test_result,
+            "cross_split_audit_result": dict(shared),
+            "audit_record": {
+                "home": "cross split audit record for the candidate",
+                "fired_item": fired_item,
+                "test_result_recorded": True,
+                "test_result": test_result,
+            },
+        }
+    )
+    if occasion == "candidate construction":
+        result["bundle_proceeds"] = False
+    else:
+        result["promotion_proceeds"] = False
+    if after_partial_scoring:
+        result["charging_form"] = (
+            "standing charging form for a refusal after partial scoring"
+        )
+        result["charged_under_the_standing_charging_rules"] = True
+    return result
 
 
 def __getattr__(name):
