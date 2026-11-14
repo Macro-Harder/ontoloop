@@ -255,7 +255,7 @@ class SpanT06TruncationMeaningTests(MeaningCheckBase, unittest.TestCase):
 class SpanT07TypeMappingMeaningTests(MeaningCheckBase, unittest.TestCase):
     """SPAN-T07: type mapping change, capture and dataset paths."""
 
-    MODULE = "core"
+    MODULE = "ontoloop.core"
     SUITE_ID = "SPAN-T07"
     AFFECTED_CLASS = "type mapping change"
     FIXTURE = "Example A records whose field values sit at the type mapping boundary"
