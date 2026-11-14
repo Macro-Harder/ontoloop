@@ -187,11 +187,18 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
 
     def test_loading_stop_takes_effect_before_its_journal_record(self):
         module = require("ontoloop.ops")
-        stop = module.take_loading_stop()
+        bundle = "named wrongly loadable bundle"
+        stop = module.take_loading_stop(bundle=bundle)
         self.assertIs(stop["effective_on_loading"], True)
         self.assertIs(stop["journal_record_landed"], False)
-        discovery = module.discovery_after_stop(stop)
+        self.assertEqual(stop["bundle"], bundle)
+        discovery = module.discovery_after_stop(stop, bundle=bundle)
         self.assertEqual(discovery["promotion"], None)
+        companion_stop = dict(stop)
+        companion_stop["effective_on_loading"] = False
+        companion = module.discovery_after_stop(
+            companion_stop, bundle=bundle)
+        self.assertEqual(companion["promotion"], bundle)
 
     def test_loading_stop_record_boundary_and_journal_landing(self):
         module = require("ontoloop.ops")
@@ -271,6 +278,7 @@ class _FreshnessCheckPoint:
             result["dataset_record"]["reaffirmation"]["actor"], "operator"
         )
         self.assertIs(result["lifecycle_record"]["stale_flag_cleared"], True)
+        self.assertIs(result["lifecycle_record"]["stale_flag"], False)
         included = set(result["included_material"])
         self.assertTrue(formerly_stale <= included)
 
