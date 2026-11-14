@@ -1753,6 +1753,30 @@ def _is_sequence_form(value):
     return isinstance(value, collections.abc.Sequence)
 
 
+def _is_indexable_sequence_form(value):
+    """Return True where a value stands in an indexable sequence form.
+
+    The indexable sequence forms stand as the concrete
+    list, tuple, deque, and UserList forms and, beside
+    them, any value standing in the abstract sequence
+    form. The set and frozenset forms stand outside
+    this test: neither form supports a positional read,
+    so a value in either form stands decided before any
+    positional read that uses this test. String and byte
+    values stand outside this test in the same way as
+    they stand outside the walked sequence form test.
+    """
+    if isinstance(value, (set, frozenset)):
+        return False
+    if isinstance(value, (str, bytes, bytearray, collections.UserString)):
+        return False
+    if isinstance(
+        value, (list, tuple, collections.deque, collections.UserList)
+    ):
+        return True
+    return isinstance(value, collections.abc.Sequence)
+
+
 def _is_set_form(value):
     """Return True where a value stands in a walked set form.
 
@@ -1829,11 +1853,17 @@ def _assembly_state_value(assembly):
     answers it through the entry it carries for that key.
     An assembly standing in a sequence of pairs form
     answers the read through the pair element that names
-    assembly_state, wherever that element stands in a
-    walked sequence form: a plain list pair, a tuple
+    assembly_state, wherever that element stands in an
+    indexable sequence form: a plain list pair, a tuple
     pair, a UserList pair, a deque pair, and a pair
     standing in the abstract sequence form each answer
-    in the same form. An assembly in no walked form
+    in the same form. A pair element standing in a set
+    form or a frozenset form stands skipped by this
+    read, neither form supporting a positional read.
+    A pair element standing as a dictionary items view
+    answers the read through the entry the view carries
+    for that key, in the same form as a plain list pair.
+    An assembly in no walked form
     carries no state value for this read.
     """
     if _is_mapping_form(assembly):
@@ -1855,7 +1885,13 @@ def _assembly_state_value(assembly):
                 if "assembly_state" in element:
                     return element.get("assembly_state")
                 continue
-            if _is_sequence_form(element):
+            if _is_view_form(element):
+                if _view_kind(element) == "items":
+                    for key, value in element:
+                        if key == "assembly_state":
+                            return value
+                continue
+            if _is_indexable_sequence_form(element):
                 if len(element) >= 1 and element[0] == "assembly_state":
                     if len(element) >= 2:
                         return element[1]
