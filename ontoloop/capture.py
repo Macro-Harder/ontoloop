@@ -388,9 +388,37 @@ def validate_chain(chain):
     claimed here: no partial flag key on a run
     value and no intake count stands in this
     return, at shape item G-5.
+    A chain value in no chain form stands refused
+    in the one governed ValueError form the sibling
+    surfaces of this module use on an input in no
+    stated form: a chain that is not a mapping, a
+    chain carrying no order or no steps value, an
+    order or steps value in no list form, a step
+    entry in no mapping form, and a step entry
+    carrying no predecessor all raise ValueError
+    naming the unknown chain form. A chain in chain
+    form whose checks fail takes the flagged
+    partial limb above, never this refusal.
     """
+    if not isinstance(chain, dict):
+        raise ValueError("unknown chain form: %r" % (chain,))
+    if "order" not in chain or "steps" not in chain:
+        raise ValueError("unknown chain form: %r" % (chain,))
+    if isinstance(chain["order"], (str, bytes, bytearray)) or not isinstance(
+        chain["order"], (list, tuple)
+    ):
+        raise ValueError("unknown chain form: %r" % (chain,))
+    if isinstance(chain["steps"], (str, bytes, bytearray)) or not isinstance(
+        chain["steps"], (list, tuple)
+    ):
+        raise ValueError("unknown chain form: %r" % (chain,))
     order = list(chain["order"])
     steps = list(chain["steps"])
+    for step in steps:
+        if not isinstance(step, dict):
+            raise ValueError("unknown chain step form: %r" % (step,))
+        if "predecessor" not in step:
+            raise ValueError("unknown chain step form: %r" % (step,))
     chain_run = chain.get("run_identity")
     identities = []
     for index, step in enumerate(steps):

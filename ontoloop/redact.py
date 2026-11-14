@@ -300,7 +300,17 @@ def append_redacted(store, material, scope="journal run"):
     """
     from ontoloop import store as _store_module
 
-    items = _material_items(material)
+    try:
+        items = _material_items(material)
+    except _CycleDetected:
+        return {
+            "appended": False,
+            "reported_appended": False,
+            "refused": True,
+            "redacted_material": None,
+            "placeholders": [],
+            "hits_redacted": 0,
+        }
     text = "\n".join(item["text"] for item in items)
     records = _definite_records_over(material, text)
     redacted_text, placeholders, hits, unspanned = _redact_text(
@@ -345,6 +355,8 @@ def _definite_records_over(material, text):
     seen = set()
     for source in (material, text):
         result = classify_material(source)
+        if "firing_records" not in result:
+            continue
         for layer in _SIX_LAYERS:
             for record in result["firing_records"][layer]:
                 if record["outcome"] != "definite":
@@ -683,7 +695,17 @@ _TOKEN_PREFIXES = (
 )
 
 
-def _material_items(material):
+class _CycleDetected(Exception):
+    """Signal that a gathering act met a cycle on its path.
+
+    The signal stands internal to this module. The
+    surfaces that gather content catch it and return
+    their governed fail closed forms, so cyclic input
+    returns a governed output and no RecursionError.
+    """
+
+
+def _material_items(material, _path=None):
     """Normalise material into a list of text items.
 
     Each item carries field, the field name the
@@ -693,7 +715,13 @@ def _material_items(material):
     one item per entry, in entry order, keyed by its
     field name. A sequence contributes one item per
     element, in order. Any other value contributes its
-    string form as one item.
+    string form as one item. A sequence that stands on
+    its own gathering path raises _CycleDetected: the
+    gathering act detects a cycle on its path, where
+    the path holds only the containers of the branch
+    being gathered, so a value shared across branches
+    in acyclic form gathers in the ordinary way and
+    deep finite nesting gathers to its full depth.
     """
     if material is None:
         return []
@@ -717,10 +745,19 @@ def _material_items(material):
             items.append({"field": str(key), "text": text})
         return items
     if isinstance(material, (list, tuple, set, frozenset)):
-        items = []
-        for element in material:
-            items.extend(_material_items(element))
-        return items
+        if _path is None:
+            _path = set()
+        marker = id(material)
+        if marker in _path:
+            raise _CycleDetected()
+        _path.add(marker)
+        try:
+            items = []
+            for element in material:
+                items.extend(_material_items(element, _path))
+            return items
+        finally:
+            _path.discard(marker)
     return [{"field": None, "text": str(material)}]
 
 
@@ -955,8 +992,19 @@ def classify_material(material):
     and the class that fired. A layer with no firing
     over the material carries an empty list, so the
     records vary with the material in every case.
+    On material whose gathering meets a cycle, the
+    classification cannot run, and the act returns
+    the REDACT-T06 fail closed form instead, refused
+    True with form standing at no exit scan result,
+    no exit, and no classification result.
     """
-    items = _material_items(material)
+    try:
+        items = _material_items(material)
+    except _CycleDetected:
+        return {
+            "refused": True,
+            "form": "no exit scan result, no exit",
+        }
     records = {layer: [] for layer in _SIX_LAYERS}
     layer_acts = (
         _layer_one_firings,
@@ -1499,31 +1547,67 @@ def assembly_scan_cannot_run():
     return {"assembly_state": "scan cannot run"}
 
 
-def _assembly_content(assembly):
+def _assembly_content(assembly, _path=None, _top=True):
     """Return the scannable content items of an assembly.
 
     The content of an assembly stands as every string
     and byte value it carries, read recursively through
-    its mappings and sequences, beside the
-    assembly_state label itself, which names a state
-    and carries no content. An assembly in string or
+    its mappings and sequences, beside the state label
+    value at the top level alone. The top level
+    assembly_state value names a state and carries no
+    content, so the gathering act skips that value at
+    that position alone. Content standing under any
+    other key at any depth stands gathered, including
+    content standing under a repeated assembly_state
+    key below the top level: bytes standing as the
+    value of a nested key are content in substance,
+    whatever the key is named. An assembly in string or
     byte form carries itself as its content. A value in
-    no such form carries no scannable content.
+    no such form carries no scannable content. A mapping
+    or sequence that stands on its own gathering path
+    raises _CycleDetected: the gathering act detects a
+    cycle on its path, where the path holds only the
+    containers of the branch being gathered, so a value
+    shared across branches in acyclic form gathers in
+    the ordinary way and deep finite nesting gathers to
+    its full depth.
     """
     if isinstance(assembly, (str, bytes, bytearray)):
         return [assembly]
     if isinstance(assembly, dict):
-        content = []
-        for key in assembly:
-            if key == "assembly_state":
-                continue
-            content.extend(_assembly_content(assembly[key]))
-        return content
+        if _path is None:
+            _path = set()
+        marker = id(assembly)
+        if marker in _path:
+            raise _CycleDetected()
+        _path.add(marker)
+        try:
+            content = []
+            for key in assembly:
+                if _top and key == "assembly_state":
+                    continue
+                content.extend(
+                    _assembly_content(assembly[key], _path, False)
+                )
+            return content
+        finally:
+            _path.discard(marker)
     if isinstance(assembly, (list, tuple, set, frozenset)):
-        content = []
-        for element in assembly:
-            content.extend(_assembly_content(element))
-        return content
+        if _path is None:
+            _path = set()
+        marker = id(assembly)
+        if marker in _path:
+            raise _CycleDetected()
+        _path.add(marker)
+        try:
+            content = []
+            for element in assembly:
+                content.extend(
+                    _assembly_content(element, _path, False)
+                )
+            return content
+        finally:
+            _path.discard(marker)
     return []
 
 
@@ -1562,7 +1646,15 @@ def exit_scan(assembly):
     takes this same fail closed path where the assembly
     carries no scannable content, and where the assembly
     carries scannable content the content decides, as
-    it decides for any assembly.
+    it decides for any assembly. An assembly whose
+    state this act does not know stands in that same
+    position: where scannable content stands, the
+    content decides, clean content releasing and hit
+    content refusing whole, and the fail closed form
+    stands only where no scannable content stands, in
+    the stated form above. An assembly whose content
+    gathering meets a cycle stands in the cannot run
+    position and returns that same fail closed form.
 
     On an assembly whose content the scan examines and
     finds carrying no definite hit, the return carries
@@ -1579,9 +1671,10 @@ def exit_scan(assembly):
         state = assembly.get("assembly_state")
     if state == "scan cannot run":
         return dict(cannot_run)
-    if state is not None and state != "planted uncleared hit":
+    try:
+        content = _assembly_content(assembly)
+    except _CycleDetected:
         return dict(cannot_run)
-    content = _assembly_content(assembly)
     if not content:
         return dict(cannot_run)
     total_bytes = 0

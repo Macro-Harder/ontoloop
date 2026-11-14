@@ -639,5 +639,191 @@ class TestRedactFixR2(unittest.TestCase):
         self.assertEqual(len(store["records"]), before)
 
 
+class TestRedactFixR3Cycle(unittest.TestCase):
+    """Fix round 3, ruling 8: cyclic gathering fails closed.
+
+    Written test first for S15-R3-008. The recursive content
+    gathering through exit_scan and through classify_material
+    detects a cycle on its path and the surfaces return the
+    REDACT-T06 fail closed form, refused True with form
+    standing at no exit scan result, no exit, on cyclic
+    input, beside the standing acyclic cases and the deep
+    finite nesting cases.
+    """
+
+    def test_exit_scan_self_referential_list_fails_closed(self):
+        module = require(MODULE)
+        material = []
+        material.append(material)
+        outcome = module.exit_scan(material)
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(
+            outcome["form"], "no exit scan result, no exit"
+        )
+
+    def test_exit_scan_self_referential_mapping_fails_closed(self):
+        module = require(MODULE)
+        material = {}
+        material["self"] = material
+        outcome = module.exit_scan(material)
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(
+            outcome["form"], "no exit scan result, no exit"
+        )
+
+    def test_classify_material_self_referential_list_fails_closed(self):
+        module = require(MODULE)
+        material = []
+        material.append(material)
+        outcome = module.classify_material(material)
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(
+            outcome["form"], "no exit scan result, no exit"
+        )
+
+    def test_exit_scan_mutually_referential_material_fails_closed(self):
+        module = require(MODULE)
+        first = []
+        second = {"inner": first}
+        first.append(second)
+        outcome = module.exit_scan(first)
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(
+            outcome["form"], "no exit scan result, no exit"
+        )
+
+    def test_exit_scan_deep_finite_nesting_still_decides_clean(self):
+        module = require(MODULE)
+        for depth in (100, 300, 500):
+            material = "a routine clean note"
+            for _ in range(depth):
+                material = [material]
+            outcome = module.exit_scan(material)
+            self.assertFalse(outcome["refused"])
+
+    def test_exit_scan_shared_acyclic_content_still_decides_clean(self):
+        module = require(MODULE)
+        shared = ["a routine clean note"]
+        outcome = module.exit_scan([shared, shared, {"again": shared}])
+        self.assertFalse(outcome["refused"])
+
+
+class TestRedactFixR3State(unittest.TestCase):
+    """Fix round 3, ruling 18: state key gathering and state gate.
+
+    Written test first for S15-R3-017. The gathering act
+    skips only the state label value at the top level
+    position the stated form names, and gathers content
+    standing under any other key at any depth, including
+    a repeated assembly_state key below the top level.
+    An assembly whose state the act does not know stands
+    decided by its content where scannable content
+    stands, and returns the fail closed form only where
+    no scannable content stands.
+    """
+
+    def test_hit_under_nested_assembly_state_refuses_whole(self):
+        module = require(MODULE)
+        hit = module.secret_bearing_shapes()[0]["raw_bytes"]
+        outcome = module.exit_scan(
+            {
+                "content": "a routine clean note",
+                "nested": {"assembly_state": hit},
+            }
+        )
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_hit_under_ordinary_key_control_refuses_whole(self):
+        module = require(MODULE)
+        hit = module.secret_bearing_shapes()[0]["raw_bytes"]
+        outcome = module.exit_scan(
+            {
+                "content": "a routine clean note",
+                "nested": {"ordinary": hit},
+            }
+        )
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_hit_under_deeply_nested_assembly_state_refuses_whole(self):
+        module = require(MODULE)
+        hit = module.secret_bearing_shapes()[0]["raw_bytes"]
+        outcome = module.exit_scan(
+            {
+                "content": "a routine clean note",
+                "outer": [{"inner": {"assembly_state": hit}}],
+            }
+        )
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+
+    def test_clean_content_under_nested_assembly_state_releases(self):
+        module = require(MODULE)
+        outcome = module.exit_scan(
+            {
+                "content": "a routine clean note",
+                "nested": {"assembly_state": "a routine clean note"},
+            }
+        )
+        self.assertFalse(outcome["refused"])
+
+    def test_top_level_state_label_value_alone_does_not_decide(self):
+        module = require(MODULE)
+        hit = module.secret_bearing_shapes()[0]["raw_bytes"]
+        outcome = module.exit_scan(
+            {"assembly_state": hit, "content": "a routine clean note"}
+        )
+        self.assertFalse(outcome["refused"])
+
+    def test_unknown_state_with_clean_content_decides_clean(self):
+        module = require(MODULE)
+        outcome = module.exit_scan(
+            {
+                "assembly_state": "ready",
+                "content": "a routine clean note",
+            }
+        )
+        self.assertFalse(outcome["refused"])
+
+    def test_unknown_state_with_hit_content_refuses_whole(self):
+        module = require(MODULE)
+        hit = module.secret_bearing_shapes()[0]["raw_bytes"]
+        outcome = module.exit_scan(
+            {"assembly_state": "ready", "content": hit}
+        )
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_unknown_state_with_no_scannable_content_fails_closed(self):
+        module = require(MODULE)
+        for assembly in (
+            {"assembly_state": "ready"},
+            {"assembly_state": "ready", "content": ""},
+            {"assembly_state": "a state nobody named"},
+        ):
+            outcome = module.exit_scan(assembly)
+            self.assertTrue(outcome["refused"])
+            self.assertEqual(
+                outcome["form"], "no exit scan result, no exit"
+            )
+
+    def test_standing_governed_forms_still_hold(self):
+        module = require(MODULE)
+        cannot = module.exit_scan(module.assembly_scan_cannot_run())
+        self.assertTrue(cannot["refused"])
+        self.assertEqual(
+            cannot["form"], "no exit scan result, no exit"
+        )
+        planted = module.exit_scan(module.assembly_with_planted_hit())
+        self.assertTrue(planted["refused"])
+        self.assertEqual(planted["refused_scope"], "whole")
+        clean = module.exit_scan({"content": "a routine clean note"})
+        self.assertFalse(clean["refused"])
+
+
 if __name__ == "__main__":
     unittest.main()

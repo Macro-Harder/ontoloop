@@ -265,5 +265,82 @@ class TestCaptureFixR1(unittest.TestCase):
         self.assertFalse(suspect["captured"])
 
 
+class TestCaptureFixR3(unittest.TestCase):
+    """Fix round 3, ruling 9: validate_chain governed refusal.
+
+    Written test first for S15-R3-009. Malformed chain
+    inputs stand refused in one stated governed form,
+    the ValueError form the sibling surfaces of this
+    module use on an input in no stated form, beside
+    the standing well formed cases, whose flagged
+    partial form for a broken chain stands unchanged.
+    """
+
+    def test_validate_chain_integer_chain_raises_value_error(self):
+        module = require(MODULE)
+        with self.assertRaises(ValueError):
+            module.validate_chain(123)
+        with self.assertRaises(ValueError):
+            module.validate_chain([1, 2, 3])
+        chain = module.example_a_chain()
+        chain["steps"] = [1, 2]
+        with self.assertRaises(ValueError):
+            module.validate_chain(chain)
+
+    def test_validate_chain_missing_kind_entry_raises_value_error(self):
+        module = require(MODULE)
+        chain = module.example_a_chain()
+        chain["steps"] = [{}]
+        chain["order"] = [chain["order"][0]]
+        with self.assertRaises(ValueError):
+            module.validate_chain(chain)
+        chain = module.example_a_chain()
+        del chain["steps"][0]["predecessor"]
+        with self.assertRaises(ValueError):
+            module.validate_chain(chain)
+        with self.assertRaises(ValueError):
+            module.validate_chain({})
+
+    def test_validate_chain_none_entry_raises_value_error(self):
+        module = require(MODULE)
+        chain = module.example_a_chain()
+        chain["steps"] = [None, None]
+        with self.assertRaises(ValueError):
+            module.validate_chain(chain)
+
+    def test_validate_chain_none_chain_raises_value_error(self):
+        module = require(MODULE)
+        with self.assertRaises(ValueError):
+            module.validate_chain(None)
+
+    def test_validate_chain_string_forms_raise_value_error(self):
+        module = require(MODULE)
+        chain = module.example_a_chain()
+        chain["steps"] = "a string steps value"
+        with self.assertRaises(ValueError):
+            module.validate_chain(chain)
+        chain = module.example_a_chain()
+        chain["steps"] = ["a string step", "another string step"]
+        with self.assertRaises(ValueError):
+            module.validate_chain(chain)
+        with self.assertRaises(ValueError):
+            module.validate_chain("a string chain")
+
+    def test_validate_chain_well_formed_cases_stand(self):
+        module = require(MODULE)
+        chain = module.example_a_chain()
+        result = module.validate_chain(chain)
+        self.assertTrue(result["valid"])
+        self.assertFalse(result["flagged_partial"])
+        broken = module.example_a_chain(varied_by="chain break")
+        result = module.validate_chain(broken)
+        self.assertFalse(result["valid"])
+        self.assertTrue(result["flagged_partial"])
+        empty = {"order": [], "steps": []}
+        result = module.validate_chain(empty)
+        self.assertFalse(result["valid"])
+        self.assertTrue(result["flagged_partial"])
+
+
 if __name__ == "__main__":
     unittest.main()
