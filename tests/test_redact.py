@@ -712,14 +712,19 @@ class TestRedactFixR3State(unittest.TestCase):
     """Fix round 3, ruling 18: state key gathering and state gate.
 
     Written test first for S15-R3-017. The gathering act
-    skips only the state label value at the top level
-    position the stated form names, and gathers content
-    standing under any other key at any depth, including
-    a repeated assembly_state key below the top level.
-    An assembly whose state the act does not know stands
-    decided by its content where scannable content
-    stands, and returns the fail closed form only where
-    no scannable content stands.
+    gathers content standing under any key at any depth,
+    including a repeated assembly_state key below the
+    top level. An assembly whose state the act does not
+    know stands decided by its content where scannable
+    content stands, and returns the fail closed form
+    only where no scannable content stands. One limb of
+    the original form stands restated at Fix round 5:
+    under ruling 80 the top level assembly_state value
+    itself stands gathered as content, so the pin that
+    read that value beside clean content as not deciding
+    stands restated below in its Fix round 5 form, and
+    the state only fail closed limb stands in the Fix
+    round 5 test file beside it.
     """
 
     def test_hit_under_nested_assembly_state_refuses_whole(self):
@@ -770,13 +775,21 @@ class TestRedactFixR3State(unittest.TestCase):
         )
         self.assertFalse(outcome["refused"])
 
-    def test_top_level_state_label_value_alone_does_not_decide(self):
+    def test_top_level_state_value_beside_clean_content_refuses_whole(self):
+        # Restated at Fix round 5 under ruling 80 (N-43):
+        # the top level assembly_state value stands
+        # gathered as content, so hit material in that
+        # value beside clean content refuses whole. The
+        # fuller pin set for this act stands in
+        # tests.test_capture_consume_fix_r5.
         module = require(MODULE)
         hit = module.secret_bearing_shapes()[0]["raw_bytes"]
         outcome = module.exit_scan(
             {"assembly_state": hit, "content": "a routine clean note"}
         )
-        self.assertFalse(outcome["refused"])
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
 
     def test_unknown_state_with_clean_content_decides_clean(self):
         module = require(MODULE)

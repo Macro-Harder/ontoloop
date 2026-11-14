@@ -1559,21 +1559,28 @@ def assembly_scan_cannot_run():
     return {"assembly_state": "scan cannot run"}
 
 
-def _assembly_content(assembly, _path=None, _top=True):
+def _assembly_content(assembly, _path=None, _top=True,
+                      _skip_top_state=False):
     """Return the scannable content items of an assembly.
 
     The content of an assembly stands as every string
     and byte value it carries, read recursively through
-    its mappings and sequences, beside the state label
-    value at the top level alone. The top level
-    assembly_state value names a state and carries no
-    content, so the gathering act skips that value at
-    that position alone. Content standing under any
-    other key at any depth stands gathered, including
-    content standing under a repeated assembly_state
-    key below the top level: bytes standing as the
-    value of a nested key are content in substance,
-    whatever the key is named. An assembly in string or
+    its mappings and sequences. The top level
+    assembly_state value stands gathered as content
+    beside the other values, in the same content form:
+    hit material standing in that value is content the
+    scan examines, exactly as content standing under
+    any other key at any depth is, including content
+    standing under a repeated assembly_state key below
+    the top level. A state label in its standing forms
+    is a short string naming a state, and gathering it
+    changes no decision on a clean assembly. The one
+    exception stands in the _skip_top_state form,
+    which exit_scan uses for its fail closed floor
+    alone: a gathering under that flag skips the top
+    level assembly_state value, so the floor reads the
+    value content beside the state value, in the form
+    exit_scan states. An assembly in string or
     byte form carries itself as its content. A value in
     no such form carries no scannable content. A mapping
     or sequence that stands on its own gathering path
@@ -1599,7 +1606,7 @@ def _assembly_content(assembly, _path=None, _top=True):
         try:
             content = []
             for key in assembly:
-                if _top and key == "assembly_state":
+                if _top and _skip_top_state and key == "assembly_state":
                     continue
                 content.extend(
                     _assembly_content(assembly[key], _path, False)
@@ -1638,20 +1645,27 @@ def _assembly_key_content(assembly, _path=None, _top=True):
     the same content form the values take, a string or
     byte key standing as itself and a tuple key standing
     through its elements. The top level assembly_state
-    entry stands skipped whole, key and value together,
-    because that entry is the state label position and
-    carries no content in either part. A scalar that is
-    not a mapping key position carries no key content.
+    key itself stands gathered in no part: that key is
+    the state label name and carries no content as a
+    key. The value standing under that key stands
+    walked for the key content it carries, exactly as
+    the value standing under any other key is walked,
+    so a hit standing as a key inside the top level
+    state value gathers as content beside the value
+    content _assembly_content gathers from that value.
+    A scalar that is not a mapping key position carries
+    no key content.
     The traversal walks mappings and sequences under
     the same cycle guard discipline as
     _assembly_content, raising _CycleDetected where a
     container stands on its own gathering path. The
     key content stands returned apart from the value
     content, so the fail closed floor of exit_scan,
-    which reads the value content alone, stands in its
-    standing form: a field name alone is not scannable
-    content, and an assembly carrying no value content
-    still fails closed.
+    which reads the value content beside the top level
+    state value alone, stands in its standing form: a
+    field name alone is not scannable content, and an
+    assembly carrying no such value content still
+    fails closed.
     """
     if isinstance(assembly, dict):
         if _path is None:
@@ -1664,6 +1678,11 @@ def _assembly_key_content(assembly, _path=None, _top=True):
             content = []
             for key in assembly:
                 if _top and key == "assembly_state":
+                    content.extend(
+                        _assembly_key_content(
+                            assembly[key], _path, False
+                        )
+                    )
                     continue
                 content.extend(_assembly_content(key, _path, False))
                 content.extend(
@@ -1703,9 +1722,19 @@ def exit_scan(assembly):
     together, in the form _assembly_key_content
     states, so hit material standing as a mapping key
     refuses whole exactly as the same material standing
-    as a value refuses, while the fail closed floor
-    below reads the value content alone, in its
-    standing form. A gathering that raises
+    as a value refuses, and hit material standing as
+    the top level assembly_state value beside other
+    content refuses whole in the same form, that value
+    standing gathered as content beside the other
+    values. The fail closed floor below reads the
+    value content beside the top level state value
+    alone, in its standing form: a state only assembly,
+    and an assembly whose remaining value content
+    stands at zero bytes, fail closed on that floor
+    exactly as they did before the state value stood
+    gathered, because the floor stands as the check
+    that scannable content beside the state position
+    stands present to examine. A gathering that raises
     RecursionError, on deep finite nesting past the
     interpreter limit, stands in the cannot run
     position below beside a gathering that meets a
@@ -1724,10 +1753,12 @@ def exit_scan(assembly):
     cannot run fixture form, on an assembly that is
     None, on an empty assembly, on an assembly carrying
     an assembly_state this act does not know and no
-    scannable content the scan examines, on an assembly
-    carrying no scannable content at all, and on an
-    assembly whose content stands at zero bytes in
-    total, the return carries exactly refused standing
+    scannable content beside that state value, on an
+    assembly carrying no scannable content beside its
+    top level state value at all, and on an assembly
+    whose content beside that state value stands at
+    zero bytes in total, the return carries exactly
+    refused standing
     True and form standing at the string no exit scan
     result, no exit, the floor state sentence of that
     brief passage in its exact wording: no exit scan
@@ -1735,15 +1766,18 @@ def exit_scan(assembly):
     stands released on a scan that did not examine it.
     The assembly_state value planted uncleared hit
     takes this same fail closed path where the assembly
-    carries no scannable content, and where the assembly
-    carries scannable content the content decides, as
-    it decides for any assembly. An assembly whose
+    carries no scannable content beside that value, and
+    where the assembly carries scannable content beside
+    it the content decides, the state value standing
+    among the content decided on, as it decides for any
+    assembly. An assembly whose
     state this act does not know stands in that same
-    position: where scannable content stands, the
-    content decides, clean content releasing and hit
-    content refusing whole, and the fail closed form
-    stands only where no scannable content stands, in
-    the stated form above. An assembly whose content
+    position: where scannable content beside the state
+    value stands, the content decides, clean content
+    releasing and hit content refusing whole, and the
+    fail closed form
+    stands only where no such scannable content stands,
+    in the stated form above. An assembly whose content
     gathering meets a cycle stands in the cannot run
     position and returns that same fail closed form.
 
@@ -1765,12 +1799,15 @@ def exit_scan(assembly):
     try:
         content = _assembly_content(assembly)
         key_content = _assembly_key_content(assembly)
+        floor_content = _assembly_content(
+            assembly, _skip_top_state=True
+        )
     except (_CycleDetected, RecursionError):
         return dict(cannot_run)
-    if not content:
+    if not floor_content:
         return dict(cannot_run)
     total_bytes = 0
-    for item in content:
+    for item in floor_content:
         if isinstance(item, (bytes, bytearray)):
             total_bytes += len(item)
         else:

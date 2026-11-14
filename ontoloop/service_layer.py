@@ -146,17 +146,48 @@ _OUTPUT_PATHS = ("error", "log", "progress", "support", "telemetry")
 _FLOWS = ("grading", "ingest", "confirmation")
 
 
+def _ingest_material_digest(material):
+    """Return the SHA-256 hex digest over the material passed.
+
+    The digest stands taken over a canonical form of
+    the material that distinguishes its type as well
+    as its content, in the form the consumption module
+    digest helper governs for such encodings in this
+    scope: byte material over its bytes, string
+    material over its UTF-8 encoding, and any other
+    material over a key sorted encoding of it, so two
+    mappings holding the same entries in different key
+    order return one digest. String material therefore
+    digests exactly as it did under the string form
+    this act replaces, while byte material and its
+    string spelling, and no material and the string
+    None, return differing digests.
+    """
+    import hashlib
+    import json
+
+    if isinstance(material, bytes):
+        payload = material
+    elif isinstance(material, str):
+        payload = material.encode("utf-8")
+    else:
+        payload = json.dumps(
+            material, sort_keys=True, default=str
+        ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def ingest_tool(material=None):
     """Ingest material through the agent surface.
 
-    The act records the material digest in the tool
-    record list and returns that record position. It
-    holds no promotion adjacent power.
+    The act builds no record and appends to no list.
+    It returns exactly the mapping with keys ingested,
+    standing True, and material_digest, standing at
+    the SHA-256 digest of the material passed in the
+    canonical form _ingest_material_digest states.
+    It holds no promotion adjacent power.
     """
-    import hashlib
-
-    digest = hashlib.sha256(
-        str(material).encode("utf-8")).hexdigest()
+    digest = _ingest_material_digest(material)
     return {"ingested": True, "material_digest": digest}
 
 

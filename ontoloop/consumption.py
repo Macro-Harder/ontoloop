@@ -130,16 +130,40 @@ def _material_digest(material):
     return hashlib.sha256(payload).hexdigest()
 
 
+def _bundle_copy(bundle):
+    """Return a deep copy of a bundle object.
+
+    The copy stands apart from the object passed at
+    every level, so a mutation of either object, at
+    its top level or in a nested mapping or list,
+    reaches nothing in the other. Immutable bundle
+    values, the string form every governed caller
+    passes, copy to themselves in substance.
+    """
+    import copy
+
+    return copy.deepcopy(bundle)
+
+
 def record_promotion(workflow, bundle):
     """Record a promotion as current for one workflow.
 
     This act writes the promotion state discovery reads,
     so a later discover call for the same workflow returns
     the bundle recorded here, and a call for another
-    workflow returns the no promotion answer.
+    workflow returns the no promotion answer. The
+    registry holds its own copy of the bundle object
+    recorded, and the bundle this return carries stands
+    as a further copy, so a mutation of the object the
+    caller passed, or of the object this return carries,
+    rewrites nothing the registry holds.
     """
-    _CURRENT_PROMOTIONS[workflow] = bundle
-    return {"workflow": workflow, "bundle": bundle, "recorded": True}
+    _CURRENT_PROMOTIONS[workflow] = _bundle_copy(bundle)
+    return {
+        "workflow": workflow,
+        "bundle": _bundle_copy(bundle),
+        "recorded": True,
+    }
 
 
 def run_records():
@@ -166,7 +190,10 @@ def discover(workflow=None):
     Discovery reads the promotion state recorded by
     record_promotion for the workflow named, honouring
     its workflow argument. Where a bundle stands current
-    for that workflow the return carries that bundle.
+    for that workflow the return carries a copy of that
+    bundle, in the form record_promotion states, so a
+    mutation of the returned bundle rewrites nothing
+    the registry holds and nothing a later call returns.
     Where none stands, the return states the no promotion
     position as a normal answer and carries no error form.
     """
@@ -180,7 +207,7 @@ def discover(workflow=None):
     return {
         "answer": "promotion",
         "is_error": False,
-        "bundle": bundle,
+        "bundle": _bundle_copy(bundle),
     }
 
 
