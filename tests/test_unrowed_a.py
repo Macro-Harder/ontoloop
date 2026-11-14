@@ -213,6 +213,14 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertEqual(
             str(caught.exception), "journal records must be a list or None")
 
+    def test_journal_records_value_in_no_governed_form_raises_on_undisputed_call(self):
+        module = require("ontoloop.ops")
+        with self.assertRaises(ValueError) as caught:
+            module.resolve_dispute(disputed=False,
+                                   journal_records="journal record one")
+        self.assertEqual(
+            str(caught.exception), "journal records must be a list or None")
+
     def test_entry_point_record_stands_in_the_incident_record(self):
         module = require("ontoloop.ops")
         record = module.incident_entry(answers=("no", "no", "no"))
@@ -252,6 +260,9 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertEqual(
             result["material_read"],
             ["journal record one", "journal record two"])
+        self.assertIsNot(
+            result["reconstructed_material"],
+            result["material_read"])
 
     def test_loading_stop_stands_as_a_named_act(self):
         module = require("ontoloop.ops")
@@ -350,6 +361,10 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertEqual(
             list(module.incident_append_order(acts=("purge append",))),
             ["purge append"])
+        purge_order = list(module.incident_append_order(
+            acts=("purge append", "repair verification")))
+        self.assertEqual(
+            purge_order, ["repair verification", "purge append"])
 
     def test_loading_stop_takes_effect_before_its_journal_record(self):
         module = require("ontoloop.ops")
@@ -397,6 +412,7 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             stop, store=store_module.golden_record_store())
         self.assertIs(landed["journal_record_landed"], True)
         self.assertEqual(landed["stop"], stop)
+        self.assertIsNot(landed["stop"], stop)
 
     def test_loading_stop_journal_landing_records_the_append_content(self):
         module = require("ontoloop.ops")
@@ -658,6 +674,7 @@ class TestUnrowed1935ClaimLimitDataset(unittest.TestCase):
         self.assertNotIn("low confidence", outcome["attached_stamps"])
         self.assertIs(outcome["claim_limit_effect"], False)
         self.assertIs(outcome["gate_blocked"], False)
+        self.assertEqual(outcome["record_home"], "dataset record")
 
 
 if __name__ == "__main__":
