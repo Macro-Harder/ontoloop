@@ -298,17 +298,21 @@ def submit_through(surface, material):
     keys: the stamp source standing at the string
     service layer, the surface applied own stamp
     position standing False, and the stamps as a
-    fresh mapping carrying exactly two keys, the
+    fresh mapping carrying exactly four keys, the
     written by position standing at the string
-    service layer and the stamp kind standing at the
-    stamp kind constant above. The stamp kind value
+    service layer, the stamp kind standing at the
+    stamp kind constant above, the channel standing
+    at the string central service layer channel, and
+    the material_hash standing at the SHA-256 digest
+    of the material passed. The stamp kind value
     stands authored and guessed under ruling (f), as
     the constant note above states. The stamps stand
     equal across both surfaces for the same material
-    by construction, because neither key of the
-    stamps mapping encodes the surface argument or
-    the material argument, and the material argument
-    alters no value in this return. A surface
+    by construction, because no key of the stamps
+    mapping encodes the surface argument. The
+    material_hash value varies with the material
+    passed, so stamps for differing material differ
+    in the material_hash value alone. A surface
     argument outside the two named surface strings
     raises ValueError, in the proposal form at shape
     paper section 6. This surface presents material

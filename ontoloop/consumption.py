@@ -348,24 +348,35 @@ def holdout_content_access_inventory():
     """Return the holdout content access inventory.
 
     Row CONSUME-T05. Returns a fresh mapping
-    carrying exactly three keys. The listed
-    components stand as a fresh list of the readers
-    held above. The entries stand as a fresh mapping
+    carrying exactly four keys: the listed
+    components, the entries, the inventory version
+    at the inventory_version key, and the heading
+    block. The listed components stand as a fresh
+    list of the readers held above. The inventory
+    version stands computed from the bytes of this
+    module file at call time, in the form of the
+    sha256 prefix followed by that file digest, or
+    at the string unavailable where the file cannot
+    be read. The entries stand as a fresh mapping
     keyed by component name, carrying one entry per
     listed component and, beside them, the candidate
-    construction entry under its exact key: each
-    entry stands as a fresh mapping carrying exactly
-    the one key sealed_holdout_content_held, whose
-    value stands at the authored string read access
-    for the listed components and at the string none
-    for the candidate construction entry. The read
-    access held position stands authored and guessed
-    under ruling (f), at the shape act section 3.7
-    and disposition DG-7, and the readers names
-    stand authored and guessed under ruling (f), as
-    the constant note above states. The heading
-    block stands as a fresh mapping carrying exactly
-    two keys: the completeness limit stated position
+    construction entry under its exact key. Every
+    entry carries the sealed_holdout_content_held
+    key, whose value stands at the authored string
+    read access for the listed components and at the
+    string none for the candidate construction
+    entry. The cross split audit entry carries, beside
+    its held position, three further keys, component,
+    runs_through, and read_position, so that entry
+    carries four keys in all. Every other entry
+    carries the held position alone. The read access
+    held position stands authored and guessed under
+    ruling (f), at the shape act section 3.7 and
+    disposition DG-7, and the readers names stand
+    authored and guessed under ruling (f), as the
+    constant note above states. The heading block
+    stands as a fresh mapping carrying exactly two
+    keys: the completeness limit stated position
     standing True, and the completeness limit
     standing in its exact grounded words. No key of
     this return states a confinement claim, a

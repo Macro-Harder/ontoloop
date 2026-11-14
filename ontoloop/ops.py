@@ -1882,7 +1882,7 @@ def purge_without_preview(preview=None, preview_shown=False):
         and "record_home" in preview
         and "identities_affected" in preview
     )
-    shown = bool(preview_shown) or preview_form_shown
+    shown = (preview_shown is True) or preview_form_shown
     if shown:
         return {
             "failed": False,
