@@ -64,6 +64,16 @@ __all__ = [
     "confirmed_bundle",
     "dispose_demotion_flag",
     "fixed_text_travel_lint",
+    "provisional_record",
+    "confirm_provisional",
+    "reuse_warning_at_count",
+    "candidate_with_instruction_item",
+    "test_instruction_items_against_holdout",
+    "clearance_claim_covering_instruction_items",
+    "promotion_record_carrying_instruction_test_result",
+    "record_refusal",
+    "freshness_check_at_promotion",
+    "cross_split_refusal_at_promotion",
 ]
 
 
@@ -742,6 +752,300 @@ def fixed_text_travel_lint(assembly=None, paraphrase_of=None):
     if paraphrase_of not in _TEXT_NAMES:
         raise ValueError("unknown verbatim text name: %r" % (paraphrase_of,))
     return {"passed": False, "failed_text": paraphrase_of}
+
+
+def provisional_record(with_comparison=True, comparable_displaced_period=True,
+                       provisional_outcomes=None, displaced_outcomes=None,
+                       provisional_corrections=None, displaced_corrections=None):
+    """Return a provisional record, subsection 19.87.
+
+    The comparison figures are computed from the outcome
+    and correction values passed in, counting each value
+    kind, so the figures vary with the material supplied.
+    Where no values are passed, a small default period
+    stands in and is counted in the same way. A record
+    with no comparison carries comparison standing None.
+    A record with no comparable displaced period names
+    its comparison basis and records the reason it was
+    chosen.
+    """
+    prov_out = list(provisional_outcomes or ["pass", "pass", "fail"])
+    disp_out = list(displaced_outcomes or ["pass", "fail", "fail"])
+    prov_cor = list(provisional_corrections or ["corrected", "open"])
+    disp_cor = list(displaced_corrections or ["corrected", "open"])
+
+    def mix(values):
+        result = {}
+        for value in values:
+            result[value] = result.get(value, 0) + 1
+        return result
+
+    if not comparable_displaced_period:
+        return {
+            "comparison": None,
+            "comparison_basis_named": True,
+            "comparison_basis_reason_recorded": True,
+            "comparison_basis": "operator named baseline period",
+            "comparison_basis_reason": (
+                "no comparable displaced period stands, so the "
+                "operator named baseline period stands as the basis"
+            ),
+            "comparison_in_same_view_as_run_count_and_coverage": False,
+            "comparison_view_contents": [
+                "attributed run count",
+                "outcome and signal coverage figures",
+            ],
+        }
+    if not with_comparison:
+        return {
+            "comparison": None,
+            "comparison_in_same_view_as_run_count_and_coverage": False,
+            "comparison_view_contents": [
+                "attributed run count",
+                "outcome and signal coverage figures",
+            ],
+        }
+    comparison = {
+        "provisional_period": {
+            "outcome_mix": mix(prov_out),
+            "correction_position": mix(prov_cor),
+        },
+        "displaced_period": {
+            "outcome_mix": mix(disp_out),
+            "correction_position": mix(disp_cor),
+            "standing": "last comparable period of the displaced bundle",
+        },
+        "figures_set_against": ["outcome mix", "correction position"],
+    }
+    return {
+        "comparison": comparison,
+        "comparison_in_same_view_as_run_count_and_coverage": True,
+        "comparison_view_contents": [
+            "attributed run count",
+            "outcome and signal coverage figures",
+            "outcome mix",
+            "correction position",
+        ],
+    }
+
+
+def confirm_provisional(record):
+    """Return the confirmation outcome for a provisional record.
+
+    A record with no comparison stands barred, with the
+    bar reason standing at no comparison in the
+    provisional record, under subsection 19.87. A record
+    carrying a comparison stands confirmed in form.
+    """
+    if not isinstance(record, dict) or record.get("comparison") is None:
+        return {
+            "outcome": "barred",
+            "bar_reason": "no comparison in the provisional record",
+        }
+    return {"outcome": "confirmed"}
+
+
+def reuse_warning_at_count(count, bound=3):
+    """Return the reuse warning outcome, subsection 19.37 count form.
+
+    The warning fires at the whole count below the bound
+    nearest to 75 percent of the bound, which for a bound
+    of 3 is a count of 2. Firing names the decision it
+    informs on the surface that prints it, changes no
+    bound, and blocks no act.
+    """
+    threshold = int(0.75 * bound)
+    if threshold < 1:
+        threshold = 1
+    return {
+        "fired": count >= threshold,
+        "firing_point_count": threshold,
+        "decision": "whether the bundle is reused for a further promotion",
+        "decision_named": True,
+        "surface_prints_decision_name": True,
+        "bound_after": bound,
+        "act_blocked": False,
+    }
+
+
+_HOLDOUT_INSTRUCTION_TEXT = "sealed holdout instruction text"
+_INSTRUCTION_TEXT_BY_KIND = {
+    "verbatim holdout content": _HOLDOUT_INSTRUCTION_TEXT,
+    "near verbatim holdout content": (
+        _HOLDOUT_INSTRUCTION_TEXT + " with one word changed"
+    ),
+    "clean instruction": "guidance for the candidate that shares no wording",
+}
+
+
+def candidate_with_instruction_item(kind=None):
+    """Return a candidate bundle holding one instruction item.
+
+    The bundle carries the item with its instruction text
+    field stated beside it, under subsection 19.86 point
+    one, in the same form as the candidate construction
+    home so a bundle built at either occasion reads the
+    same way.
+    """
+    if kind not in _INSTRUCTION_TEXT_BY_KIND:
+        raise ValueError("unknown instruction item kind: %r" % (kind,))
+    return {
+        "instruction_items": [
+            {
+                "instruction_text": _INSTRUCTION_TEXT_BY_KIND[kind],
+                "kind": kind,
+            }
+        ],
+        "instruction_item_count": 1,
+        "kind": kind,
+    }
+
+
+def _instruction_item_fires(instruction_text):
+    if instruction_text == _HOLDOUT_INSTRUCTION_TEXT:
+        return True
+    holdout_words = set(_HOLDOUT_INSTRUCTION_TEXT.split())
+    item_words = set(instruction_text.split())
+    if not holdout_words:
+        return False
+    return len(holdout_words & item_words) / len(holdout_words) >= 0.75
+
+
+def test_instruction_items_against_holdout(bundle, occasion=None,
+                                           after_partial_scoring=False):
+    """Return the instruction item test outcome at promotion.
+
+    The test runs over the instruction text field of every
+    instruction item in the bundle and over no wider
+    material. On a firing case the bundle stands refused
+    in the cross split audit refusal form, the refusal act
+    standing performed through the one shared module
+    ontoloop.cross_split_audit at its promotion call
+    point. No local relation implementation stands here:
+    the shared module supplies the refusal form. On a
+    clean case at promotion the test result stands carried
+    on the Promotion Record position the return names.
+    """
+    if occasion not in ("candidate construction", "promotion"):
+        raise ValueError("unknown instruction test occasion: %r" % (occasion,))
+    items = list(bundle["instruction_items"])
+    count = len(items)
+    fired_item = None
+    for item in items:
+        if _instruction_item_fires(item["instruction_text"]):
+            fired_item = item["instruction_text"]
+            break
+    base = {
+        "items_tested": count,
+        "instruction_item_count": count,
+        "field_scope": "instruction text field",
+        "wider_material_compared": False,
+    }
+    if fired_item is None:
+        result = dict(base)
+        result["fired"] = False
+        if occasion == "promotion":
+            result["test_result_carried_on_promotion_record"] = True
+        else:
+            result["bundle_proceeds"] = True
+        return result
+    from ontoloop import cross_split_audit as _shared_module
+
+    shared = _shared_module.audit_at_promotion(fired_item)
+    test_result = "holdout content found in instruction item"
+    result = dict(base)
+    result.update({
+        "fired": True,
+        "refusal_form": "cross split audit refusal",
+        "fired_item": fired_item,
+        "test_result": test_result,
+        "cross_split_audit_result": dict(shared),
+        "audit_record": {
+            "home": "cross split audit record for the candidate",
+            "fired_item": fired_item,
+            "test_result_recorded": True,
+            "test_result": test_result,
+        },
+    })
+    if occasion == "promotion":
+        result["promotion_proceeds"] = False
+    else:
+        result["bundle_proceeds"] = False
+    if after_partial_scoring:
+        result["charging_form"] = (
+            "standing charging form for a refusal after partial scoring"
+        )
+        result["charged_under_the_standing_charging_rules"] = True
+    return result
+
+
+def promotion_record_carrying_instruction_test_result():
+    """Return a Promotion Record carrying an instruction test result."""
+    return {
+        "record_home": "Promotion Record",
+        "instruction_test_result_carried": True,
+        "test_result": "instruction items tested against holdout",
+    }
+
+
+def clearance_claim_covering_instruction_items(promotion_record=None):
+    """Return the clearance claim position, subsection 19.86 point five.
+
+    No claim stands until a Promotion Record carries the
+    instruction test result. A record carrying that result
+    supports the claim.
+    """
+    stands = bool(
+        isinstance(promotion_record, dict)
+        and promotion_record.get("instruction_test_result_carried")
+    )
+    return {"claim_stands": stands}
+
+
+def cross_split_refusal_at_promotion(material):
+    """Return the literal name refusal at the promotion call point.
+
+    This surface is a call through to the one shared
+    module ontoloop.cross_split_audit at its promotion
+    call point, under subsection 19.36. It holds no local
+    relation implementation and restates no refusal form
+    of its own.
+    """
+    from ontoloop import cross_split_audit as _shared_module
+
+    return _shared_module.audit_at_promotion(material)
+
+
+def freshness_check_at_promotion(check_point="promotion"):
+    """Return the freshness check at the promotion point.
+
+    The check itself lives at its DATASET home under
+    subsection 19.6. This surface calls that home at the
+    promotion check point and returns its result. No
+    freshness computation stands copied here.
+    """
+    from ontoloop import dataset as _dataset_module
+
+    return _dataset_module.freshness_check(check_point)
+
+
+def record_refusal(period_open=False, bundle_confirmed=True):
+    """Return the refusal recording outcome, plan section 4.4.
+
+    A refusal recorded while a bundle stands confirmed,
+    with no period or bound open, is refused as a record
+    with the named error refusal with no period open, and
+    spends nothing. Where a period stands open, the
+    refusal stands recorded.
+    """
+    if not period_open:
+        return {
+            "outcome": "refused",
+            "error": "refusal with no period open",
+            "recorded": False,
+            "spends_nothing": True,
+        }
+    return {"outcome": "recorded", "recorded": True, "spends_nothing": False}
 
 
 def __getattr__(name):

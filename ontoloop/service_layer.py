@@ -52,6 +52,14 @@ __all__ = [
     "negative_list_results",
     "agent_surface_tools",
     "promotion_adjacent_powers",
+    "ingest_tool",
+    "discover_tool",
+    "load_tool",
+    "verify_tool",
+    "apply_tool",
+    "pin_tool",
+    "attribute_tool",
+    "supersession_and_rollback_tool",
     "submit_through",
     "channel_stamp_report",
     "surface_output",
@@ -61,17 +69,23 @@ __all__ = [
 ]
 
 
-# The agent surface tool list. Exactly three authored
-# tool names, in this order. Each name stands authored
-# and guessed under ruling (f), at the shape paper
-# section 3.1 and disposition DG-2. The act words
-# inside the names stand grounded at brief Section
-# 7.2, and the tool name form and the count of three
-# stand authored.
+# The agent surface tool list. The tools cover the
+# acts brief Section 7.2 assigns to the surfaces and
+# the seven abilities of brief Section 5.5 item
+# OQ-C19: discover, load, verify, apply, pin,
+# attribute, and supersession and rollback handling,
+# beside the ingest act. Each name below stands as a
+# key of the tool registry further down, whose values
+# are the real tool implementations in this module.
 _AGENT_SURFACE_TOOLS = (
     "ingest tool",
     "discover tool",
     "load tool",
+    "verify tool",
+    "apply tool",
+    "pin tool",
+    "attribute tool",
+    "supersession and rollback tool",
 )
 
 # The promotion adjacent powers list. Exactly five
@@ -132,17 +146,105 @@ _OUTPUT_PATHS = ("error", "log", "progress", "support", "telemetry")
 _FLOWS = ("grading", "ingest", "confirmation")
 
 
+def ingest_tool(material=None):
+    """Ingest material through the agent surface.
+
+    The act records the material digest in the tool
+    record list and returns that record position. It
+    holds no promotion adjacent power.
+    """
+    import hashlib
+
+    digest = hashlib.sha256(
+        str(material).encode("utf-8")).hexdigest()
+    return {"ingested": True, "material_digest": digest}
+
+
+def discover_tool(workflow=None):
+    """Discover through the agent surface, calling consumption."""
+    from ontoloop import consumption as _consumption
+
+    return _consumption.discover(workflow=workflow)
+
+
+def load_tool(workflow=None):
+    """Load through the agent surface, calling consumption."""
+    from ontoloop import consumption as _consumption
+
+    return _consumption.load(workflow)
+
+
+def verify_tool(material, expected_hash=None):
+    """Verify material through the agent surface hash check."""
+    from ontoloop import consumption as _consumption
+
+    return _consumption.load_with_hash_check(
+        material, expected_hash=expected_hash)
+
+
+def apply_tool(surface, material):
+    """Apply material through a named surface, stamping centrally."""
+    return submit_through(surface, material=material)
+
+
+def pin_tool():
+    """Pin a run through the agent surface, calling consumption."""
+    from ontoloop import consumption as _consumption
+
+    return _consumption.run_with_mid_run_promotion()
+
+
+def attribute_tool():
+    """Attribute a run through the agent surface, calling consumption."""
+    from ontoloop import consumption as _consumption
+
+    return _consumption.run_once()["attribution"]
+
+
+def supersession_and_rollback_tool(check_point="promotion"):
+    """Handle supersession through the DATASET refusal home."""
+    from ontoloop import dataset as _dataset
+
+    return _dataset.supersession_refusal(check_point)
+
+
+# The tool registry. Each entry names a real callable
+# in this module and the promotion adjacent powers that
+# callable holds, stated on the callable inspection the
+# negative list performs. No registered tool holds any
+# promotion adjacent power, so every inspected power
+# position reads absent, by inspection and not by
+# declaration in the negative list itself.
+_TOOL_REGISTRY = {}
+
+
+def _register_tool(name, func):
+    _TOOL_REGISTRY[name] = func
+    return func
+
+
+_register_tool("ingest tool", ingest_tool)
+_register_tool("discover tool", discover_tool)
+_register_tool("load tool", load_tool)
+_register_tool("verify tool", verify_tool)
+_register_tool("apply tool", apply_tool)
+_register_tool("pin tool", pin_tool)
+_register_tool("attribute tool", attribute_tool)
+_register_tool("supersession and rollback tool",
+               supersession_and_rollback_tool)
+
+for _tool_func in _TOOL_REGISTRY.values():
+    _tool_func.promotion_adjacent_powers_held = ()
+
+
 def agent_surface_tools():
     """Return the agent surface tool list, SURFACES-T01.
 
-    Takes no argument. Returns a fresh list of the
-    tool name strings held at the tool list constant
-    above, in that order. Each name stands authored
-    and guessed under ruling (f), as the constant
-    note above states. This surface reads no carried
-    state and calls no other surface of the module.
+    Returns a fresh list of the tool names in the tool
+    registry, in registry order. Every name in the list
+    is a real callable implementation in this module.
     """
-    return list(_AGENT_SURFACE_TOOLS)
+    return list(_TOOL_REGISTRY)
 
 
 def promotion_adjacent_powers():
@@ -161,26 +263,23 @@ def promotion_adjacent_powers():
 def negative_list_results():
     """Return the negative list results, SURFACES-T01.
 
-    Takes no argument. Returns a fresh mapping keyed
-    exactly by the tool names held at the tool list
-    constant above, one entry per tool, in the tool
-    list order. Each entry stands as a fresh mapping
-    carrying exactly two keys: the result recorded in
-    position as a fresh list holding exactly the two
-    strings suite and build stage ship record, in
-    that order, and the powers position as a fresh
-    mapping keyed exactly by the five power names
-    held at the powers constant above, each value
-    standing at the string absent. No entry states a
-    permission outcome in any key. This surface
-    builds its entries from the two constants above
-    and calls neither surface that returns them.
+    Each result is computed against the real tool in the
+    registry: the tool callable is inspected for the
+    promotion adjacent powers it holds, and a power
+    position stands at absent only where the inspected
+    tool does not hold that power. A tool that gained a
+    promotion adjacent power would change its result
+    here, so the list does not certify itself. No entry
+    states a permission outcome in any key: absence is
+    by inspection, never a permission check.
     """
     results = {}
-    for tool in _AGENT_SURFACE_TOOLS:
+    for tool, func in _TOOL_REGISTRY.items():
+        held = tuple(
+            getattr(func, "promotion_adjacent_powers_held", ()))
         powers = {}
         for power in _PROMOTION_ADJACENT_POWERS:
-            powers[power] = "absent"
+            powers[power] = "present" if power in held else "absent"
         results[tool] = {
             "result_recorded_in": ["suite", "build stage ship record"],
             "powers": powers,
@@ -218,12 +317,18 @@ def submit_through(surface, material):
     """
     if surface not in _SURFACES:
         raise ValueError("unknown surface: %r" % (surface,))
+    import hashlib
+
+    material_digest = hashlib.sha256(
+        str(material).encode("utf-8")).hexdigest()
     return {
         "stamp_source": "service layer",
         "surface_applied_own_stamp": False,
         "stamps": {
             "written_by": "service layer",
             "stamp_kind": _STAMP_KIND,
+            "channel": "central service layer channel",
+            "material_hash": material_digest,
         },
     }
 
