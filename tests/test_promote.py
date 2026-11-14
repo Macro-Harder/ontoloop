@@ -368,5 +368,193 @@ class PromoteFixR5Tests(unittest.TestCase):
             mod.confirm_provisional(empty_mixes)["outcome"], "confirmed")
 
 
+class PromoteFixR6Tests(unittest.TestCase):
+    """Fix round 6 pins: rulings 103, 104, and 127."""
+
+    def _provisional_kwargs(self, **override):
+        kwargs = {
+            "provisional_outcomes": ["pass", "fail"],
+            "displaced_outcomes": ["pass"],
+            "provisional_corrections": ["open"],
+            "displaced_corrections": ["corrected"],
+        }
+        kwargs.update(override)
+        return kwargs
+
+    # Act 1, ruling 103, R6-PRO-1: a memoryview at the four sites.
+
+    def test_act1_provisional_outcomes_memoryview_refused(self):
+        mod = harness.require("ontoloop.promote")
+        for value in (memoryview(b"pass"), memoryview(bytearray(b"pass"))):
+            with self.assertRaises(ValueError) as caught:
+                mod.provisional_record(**self._provisional_kwargs(
+                    provisional_outcomes=value))
+            self.assertEqual(
+                str(caught.exception),
+                "provisional values must stand as a list of values")
+
+    def test_act1_displaced_outcomes_memoryview_refused(self):
+        mod = harness.require("ontoloop.promote")
+        for value in (memoryview(b"pass"), memoryview(bytearray(b"pass"))):
+            with self.assertRaises(ValueError) as caught:
+                mod.provisional_record(**self._provisional_kwargs(
+                    displaced_outcomes=value))
+            self.assertEqual(
+                str(caught.exception),
+                "provisional values must stand as a list of values")
+
+    def test_act1_provisional_corrections_memoryview_refused(self):
+        mod = harness.require("ontoloop.promote")
+        for value in (memoryview(b"corrected"),
+                      memoryview(bytearray(b"corrected"))):
+            with self.assertRaises(ValueError) as caught:
+                mod.provisional_record(**self._provisional_kwargs(
+                    provisional_corrections=value))
+            self.assertEqual(
+                str(caught.exception),
+                "provisional values must stand as a list of values")
+
+    def test_act1_displaced_corrections_memoryview_refused(self):
+        mod = harness.require("ontoloop.promote")
+        for value in (memoryview(b"corrected"),
+                      memoryview(bytearray(b"corrected"))):
+            with self.assertRaises(ValueError) as caught:
+                mod.provisional_record(**self._provisional_kwargs(
+                    displaced_corrections=value))
+            self.assertEqual(
+                str(caught.exception),
+                "provisional values must stand as a list of values")
+
+    def test_act1_charged_forms_and_standing_list_forms(self):
+        mod = harness.require("ontoloop.promote")
+        for value in ("pass", b"pass", bytearray(b"pass"),
+                      {"pass": 2, "fail": 1}):
+            with self.assertRaises(ValueError) as caught:
+                mod.provisional_record(**self._provisional_kwargs(
+                    provisional_outcomes=value))
+            self.assertEqual(
+                str(caught.exception),
+                "provisional values must stand as a list of values")
+        record = mod.provisional_record(**self._provisional_kwargs())
+        self.assertEqual(
+            record["comparison"]["provisional_period"]["outcome_mix"],
+            {"pass": 1, "fail": 1})
+        tuple_record = mod.provisional_record(**self._provisional_kwargs(
+            provisional_outcomes=("pass", "fail")))
+        self.assertEqual(
+            tuple_record["comparison"]["provisional_period"]["outcome_mix"],
+            {"pass": 1, "fail": 1})
+
+    # Act 2, ruling 104, R6-PRO-2 with Lead Engineer line D-9:
+    # a retain reason carrying no content in substance.
+
+    def test_act2_retain_whitespace_only_reason_refused(self):
+        mod = harness.require("ontoloop.promote")
+        for reason in (" ", "   ", "\t", "\n", " \t\n "):
+            with self.assertRaises(ValueError) as caught:
+                mod.dispose_demotion_flag("retain", reason=reason)
+            self.assertEqual(str(caught.exception), "retain requires a reason")
+
+    def test_act2_retain_contentless_container_reason_refused(self):
+        mod = harness.require("ontoloop.promote")
+        for reason in ([""], [" "], {"detail": ""}, {"detail": " "}):
+            with self.assertRaises(ValueError) as caught:
+                mod.dispose_demotion_flag("retain", reason=reason)
+            self.assertEqual(str(caught.exception), "retain requires a reason")
+
+    def test_act2_retain_charged_and_standing_reason_forms(self):
+        mod = harness.require("ontoloop.promote")
+        for reason in ("", [], 0, None):
+            with self.assertRaises(ValueError) as caught:
+                mod.dispose_demotion_flag("retain", reason=reason)
+            self.assertEqual(str(caught.exception), "retain requires a reason")
+        with self.assertRaises(ValueError) as caught:
+            mod.dispose_demotion_flag("retain")
+        self.assertEqual(str(caught.exception), "retain requires a reason")
+        for reason in ("evidence reviewed", ["evidence reviewed"],
+                       {"detail": "evidence reviewed"}):
+            result = mod.dispose_demotion_flag("retain", reason=reason)
+            self.assertTrue(result["reason_recorded"])
+            self.assertTrue(result["flag_closed"])
+            self.assertTrue(result["age_stopped"])
+
+    # Act 3, ruling 127, UC-R6-2 with Lead Engineer line D-8:
+    # a comparison whose periods carry no period substance.
+
+    def _full_periods(self):
+        provisional = {
+            "outcome_mix": {"pass": 1},
+            "correction_position": {"open": 1},
+        }
+        displaced = {
+            "outcome_mix": {"pass": 1},
+            "correction_position": {"open": 1},
+            "standing": "last comparable period of the displaced bundle",
+        }
+        return provisional, displaced
+
+    def _assert_barred(self, mod, comparison):
+        result = mod.confirm_provisional({"comparison": comparison})
+        self.assertEqual(result["outcome"], "barred", repr(comparison))
+        self.assertEqual(
+            result["bar_reason"],
+            "no comparison in the provisional record")
+
+    def test_act3_both_periods_none_barred(self):
+        mod = harness.require("ontoloop.promote")
+        self._assert_barred(mod, {
+            "provisional_period": None,
+            "displaced_period": None,
+        })
+
+    def test_act3_both_periods_empty_mappings_barred(self):
+        mod = harness.require("ontoloop.promote")
+        self._assert_barred(mod, {
+            "provisional_period": {},
+            "displaced_period": {},
+        })
+
+    def test_act3_one_period_no_value_beside_full_period_barred(self):
+        mod = harness.require("ontoloop.promote")
+        provisional, displaced = self._full_periods()
+        for comparison in (
+            {"provisional_period": None, "displaced_period": displaced},
+            {"provisional_period": provisional, "displaced_period": None},
+            {"provisional_period": {}, "displaced_period": displaced},
+            {"provisional_period": provisional, "displaced_period": {}},
+        ):
+            self._assert_barred(mod, comparison)
+
+    def test_act3_periods_in_no_period_form_barred(self):
+        mod = harness.require("ontoloop.promote")
+        for comparison in (
+            {"provisional_period": "plain text",
+             "displaced_period": "plain text"},
+            {"provisional_period": ["pass"],
+             "displaced_period": ["pass"]},
+            {"provisional_period": {"outcome_mix": {"pass": 1}},
+             "displaced_period": {"outcome_mix": {"pass": 1}}},
+            {"provisional_period": {"correction_position": {"open": 1}},
+             "displaced_period": {"correction_position": {"open": 1}}},
+        ):
+            self._assert_barred(mod, comparison)
+
+    def test_act3_full_and_charged_forms_stand(self):
+        mod = harness.require("ontoloop.promote")
+        self.assertEqual(
+            mod.confirm_provisional(mod.provisional_record())["outcome"],
+            "confirmed")
+        empty_mixes = mod.provisional_record(
+            provisional_outcomes=[],
+            displaced_outcomes=[],
+            provisional_corrections=[],
+            displaced_corrections=[])
+        self.assertEqual(
+            mod.confirm_provisional(empty_mixes)["outcome"], "confirmed")
+        self._assert_barred(mod, None)
+        for value in ({}, False, 0, "", "plain text", []):
+            self._assert_barred(mod, value)
+
+
 if __name__ == "__main__":
     unittest.main()

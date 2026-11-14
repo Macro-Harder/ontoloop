@@ -674,6 +674,35 @@ def confirmed_bundle():
     }
 
 
+def _reason_carries_content(reason):
+    """Return whether a retain reason carries content in substance.
+
+    A string carries content only where it holds a non
+    whitespace character. A byte form carries content
+    only where its bytes hold one. A mapping carries
+    content only where one of its values carries
+    content, and a list, tuple, or set form only where
+    one of its items carries content. Any other value
+    carries content on its standing truthiness alone,
+    so the empty string, the empty list, and the
+    integer 0 carry none, as before.
+    """
+    from collections.abc import Mapping as _Mapping
+
+    if reason is None:
+        return False
+    if isinstance(reason, str):
+        return bool(reason.strip())
+    if isinstance(reason, (bytes, bytearray, memoryview)):
+        return bool(bytes(reason).strip())
+    if isinstance(reason, _Mapping):
+        return any(
+            _reason_carries_content(value) for value in reason.values())
+    if isinstance(reason, (list, tuple, set, frozenset)):
+        return any(_reason_carries_content(item) for item in reason)
+    return bool(reason)
+
+
 def dispose_demotion_flag(decision, reason=None):
     """Return the demotion flag disposition outcome.
 
@@ -696,10 +725,16 @@ def dispose_demotion_flag(decision, reason=None):
     A flag has no automatic effect, at plan subsection
     19.23 point four, and no return of this surface
     carries one. A retain call carrying no reason, or a
-    reason carrying no content, raises
+    reason carrying no content in substance, in
+    whatever form the reason stands, raises
     ValueError, and a decision string outside the three
     pinned strings raises ValueError, both in the
-    proposal form at shape section 8.
+    proposal form at shape section 8. The content test
+    stands on the stated ground the reason carries and
+    not on the falsiness of its container: a whitespace
+    only string, a list holding one empty string, and
+    a mapping with one empty string value each carry
+    no content on that test.
     """
     if decision == "demote":
         return {
@@ -707,7 +742,7 @@ def dispose_demotion_flag(decision, reason=None):
             "bundle_position": "demoted",
         }
     if decision == "retain":
-        if not reason:
+        if not _reason_carries_content(reason):
             raise ValueError("retain requires a reason")
         return {
             "record_form": "retain",
@@ -778,17 +813,21 @@ def provisional_record(with_comparison=True, comparable_displaced_period=True,
 
     Each of the four value parameters stands as a list
     of values. A value standing as a string, as bytes,
-    or as a mapping stands refused at each of the four
-    sites, raising ValueError, so no record carries a
-    comparison built from a container the caller did
-    not present as a list of values.
+    as a memoryview of bytes, or as a mapping stands
+    refused at each of the four sites, raising
+    ValueError, so no record carries a comparison built
+    from a container the caller did not present as a
+    list of values. A memoryview stands read as the
+    byte content it views for the purposes of that
+    refusal, in the same form as the byte forms it
+    views.
     """
     from collections.abc import Mapping as _Mapping
 
     def _values_or_default(value, default):
         if value is None:
             return list(default)
-        if isinstance(value, (str, bytes, bytearray, _Mapping)):
+        if isinstance(value, (str, bytes, bytearray, memoryview, _Mapping)):
             raise ValueError(
                 "provisional values must stand as a list of values")
         return list(value)
@@ -865,9 +904,29 @@ def confirm_provisional(record):
     provisional record, under subsection 19.87. A record
     whose comparison value is not a comparison mapping,
     a mapping carrying both period positions, stands
-    barred in the same form. A record carrying a
-    comparison mapping stands confirmed in form.
+    barred in the same form. A comparison mapping
+    stands as a comparison in substance only where
+    each of its period positions carries a period, a
+    period standing as a mapping carrying both figure
+    positions, the outcome mix and the correction
+    position. A period standing as no value, as an
+    empty mapping, or in any form carrying one figure
+    position without the other stands as no period, so
+    a comparison carrying such a period in either
+    position, or in both, stands barred in the same
+    form. A period carrying both figure positions with
+    empty mixes stands as a period in full, and a
+    record carrying a comparison mapping of that kind
+    stands confirmed in form.
     """
+
+    def _stands_as_period(value):
+        return (
+            isinstance(value, dict)
+            and "outcome_mix" in value
+            and "correction_position" in value
+        )
+
     if not isinstance(record, dict):
         return {
             "outcome": "barred",
@@ -876,8 +935,8 @@ def confirm_provisional(record):
     comparison = record.get("comparison")
     if (
         not isinstance(comparison, dict)
-        or "provisional_period" not in comparison
-        or "displaced_period" not in comparison
+        or not _stands_as_period(comparison.get("provisional_period"))
+        or not _stands_as_period(comparison.get("displaced_period"))
     ):
         return {
             "outcome": "barred",
