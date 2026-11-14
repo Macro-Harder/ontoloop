@@ -267,28 +267,54 @@ def append_redacted(store, material, scope="journal run"):
 
     The act is the redacting append path REDACT-T01
     governs. It classifies and redacts the material
-    first, replacing every definite hit span the
-    pattern families find with the placeholder naming
-    the layer and family that fired, scoped to the run
-    the scope argument names, and only then passes the
-    redacted material to the one store append act, so
-    redaction stands inside the append, before the
-    append act hashes the record and before any byte
-    of the record reaches the journal. No journal byte
-    stands written by any second path here: the store
-    append act is the only writer this act calls.
+    first, acting on every definite firing record the
+    classification engine returns over the material,
+    not on layer 2 pattern spans alone. Where a
+    definite record carries a substitutable span in
+    the text to be appended, that span stands replaced
+    with the placeholder naming the layer and class
+    that fired, scoped to the run the scope argument
+    names, and hits_redacted counts each span replaced.
+    Where a definite record carries no substitutable
+    span, the append stands refused in the refusal
+    form below and no journal record stands written,
+    so no material the engine calls definite reaches
+    a journal unredacted and uncounted. Only after
+    redaction does the act pass the redacted material
+    to the one store append act, so redaction stands
+    inside the append, before the append act hashes
+    the record and before any byte of the record
+    reaches the journal. No journal byte stands
+    written by any second path here: the store append
+    act is the only writer this act calls.
 
     The return carries appended and reported_appended
-    in the store append outcome form, the redacted
-    material in the form appended, the placeholders
-    used, in first use order, and hits_redacted, the
-    count of definite hit spans replaced.
+    in the store append outcome form, refused standing
+    False on an append and True on the refusal form,
+    the redacted material in the form appended, the
+    placeholders used, in first use order, and
+    hits_redacted, the count of definite hit spans
+    replaced. The refusal form carries appended False,
+    reported_appended False, refused True, no redacted
+    material, no placeholders, and hits_redacted 0.
     """
     from ontoloop import store as _store_module
 
     items = _material_items(material)
     text = "\n".join(item["text"] for item in items)
-    redacted_text, placeholders, hits = _redact_text(text, scope)
+    records = _definite_records_over(material, text)
+    redacted_text, placeholders, hits, unspanned = _redact_text(
+        text, scope, records
+    )
+    if unspanned:
+        return {
+            "appended": False,
+            "reported_appended": False,
+            "refused": True,
+            "redacted_material": None,
+            "placeholders": [],
+            "hits_redacted": 0,
+        }
     outcome = _store_module.append_record(
         store,
         {"record_type": "record", "payload": redacted_text},
@@ -297,38 +323,267 @@ def append_redacted(store, material, scope="journal run"):
     return {
         "appended": bool(outcome.get("appended")),
         "reported_appended": bool(outcome.get("reported_appended")),
+        "refused": False,
         "redacted_material": redacted_text,
         "placeholders": placeholders,
         "hits_redacted": hits,
     }
 
 
-def _redact_text(text, scope):
-    """Redact definite hit spans in one text.
+def _definite_records_over(material, text):
+    """Return the definite records over a material and its text.
 
-    Every span a registered pattern family expression
-    finds stands replaced by the placeholder for that
-    family, built by _placeholder_for_hit_form, so the
-    placeholder names the layer and the class that
-    fired and stands scoped to the run. The return is
-    the redacted text, the placeholder values in first
-    use order, and the count of spans replaced.
+    The records stand as the distinct layer and class
+    pairs the classification engine returns at outcome
+    definite, read over the material as passed and over
+    the joined text form the append writes, so a firing
+    that rests on a field the material carries and a
+    firing that rests on the written text both stand
+    acted on by the append path.
     """
-    placeholders = []
-    hits = 0
-    redacted = text
+    records = []
+    seen = set()
+    for source in (material, text):
+        result = classify_material(source)
+        for layer in _SIX_LAYERS:
+            for record in result["firing_records"][layer]:
+                if record["outcome"] != "definite":
+                    continue
+                key = (record["layer"], record["class"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                records.append(
+                    {"layer": record["layer"], "class": record["class"]}
+                )
+    return records
+
+
+def _assignment_spans(text):
+    """Return the spans of the layer 1 assignment forms in a text.
+
+    A span runs from a credential bearing name, in any
+    of its plain, underscored, hyphenated, or closed
+    forms, through its assignment mark and the value
+    that follows it, a quoted value whole or the first
+    unspaced value token.
+    """
+    spans = []
+    for name in _CREDENTIAL_NAMES:
+        forms = (
+            name,
+            name.replace(" ", "_"),
+            name.replace(" ", "-"),
+            name.replace(" ", ""),
+        )
+        for form in set(forms):
+            pattern = (
+                re.escape(form)
+                + r"\s*[:=]\s*(?:\"[^\"]*\"|'[^']*'|[^\s;]+)"
+            )
+            for match in re.finditer(pattern, text, flags=re.IGNORECASE):
+                spans.append(match.span())
+    return spans
+
+
+def _declaration_spans(text):
+    """Return the layer 5 declaration spans in a text, with classes.
+
+    Each entry carries a span and the declaration class
+    it stands for. A credential type field, a credential
+    schema name, and a self declared credential payload
+    marker carry the rest of their line as their span,
+    the line being the declaration and its value
+    together. A credential file name carries its file
+    name token alone as its span.
+    """
+    forms = (
+        (
+            "credential type field",
+            r"credential[ _-]?type\s*[:=][^\n]*",
+        ),
+        (
+            "credential file name",
+            r"\b[\w.-]+\.(?:pem|key|p12|keystore)\b",
+        ),
+        (
+            "credential schema name",
+            r"credential[ _-]?schema[^\n]*",
+        ),
+        (
+            "self declared credential payload marker",
+            r"self[ _-]?declared credential[^\n]*",
+        ),
+    )
+    spans = []
+    for class_name, pattern in forms:
+        for match in re.finditer(pattern, text, flags=re.IGNORECASE):
+            spans.append((match.span(), class_name))
+    return spans
+
+
+def _underlying_spans(text):
+    """Return the item level definite spans a text carries.
+
+    The spans stand as the layer 1 assignment spans,
+    the layer 2 pattern family spans, and the layer 5
+    declaration spans of the text, each carrying the
+    layer and class that fired on it. The layer 4 and
+    layer 6 definite records of a text rest on these
+    spans where the text itself carries the hit.
+    """
+    spans = []
+    for start, end in _assignment_spans(text):
+        spans.append((start, end, 1, "field name table"))
     for family, expression in _pattern_expressions():
-        placeholder = _placeholder_for_hit_form(scope, 2, family)
+        for match in expression.finditer(text):
+            spans.append((match.start(), match.end(), 2, family))
+    for (start, end), class_name in _declaration_spans(text):
+        spans.append((start, end, 5, class_name))
+    return spans
 
-        def _replace(match, placeholder=placeholder):
-            return placeholder
 
-        redacted, count = expression.subn(_replace, redacted)
-        if count:
-            hits += count
-            if placeholder not in placeholders:
-                placeholders.append(placeholder)
-    return redacted, placeholders, hits
+def _decoded_spans(text, layer, class_name):
+    """Return the spans of a text that decode to a definite hit.
+
+    A whitespace separated token that the layer 4
+    decoding engine decides definite carries its token
+    as its span. Where no token decides definite and
+    the text as a whole decides definite, the stripped
+    text carries its span.
+    """
+    spans = []
+    for match in re.finditer(r"\S+", text):
+        if _decode_candidate(match.group(0))["outcome"] == "definite hit":
+            spans.append((match.start(), match.end(), layer, class_name))
+    if spans:
+        return spans
+    if _decode_candidate(text)["outcome"] == "definite hit":
+        start = len(text) - len(text.lstrip())
+        end = len(text.rstrip())
+        if end > start:
+            spans.append((start, end, layer, class_name))
+    return spans
+
+
+def _definite_record_spans(record, text):
+    """Return the substitutable spans of one definite record.
+
+    The return is a list of spans, each carrying its
+    start, its end, the layer its placeholder names,
+    and the class its placeholder names. A record whose
+    layer act finds no span in the text returns an
+    empty list, the no substitutable span position the
+    append path refuses on.
+    """
+    layer = record["layer"]
+    class_name = record["class"]
+    if layer == 1:
+        return [
+            (start, end, 1, class_name)
+            for start, end in _assignment_spans(text)
+        ]
+    if layer == 2:
+        spans = []
+        for family, expression in _pattern_expressions():
+            if family != class_name:
+                continue
+            for match in expression.finditer(text):
+                spans.append((match.start(), match.end(), 2, family))
+        if spans:
+            return spans
+        return [
+            (start, end, layer, hit_class)
+            for start, end, layer, hit_class in _underlying_spans(text)
+            if layer == 2
+        ]
+    if layer == 3:
+        spans = []
+        for match in re.finditer(r"\S+", text):
+            token = match.group(0)
+            if len(token) >= 20 and _entropy(token) >= 4.5:
+                spans.append((match.start(), match.end(), 3, class_name))
+        return spans
+    if layer == 5:
+        spans = [
+            (start, end, 5, hit_class)
+            for (start, end), hit_class in _declaration_spans(text)
+            if hit_class == class_name
+        ]
+        if spans:
+            return spans
+        return [
+            (start, end, 5, hit_class)
+            for (start, end), hit_class in _declaration_spans(text)
+        ]
+    if layer in (4, 6):
+        underlying = _underlying_spans(text)
+        if underlying:
+            return underlying
+        return _decoded_spans(text, layer, class_name)
+    return []
+
+
+def _redact_text(text, scope, definite_records=None):
+    """Redact the definite hit spans of one text.
+
+    The act stands on the definite firing records the
+    classification engine returns over the material,
+    gathered by _definite_records_over where the caller
+    passes them and read over the text itself where it
+    does not. Each record stands mapped to its
+    substitutable spans in the text by
+    _definite_record_spans. Spans that overlap stand
+    merged into one replaced region, so one hit the
+    engine records at several layers stands replaced
+    once and counted once, and the placeholder of a
+    merged region names the layer and class of its
+    governing span, a layer 2 pattern span first, then
+    layer 1, layer 5, layer 3, layer 4, and layer 6 in
+    that order. The return is the redacted text, the
+    placeholder values in first use order, the count
+    of regions replaced, and a flag standing True
+    where any definite record carried no substitutable
+    span, the position the append path refuses on.
+    """
+    if definite_records is None:
+        definite_records = _definite_records_over(text, text)
+    if not definite_records:
+        return text, [], 0, False
+    spans = []
+    unspanned = False
+    for record in definite_records:
+        found = _definite_record_spans(record, text)
+        if not found:
+            unspanned = True
+        spans.extend(found)
+    if unspanned:
+        return text, [], 0, True
+    priority = {2: 0, 1: 1, 5: 2, 3: 3, 4: 4, 6: 5}
+    ordered = sorted(spans, key=lambda span: (span[0], span[0] - span[1]))
+    merged = []
+    for start, end, layer, class_name in ordered:
+        if merged and start < merged[-1][1]:
+            last = merged[-1]
+            if priority[layer] < priority[last[2]]:
+                layer, class_name = layer, class_name
+            else:
+                layer, class_name = last[2], last[3]
+            merged[-1] = (last[0], max(last[1], end), layer, class_name)
+            continue
+        merged.append((start, end, layer, class_name))
+    placeholders = []
+    parts = []
+    position = 0
+    for start, end, layer, class_name in merged:
+        placeholder = _placeholder_for_hit_form(scope, layer, class_name)
+        parts.append(text[position:start])
+        parts.append(placeholder)
+        position = end
+        if placeholder not in placeholders:
+            placeholders.append(placeholder)
+    parts.append(text[position:])
+    return "".join(parts), placeholders, len(merged), False
 
 
 def _placeholder_for_hit_form(scope, layer, class_name):
@@ -1212,15 +1467,21 @@ def assembly_with_planted_hit():
     """Return an assembly value carrying a planted hit.
 
     The value stands as a fresh mapping carrying
-    exactly assembly_state, standing at the string
-    planted uncleared hit. Its contents beyond the
-    planted hit form stand unpinned by any test, no
-    test reading this value, and the form stands built
-    under the G-6 group bound as the smallest fixture
-    form that carries the planted hit state, stated as
-    an authored reading in the fragment paper.
+    assembly_state, standing at the string planted
+    uncleared hit, and content, standing as the raw
+    bytes of the first secret bearing shape, read at
+    call time from secret_bearing_shapes. The planted
+    hit of this fixture therefore stands in scannable
+    content the classification engine fires on, and
+    the REDACT-T06 pin of a whole refusal over this
+    value passes on that material through the scan.
+    The state label carries no scan outcome of its
+    own, in the form exit_scan states.
     """
-    return {"assembly_state": "planted uncleared hit"}
+    return {
+        "assembly_state": "planted uncleared hit",
+        "content": secret_bearing_shapes()[0]["raw_bytes"],
+    }
 
 
 def assembly_scan_cannot_run():
@@ -1272,27 +1533,36 @@ def exit_scan(assembly):
     The scan runs the classification engine over the
     actual content the assembly carries, in the form
     _assembly_content states, and decides on what the
-    scan finds. On an assembly whose content carries a
-    definite hit, and on the planted hit fixture form,
-    whose state declares an uncleared hit stands in
-    the assembly, the return carries exactly refused
+    scan finds. No assembly_state label selects a scan
+    outcome. On an assembly whose content carries a
+    definite hit, the return carries exactly refused
     standing True, refused_scope standing at the
     string whole, and released_in_part standing False:
     an assembly with an uncleared hit is refused
     whole, never in part, in the row words and the
     brief exit assembly consequence at Section 5.7.
+    The planted hit fixture of assembly_with_planted_hit
+    stands refused whole on this limb alone, on the
+    definite hit material its content carries.
 
     The scan fails closed where it cannot run. On the
     cannot run fixture form, on an assembly that is
     None, on an empty assembly, on an assembly carrying
-    an assembly_state this act does not know, and on an
-    assembly carrying no scannable content at all, the
-    return carries exactly refused standing True and
-    form standing at the string no exit scan result, no
-    exit, the floor state sentence of that brief
-    passage in its exact wording: no exit scan result
-    stands, so no exit proceeds, and no assembly stands
-    released on a scan that did not examine it.
+    an assembly_state this act does not know and no
+    scannable content the scan examines, on an assembly
+    carrying no scannable content at all, and on an
+    assembly whose content stands at zero bytes in
+    total, the return carries exactly refused standing
+    True and form standing at the string no exit scan
+    result, no exit, the floor state sentence of that
+    brief passage in its exact wording: no exit scan
+    result stands, so no exit proceeds, and no assembly
+    stands released on a scan that did not examine it.
+    The assembly_state value planted uncleared hit
+    takes this same fail closed path where the assembly
+    carries no scannable content, and where the assembly
+    carries scannable content the content decides, as
+    it decides for any assembly.
 
     On an assembly whose content the scan examines and
     finds carrying no definite hit, the return carries
@@ -1309,16 +1579,18 @@ def exit_scan(assembly):
         state = assembly.get("assembly_state")
     if state == "scan cannot run":
         return dict(cannot_run)
-    if state == "planted uncleared hit":
-        return {
-            "refused": True,
-            "refused_scope": "whole",
-            "released_in_part": False,
-        }
-    if state is not None:
+    if state is not None and state != "planted uncleared hit":
         return dict(cannot_run)
     content = _assembly_content(assembly)
     if not content:
+        return dict(cannot_run)
+    total_bytes = 0
+    for item in content:
+        if isinstance(item, (bytes, bytearray)):
+            total_bytes += len(item)
+        else:
+            total_bytes += len(str(item).encode("utf-8"))
+    if total_bytes == 0:
         return dict(cannot_run)
     result = classify_material(content)
     for layer in _SIX_LAYERS:

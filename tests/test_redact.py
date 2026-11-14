@@ -487,5 +487,157 @@ class TestRedactFixR1(unittest.TestCase):
         )
 
 
+class TestRedactFixR2(unittest.TestCase):
+    """Fix round 2: exit scan content, zero byte content, append spans.
+
+    Written test first for the three charges of region 4 in
+    the Round 2 triage: ruling 5, Chair F-1, the exit scan
+    label branch removed and the planted hit fixture case
+    re-founded on scannable content as a recorded test act;
+    R2-CR-1, the redacting append path acting on every
+    definite firing record, not on layer 2 pattern spans
+    alone; and R2-CR-2, content at zero bytes in total
+    standing in the no scannable content position.
+    """
+
+    def test_planted_hit_fixture_carries_scannable_definite_hit_content(self):
+        module = require(MODULE)
+        fixture = module.assembly_with_planted_hit()
+        content = [
+            value
+            for key, value in fixture.items()
+            if key != "assembly_state"
+        ]
+        self.assertTrue(content)
+        result = module.classify_material(content)
+        fired = [
+            record
+            for records in result["firing_records"].values()
+            for record in records
+        ]
+        self.assertTrue(
+            any(record["outcome"] == "definite" for record in fired)
+        )
+        outcome = module.exit_scan(fixture)
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_exit_scan_old_label_beside_clean_content_decides_on_content(self):
+        module = require(MODULE)
+        outcome = module.exit_scan(
+            {
+                "assembly_state": "planted uncleared hit",
+                "content": "an ordinary record line",
+            }
+        )
+        self.assertFalse(outcome["refused"])
+
+    def test_exit_scan_old_label_beside_hit_content_refuses_whole(self):
+        module = require(MODULE)
+        shape = module.secret_bearing_shapes()[0]
+        outcome = module.exit_scan(
+            {
+                "assembly_state": "planted uncleared hit",
+                "content": shape["raw_bytes"],
+            }
+        )
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_exit_scan_old_label_alone_fails_closed(self):
+        module = require(MODULE)
+        outcome = module.exit_scan(
+            {"assembly_state": "planted uncleared hit"}
+        )
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["form"], "no exit scan result, no exit")
+
+    def test_exit_scan_zero_byte_content_fails_closed(self):
+        module = require(MODULE)
+        for assembly in (
+            {"content": ""},
+            {"content": b""},
+            [""],
+        ):
+            outcome = module.exit_scan(assembly)
+            self.assertTrue(outcome["refused"])
+            self.assertEqual(
+                outcome["form"], "no exit scan result, no exit"
+            )
+
+    def test_exit_scan_clean_non_empty_content_still_releases(self):
+        module = require(MODULE)
+        outcome = module.exit_scan({"content": "an ordinary record line"})
+        self.assertFalse(outcome["refused"])
+
+    def test_append_redacts_layer_5_declaration_form_material(self):
+        module = require(MODULE)
+        store_module = require("ontoloop.store")
+        store = store_module.golden_record_store()
+        before = len(store["records"])
+        material = "credential type: plain words only"
+        outcome = module.append_redacted(store, material, scope="run one")
+        self.assertTrue(outcome["appended"])
+        self.assertFalse(outcome.get("refused", False))
+        self.assertEqual(outcome["hits_redacted"], 1)
+        self.assertEqual(len(store["records"]), before + 1)
+        self.assertNotIn(material, outcome["redacted_material"])
+        self.assertNotIn("plain words only", outcome["redacted_material"])
+        self.assertTrue(
+            any(
+                "layer 5" in placeholder
+                and "credential type field" in placeholder
+                for placeholder in outcome["placeholders"]
+            )
+        )
+        journal = b"\n".join(
+            record["canonical_bytes"] for record in store["records"]
+        )
+        self.assertNotIn(material.encode("utf-8"), journal)
+
+    def test_append_redacts_each_governed_definite_hit_shape_once(self):
+        module = require(MODULE)
+        store_module = require("ontoloop.store")
+        for shape in module.secret_bearing_shapes():
+            store = store_module.golden_record_store()
+            material = shape["raw_bytes"].decode("utf-8")
+            outcome = module.append_redacted(
+                store, material, scope="run one"
+            )
+            self.assertTrue(outcome["appended"])
+            self.assertEqual(outcome["hits_redacted"], 1)
+            self.assertNotIn(material, outcome["redacted_material"])
+            journal = b"\n".join(
+                record["canonical_bytes"] for record in store["records"]
+            )
+            self.assertNotIn(shape["raw_bytes"], journal)
+
+    def test_append_clean_material_unchanged(self):
+        module = require(MODULE)
+        store_module = require("ontoloop.store")
+        store = store_module.golden_record_store()
+        material = "a routine note about lunch"
+        outcome = module.append_redacted(store, material, scope="run one")
+        self.assertTrue(outcome["appended"])
+        self.assertEqual(outcome["hits_redacted"], 0)
+        self.assertEqual(outcome["placeholders"], [])
+        self.assertEqual(outcome["redacted_material"], material)
+
+    def test_append_refused_where_a_definite_record_has_no_span(self):
+        module = require(MODULE)
+        store_module = require("ontoloop.store")
+        store = store_module.golden_record_store()
+        before = len(store["records"])
+        outcome = module.append_redacted(
+            store, {"password": "x"}, scope="run one"
+        )
+        self.assertFalse(outcome["appended"])
+        self.assertFalse(outcome["reported_appended"])
+        self.assertTrue(outcome.get("refused"))
+        self.assertEqual(len(store["records"]), before)
+
+
 if __name__ == "__main__":
     unittest.main()
