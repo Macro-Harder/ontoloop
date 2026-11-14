@@ -717,7 +717,10 @@ class _CycleDetected(Exception):
     """
 
 
-def _material_items(material, _path=None):
+_MATERIAL_CONTAINER_DEPTH = 64
+
+
+def _material_items(material, _path=None, _depth=0):
     """Normalise material into a list of text items.
 
     Each item carries field, the field name the
@@ -726,17 +729,33 @@ def _material_items(material, _path=None):
     undecodable byte replaced, and a memoryview value
     stands read in that same decode limb, as the byte
     content it views, at the top level, as a mapping
-    value, and as a sequence element. A mapping contributes
-    one item per entry, in entry order, keyed by its
-    field name. A sequence contributes one item per
-    element, in order. Any other value contributes its
-    string form as one item. A sequence that stands on
-    its own gathering path raises _CycleDetected: the
-    gathering act detects a cycle on its path, where
-    the path holds only the containers of the branch
-    being gathered, so a value shared across branches
-    in acyclic form gathers in the ordinary way and
-    deep finite nesting gathers to its full depth.
+    value, and as a sequence element. A memoryview
+    stands read in that same limb at any further
+    position this gathering reaches: inside a list, a
+    tuple, a mapping, or another container standing as
+    a mapping value, inside a UserDict value, inside a
+    UserList element, and standing as a mapping key,
+    where the key content stands in the field position
+    of the entry it keys, as a byte key content stands
+    there in the standing form. A mapping contributes
+    its entries in entry order, keyed by its field
+    name, a nested mapping entry keeping its own field
+    name where it states one. A sequence contributes
+    one item per element, in order. Container values
+    standing as mapping values or mapping keys stand
+    expanded through this same gathering up to the
+    stated container depth bound; beyond that bound a
+    container value contributes its string form as one
+    item, in the standing leaf form, so deep mapping
+    nesting gathers in string form and raises nothing.
+    Any other value contributes its string form as one
+    item. A sequence that stands on its own gathering
+    path raises _CycleDetected: the gathering act
+    detects a cycle on its path, where the path holds
+    only the containers of the branch being gathered,
+    so a value shared across branches in acyclic form
+    gathers in the ordinary way and deep finite
+    nesting gathers to its full depth.
     """
     if material is None:
         return []
@@ -747,19 +766,54 @@ def _material_items(material, _path=None):
         ]
     if isinstance(material, str):
         return [{"field": None, "text": material}]
-    if isinstance(material, dict):
+    if isinstance(material, collections.abc.Mapping):
         items = []
         for key in material:
             value = material[key]
+            if isinstance(key, (bytes, bytearray, memoryview)):
+                field = bytes(key).decode("utf-8", "replace")
+            elif isinstance(key, str):
+                field = key
+            elif isinstance(
+                key,
+                (collections.abc.Mapping, list, tuple, set, frozenset),
+            ) and _depth < _MATERIAL_CONTAINER_DEPTH:
+                items.extend(_material_items(key, _path, _depth + 1))
+                field = None
+            else:
+                field = str(key)
             if isinstance(value, (bytes, bytearray, memoryview)):
                 text = bytes(value).decode("utf-8", "replace")
+                items.append({"field": field, "text": text})
             elif isinstance(value, str):
-                text = value
+                items.append({"field": field, "text": value})
+            elif isinstance(
+                value,
+                (
+                    collections.abc.Mapping,
+                    list,
+                    tuple,
+                    set,
+                    frozenset,
+                    collections.deque,
+                    collections.UserList,
+                ),
+            ) and _depth < _MATERIAL_CONTAINER_DEPTH:
+                nested = _material_items(value, _path, _depth + 1)
+                if not nested:
+                    items.append({"field": field, "text": str(value)})
+                for entry in nested:
+                    if entry["field"] is None and field is not None:
+                        entry = {"field": field, "text": entry["text"]}
+                    items.append(entry)
             else:
-                text = str(value)
-            items.append({"field": str(key), "text": text})
+                items.append({"field": field, "text": str(value)})
         return items
-    if isinstance(material, (list, tuple, set, frozenset)):
+    if isinstance(
+        material,
+        (list, tuple, set, frozenset, collections.deque,
+         collections.UserList),
+    ):
         if _path is None:
             _path = set()
         marker = id(material)
@@ -769,7 +823,7 @@ def _material_items(material, _path=None):
         try:
             items = []
             for element in material:
-                items.extend(_material_items(element, _path))
+                items.extend(_material_items(element, _path, _depth))
             return items
         finally:
             _path.discard(marker)
@@ -1593,8 +1647,60 @@ _VIEW_TYPES = (
 
 
 def _is_mapping_form(value):
-    """Return True where a value stands in a walked mapping form."""
-    return isinstance(value, _MAPPING_FORMS)
+    """Return True where a value stands in a walked mapping form.
+
+    The walked mapping forms stand as the enumerated
+    concrete forms and, beside them, any value standing
+    in the abstract mapping form, a subclass of
+    collections.abc.Mapping standing in none of the
+    enumerated forms, the os.environ mapping among
+    them, walked as the mapping it stands as.
+    """
+    return isinstance(value, _MAPPING_FORMS) or isinstance(
+        value, collections.abc.Mapping
+    )
+
+
+def _is_sequence_form(value):
+    """Return True where a value stands in a walked sequence form.
+
+    The walked sequence forms stand as the enumerated
+    concrete forms and, beside them, any value standing
+    in the abstract sequence form, a subclass of
+    collections.abc.Sequence standing in none of the
+    enumerated forms, walked as the sequence it stands
+    as. String and byte values stand already decided
+    before this limb at every gathering act, and a
+    UserString stands decided in its own limb there.
+    """
+    if isinstance(value, _SEQUENCE_FORMS):
+        return True
+    if isinstance(value, (str, bytes, bytearray, collections.UserString)):
+        return False
+    return isinstance(value, collections.abc.Sequence)
+
+
+def _is_view_form(value):
+    """Return True where a value stands in a walked view form.
+
+    The walked view forms stand as the views of a plain
+    mapping and, beside them, the general mapping view
+    forms a walked wrapper mapping answers its view
+    calls with, the keys, values, and items views of a
+    UserDict and of a ChainMap among them.
+    """
+    return isinstance(value, _VIEW_TYPES) or isinstance(
+        value, collections.abc.MappingView
+    )
+
+
+def _view_kind(value):
+    """Return the kind of a walked view form: keys, values, or items."""
+    if isinstance(value, (type({}.keys()), collections.abc.KeysView)):
+        return "keys"
+    if isinstance(value, (type({}.values()), collections.abc.ValuesView)):
+        return "values"
+    return "items"
 
 
 def _mapping_pairs(value):
@@ -1625,11 +1731,26 @@ def _assembly_state_value(assembly):
     any mapping form the gathering acts walk, in the same
     form as a plain mapping: a plain mapping, a mapping
     proxy, a UserDict, and a ChainMap each answer the read
-    through their mapping form. An assembly in no mapping
-    form carries no state value for this read.
+    through their mapping form. A top level assembly
+    standing in a mapping view form answers the read
+    through the mapping the view views, and an items view
+    answers it through the entry it carries for that key.
+    An assembly in no walked form carries no state value
+    for this read.
     """
     if _is_mapping_form(assembly):
         return assembly.get("assembly_state")
+    if _is_view_form(assembly):
+        underlying = getattr(assembly, "mapping", None)
+        if underlying is None:
+            underlying = getattr(assembly, "_mapping", None)
+        if underlying is not None and _is_mapping_form(underlying):
+            return underlying.get("assembly_state")
+        if _view_kind(assembly) == "items":
+            for key, value in assembly:
+                if key == "assembly_state":
+                    return value
+        return None
     return None
 
 
@@ -1680,7 +1801,15 @@ def _assembly_content(assembly, _path=None, _top=True,
     and a UserDict, a UserList, a UserString, and a
     ChainMap as the mapping, sequence, and string forms
     they wrap, under the same cycle guard discipline as
-    the walked forms.
+    the walked forms. The gathering acts walk a value
+    standing in the abstract mapping form as the mapping
+    it stands as and a value standing in the abstract
+    sequence form as the sequence it stands as, string
+    and byte values standing already decided before the
+    sequence limb, and walk the views of a walked
+    wrapper mapping, a UserDict and a ChainMap among
+    them, as the entries they view, under the same
+    cycle guard discipline.
     """
     if isinstance(assembly, (str, bytes, bytearray)):
         return [assembly]
@@ -1697,7 +1826,7 @@ def _assembly_content(assembly, _path=None, _top=True,
         for element in assembly:
             content.extend(_assembly_content(element, _path, False))
         return content
-    if isinstance(assembly, _VIEW_TYPES):
+    if _is_view_form(assembly):
         if _path is None:
             _path = set()
         marker = id(assembly)
@@ -1731,7 +1860,7 @@ def _assembly_content(assembly, _path=None, _top=True,
             return content
         finally:
             _path.discard(marker)
-    if isinstance(assembly, _SEQUENCE_FORMS):
+    if _is_sequence_form(assembly):
         if _path is None:
             _path = set()
         marker = id(assembly)
@@ -1794,7 +1923,10 @@ def _assembly_key_content(assembly, _path=None, _top=True):
     as the entries it views, a keys view gathering its
     keys as key content, a values view walked for the
     keys inside its values, and an items view gathering
-    each key beside the keys inside its value.
+    each key beside the keys inside its value. The
+    abstract mapping and sequence forms and the views
+    of a walked wrapper mapping stand walked here in
+    the same forms as at _assembly_content.
     """
     if _is_mapping_form(assembly):
         if _path is None:
@@ -1820,7 +1952,7 @@ def _assembly_key_content(assembly, _path=None, _top=True):
             return content
         finally:
             _path.discard(marker)
-    if isinstance(assembly, _VIEW_TYPES):
+    if _is_view_form(assembly):
         if _path is None:
             _path = set()
         marker = id(assembly)
@@ -1829,12 +1961,12 @@ def _assembly_key_content(assembly, _path=None, _top=True):
         _path.add(marker)
         try:
             content = []
-            if isinstance(assembly, type({}.keys())):
+            if _view_kind(assembly) == "keys":
                 for entry in assembly:
                     content.extend(
                         _assembly_content(entry, _path, False)
                     )
-            elif isinstance(assembly, type({}.values())):
+            elif _view_kind(assembly) == "values":
                 for entry in assembly:
                     content.extend(
                         _assembly_key_content(entry, _path, False)
@@ -1850,7 +1982,7 @@ def _assembly_key_content(assembly, _path=None, _top=True):
             return content
         finally:
             _path.discard(marker)
-    if isinstance(assembly, _SEQUENCE_FORMS):
+    if _is_sequence_form(assembly):
         if _path is None:
             _path = set()
         marker = id(assembly)
