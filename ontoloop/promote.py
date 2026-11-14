@@ -940,7 +940,7 @@ def test_instruction_items_against_holdout(bundle, occasion=None,
     outcome = None
     for item in items:
         presented = _shared_module.audit_instruction_item(
-            item["instruction_text"],
+            item,
             holdout_material,
             occasion=occasion,
             after_partial_scoring=after_partial_scoring,
