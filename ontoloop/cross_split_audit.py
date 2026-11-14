@@ -151,14 +151,17 @@ def _materialise_kind(value):
     string, a UserString, a byte string, a bytearray,
     a memoryview, an array, and a range each keep the
     reading the neighbouring acts give them, and a
-    value carrying no iteration act stands as a leaf
-    in the same way. A mapping, a dictionary view, the
-    standing collection forms, an iterator, the
-    abstract Set form with a WeakSet among the set
-    forms, the abstract Sequence form, and any other
-    value carrying an iteration act each stand named
-    for the rebuilding the materialisation act gives
-    that form.
+    value carrying no iteration act and no indexed
+    access act stands as a leaf in the same way. A
+    mapping, a dictionary view, the standing collection
+    forms, an iterator, the abstract Set form with a
+    WeakSet among the set forms, the abstract Sequence
+    form, any other value carrying an iteration act,
+    and a value standing in a container form that
+    iterates by indexed access alone, carrying an
+    indexed access act and no iteration act, each stand
+    named for the rebuilding the materialisation act
+    gives that form.
     """
     if isinstance(
         value,
@@ -197,6 +200,8 @@ def _materialise_kind(value):
         return "sequence"
     if hasattr(value, "__iter__"):
         return "iterable"
+    if hasattr(value, "__getitem__"):
+        return "indexed"
     return "leaf"
 
 
@@ -220,7 +225,14 @@ def _materialise_iterators(value, depth=0):
     iterable container among them, stands rebuilt in
     that same form, with every iterator in any position
     inside it standing replaced once by the list of
-    its items. Any other value stands as it stands.
+    its items. A value standing in a container form
+    that iterates by indexed access alone stands
+    rebuilt in that same form as well, whether it
+    stands at the top level, inside a list, or as a
+    mapping value, its elements standing read by
+    indexed access in presentation order and every
+    iterator inside it standing replaced once in the
+    same way. Any other value stands as it stands.
 
     The act walks its containers with an explicit
     stack and no depth cutoff of its own, so an
@@ -381,9 +393,48 @@ def _unwrapped_items(element):
     An element standing in a container form, a list, a
     tuple, a set, a frozenset, a deque, or a UserList,
     stands unwrapped for the items it carries, in that
-    same form at any wrap depth, and any other element
-    stands yielded as it stands.
+    same form at any wrap depth. An element standing in
+    an iterator form, a generator, a zip object, a map
+    object, or a filter object among them, stands
+    unwrapped in the same form, its items standing
+    listed once in that reading so no presented item
+    stands consumed by an earlier read, and an element
+    standing in the enumerate form stands read for the
+    item standing in second place in each pair it
+    yields. An element standing in an abstract Sequence
+    form, in an abstract Set form, or in a general
+    iterable container form stands unwrapped in the
+    same form, and an element standing in a container
+    form that iterates by indexed access alone stands
+    unwrapped in the same form where its elements stand
+    readable by that access. A text form, a byte form,
+    a mapping, and any other element standing in no
+    container form stands yielded as it stands, a
+    mapping standing as the item it stands as and never
+    as the keys it carries.
     """
+    if isinstance(element, enumerate):
+        for pair in list(element):
+            if isinstance(pair, (list, tuple)) and len(pair) == 2:
+                yield from _unwrapped_items(pair[1])
+            else:
+                yield from _unwrapped_items(pair)
+        return
+    if isinstance(
+        element,
+        (
+            str,
+            _UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+            _Mapping,
+        ),
+    ):
+        yield element
+        return
     if isinstance(
         element,
         (
@@ -397,8 +448,29 @@ def _unwrapped_items(element):
     ):
         for inner in element:
             yield from _unwrapped_items(inner)
-    else:
-        yield element
+        return
+    if hasattr(element, "__next__") and hasattr(element, "__iter__"):
+        for inner in list(element):
+            yield from _unwrapped_items(inner)
+        return
+    if isinstance(element, (_Sequence, _Set, _WeakSet)):
+        for inner in list(element):
+            yield from _unwrapped_items(inner)
+        return
+    if hasattr(element, "__iter__"):
+        for inner in list(element):
+            yield from _unwrapped_items(inner)
+        return
+    if hasattr(element, "__getitem__"):
+        try:
+            children = list(element)
+        except Exception:
+            yield element
+            return
+        for inner in children:
+            yield from _unwrapped_items(inner)
+        return
+    yield element
 
 
 def _split_items(material):
