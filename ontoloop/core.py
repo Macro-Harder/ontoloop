@@ -1194,7 +1194,13 @@ def refusal_reason(name):
     row lookup act on inputs outside its closed lists.
     """
     rows = globals()["_OWING_PRESENTATION"]
-    row = rows.get(name)
+    # Fix round 7, ruling 157: an unhashable name stands in
+    # no stored row, so it meets this act in the governed
+    # form for such a name, None, with no exception.
+    try:
+        row = rows.get(name)
+    except TypeError:
+        return None
     if row is None:
         return None
     return row["simple_form"]["refusal_reason"]

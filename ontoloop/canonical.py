@@ -768,10 +768,18 @@ def reading(cases, reader="first"):
             "negative": "negative",
             "boundary": "boundary",
         }
-        return {
-            case["case"]: classes.get(case["kind"], "unclassified")
-            for case in cases
-        }
+        # Fix round 7, ruling 158: an unhashable case kind
+        # stands outside the table of the three case class
+        # words, so it meets this reading in its stated
+        # unclassified form, with no exception.
+        classified = {}
+        for case in cases:
+            try:
+                classified[case["case"]] = classes.get(
+                    case["kind"], "unclassified")
+            except TypeError:
+                classified[case["case"]] = "unclassified"
+        return classified
     raise ValueError("unknown reader: %r" % (reader,))
 
 

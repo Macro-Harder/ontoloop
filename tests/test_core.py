@@ -694,5 +694,31 @@ class TestCoreFixR6(unittest.TestCase):
             module.catalogue_row_with_value("figure", "no such form"))
 
 
+class TestCoreFixR7(unittest.TestCase):
+    """Fix round 7, Region 3: ruling 157, the family 3 merged defect.
+
+    Written test first for R7-CORE-1, counted in this act with
+    R7-CAT-1 and nowhere else. refusal_reason meets an unhashable
+    name in its governed form for a name standing in no stored
+    row, None, with no exception.
+    """
+
+    def test_refusal_reason_unhashable_names_return_none(self):
+        module = require(MODULE)
+        for name in (["unlisted record type"], {"name": 1},
+                     {"unlisted record type"}, bytearray(b"name")):
+            result = module.refusal_reason(name)
+            self.assertIsNone(result, repr(name))
+
+    def test_refusal_reason_standing_names_still_return(self):
+        module = require(MODULE)
+        self.assertEqual(
+            module.refusal_reason("unlisted record type"),
+            "record type not listed",
+        )
+        for name in ("no such row", None, 5, ("tuple", "name")):
+            self.assertIsNone(module.refusal_reason(name), repr(name))
+
+
 if __name__ == "__main__":
     unittest.main()

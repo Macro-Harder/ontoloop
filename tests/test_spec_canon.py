@@ -337,5 +337,46 @@ class TestSpecCanonFixR5(unittest.TestCase):
         )
 
 
+class TestSpecCanonFixR7(unittest.TestCase):
+    """Fix round 7, Region 3: ruling 158, R7-CORE-2.
+
+    Written test first. The canonical second reading meets an
+    unhashable case kind in its stated unclassified form, with
+    no exception, at the reading itself and through
+    divergence_check.
+    """
+
+    def _case(self, kind):
+        return {"case": "r7-case-1", "family": "r7", "kind": kind}
+
+    def test_second_reading_unhashable_kind_returns_unclassified(self):
+        module = require(MODULE)
+        result = module.reading([self._case(["positive"])], reader="second")
+        self.assertEqual(result, {"r7-case-1": "unclassified"})
+
+    def test_second_reading_outside_table_kinds_still_unclassified(self):
+        module = require(MODULE)
+        for kind in ("bogus", None, 5):
+            result = module.reading([self._case(kind)], reader="second")
+            self.assertEqual(result, {"r7-case-1": "unclassified"}, repr(kind))
+
+    def test_second_reading_standing_kinds_still_return(self):
+        module = require(MODULE)
+        for kind in ("positive", "negative", "boundary"):
+            result = module.reading([self._case(kind)], reader="second")
+            self.assertEqual(result, {"r7-case-1": kind}, kind)
+
+    def test_divergence_check_unhashable_kind_returns_governed_mapping(self):
+        module = require(MODULE)
+        result = module.divergence_check([self._case(["positive"])])
+        expected = [{
+            "case": "r7-case-1",
+            "first": ["positive"],
+            "second": "unclassified",
+        }]
+        self.assertEqual(result["divergences"], expected)
+        self.assertEqual(result["plan_findings"], expected)
+
+
 if __name__ == "__main__":
     unittest.main()
