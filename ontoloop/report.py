@@ -616,6 +616,22 @@ _CLAIM_CONCEPT_ROOTS = (
     "immun",
     "notaris",
     "notariz",
+    "bulletproof",
+    "foolproof",
+    "barr",
+    "forg",
+    "unforg",
+    "compromis",
+    "circumvent",
+    "breach",
+    "hackproof",
+    "untouch",
+    "inaccess",
+    "indestruct",
+    "sacrosanct",
+    "reach",
+    "cosign",
+    "witness",
 )
 
 # The exact assertion words, beside the assertion roots
@@ -685,6 +701,18 @@ _ASSERTION_ROOTS = (
     "offer",
     "afford",
     "grant",
+    "maintain",
+    "preserv",
+    "uphold",
+    "deliver",
+    "suppl",
+    "yield",
+    "furnish",
+    "bestow",
+    "render",
+    "sustain",
+    "embod",
+    "exhibit",
 )
 
 # The wordings that mark a claim statement as standing
@@ -826,11 +854,33 @@ def _clause_claim(clause):
     """
     if not _clause_asserted(clause):
         return False
-    return any(
+    words = _clause_words(clause)
+    if any(
         word.startswith(root)
-        for word in _clause_words(clause)
+        for word in words
         for root in _CLAIM_CONCEPT_ROOTS
+    ):
+        return True
+    prefixes = (
+        "double", "pre", "re", "cross", "co", "sub", "over",
     )
+    verification_roots = ("check", "verif", "validat", "confirm")
+    for word in words:
+        for root in verification_roots:
+            position = word.find(root)
+            if position > 0 and word[:position] in prefixes:
+                return True
+    if (
+        "keeps" in words
+        and "out" in words
+        and "outside" in words
+    ):
+        return True
+    if "permanent" in words and any(
+        word.startswith("stand") for word in words
+    ):
+        return True
+    return False
 
 
 # The words that open a subordinate clause inside a
@@ -865,6 +915,19 @@ _SUBORDINATE_INTRODUCERS = (
     "wherever",
     "provided",
     "alongside",
+    "whilst",
+    "lest",
+    "supposing",
+    "assuming",
+    "given",
+    "seeing",
+    "excepting",
+    "pending",
+    "considering",
+    "following",
+    "despite",
+    "notwithstanding",
+    "with",
 )
 
 
@@ -885,6 +948,20 @@ def _main_segment(clause):
             word == "in"
             and index + 1 < len(words)
             and words[index + 1] == "case"
+        ):
+            return " ".join(words[:index])
+        if (
+            word == "in"
+            and index + 2 < len(words)
+            and words[index + 1] == "the"
+            and words[index + 2] == "event"
+        ):
+            return " ".join(words[:index])
+        if (
+            index >= 3
+            and word == "the"
+            and index + 2 < len(words)
+            and words[index + 2] in ("is", "are", "was", "were")
         ):
             return " ".join(words[:index])
     return clause
@@ -946,23 +1023,36 @@ def _clause_inability_form(clause):
     targets = (
         "alter", "tamper", "break", "brok", "shield",
         "chang", "modif", "rewrit",
+        "penetrat", "breach", "compromis", "circumvent",
+        "forg", "sign", "reach",
     )
+    fillers = ("ever", "never", "possibly", "be", "been", "not")
     for index, word in enumerate(words):
         if word == "cannot":
             start = index + 1
         elif (
-            word == "can"
+            word in ("can", "could", "shall", "will", "must")
             and index + 1 < len(words)
-            and words[index + 1] in ("never", "ever")
+            and words[index + 1] in ("never", "ever", "not")
         ):
-            start = index + 2
+            start = index + 1
+        elif (
+            word in ("are", "is", "was", "were")
+            and index + 1 < len(words)
+            and words[index + 1] == "never"
+        ):
+            start = index + 1
         else:
             continue
         cursor = start
-        while cursor < len(words) and words[cursor] in ("ever", "never"):
+        steps = 0
+        while (
+            cursor < len(words)
+            and steps < 4
+            and words[cursor] in fillers
+        ):
             cursor += 1
-        if cursor < len(words) and words[cursor] in ("be", "been"):
-            cursor += 1
+            steps += 1
         if cursor < len(words) and words[cursor].startswith(targets):
             return True
     return False
@@ -1004,7 +1094,8 @@ def _seal_claim_scan(assembly_text):
         clauses = re.split(
             r",|\(|\)|\[|\]|:|/|\s-\s|"
             "\u2013|\u2014"
-            r"|\band\b|\bbut\b|\byet\b|\bor\b|\bnor\b",
+            r"|\||\{|\}|~|&"
+            r"|\band\b|\bbut\b|\byet\b|\bor\b|\bnor\b|\bplus\b",
             statement)
         governed_by_fragment = any(
             _fragment_governs(clause) for clause in clauses
@@ -1022,6 +1113,9 @@ def _seal_claim_scan(assembly_text):
             if any(
                 phrase in main
                 for phrase in _GOVERNING_CONDITION_PHRASES
+            ) and (
+                "deployment confinement fact" in main
+                or "signed strength" in main
             ):
                 continue
             if (
@@ -1363,7 +1457,11 @@ def production_report_form(produced_pairs=None, produced_records=None):
     other form, a string, an integer, a float, or any
     other non list form, states no count for its kind,
     the governed form of this surface for a malformed
-    pairs value, with no exception. Where no produced material stands
+    pairs value, with no exception. An element of a
+    pairs list stands counted only where it stands as
+    a pair, a list or tuple of two values: a list
+    carrying no pair in any element states no count
+    for its kind in the same governed form. Where no produced material stands
     passed, the count mappings stand empty and the
     counts present position stands False: the form
     stands, and no production count stands claimed.
@@ -1377,7 +1475,14 @@ def production_report_form(produced_pairs=None, produced_records=None):
     if isinstance(produced_pairs, dict):
         for kind, pairs in produced_pairs.items():
             if isinstance(pairs, list):
-                per_kind[kind] = len(pairs)
+                pair_count = sum(
+                    1
+                    for element in pairs
+                    if isinstance(element, (list, tuple))
+                    and len(element) == 2
+                )
+                if pair_count:
+                    per_kind[kind] = pair_count
     per_shape = {}
     per_family = {}
     if isinstance(produced_records, (list, tuple)):

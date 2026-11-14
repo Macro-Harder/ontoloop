@@ -356,7 +356,10 @@ class ProductionReportFormFixR2Tests(unittest.TestCase):
 
     def test_counts_computed_from_the_material_passed(self):
         mod = harness.require("ontoloop.report")
-        pairs = {"kind a": [1, 2, 3], "kind b": [1]}
+        pairs = {
+            "kind a": [[1, 2], [3, 4], [5, 6]],
+            "kind b": [[1, 2]],
+        }
         records = [
             {"shape": "shape one", "family": "family one"},
             {"shape": "shape one", "family": "family two"},
@@ -375,10 +378,13 @@ class ProductionReportFormFixR2Tests(unittest.TestCase):
     def test_counts_vary_with_differing_material_passed(self):
         mod = harness.require("ontoloop.report")
         first = mod.production_report_form(
-            produced_pairs={"kind a": [1]},
+            produced_pairs={"kind a": [[1, 2]]},
             produced_records=[{"shape": "s1", "family": "f1"}])
         second = mod.production_report_form(
-            produced_pairs={"kind a": [1, 2], "kind c": [1, 2, 3, 4]},
+            produced_pairs={
+                "kind a": [[1, 2], [3, 4]],
+                "kind c": [[1, 2], [3, 4], [5, 6], [7, 8]],
+            },
             produced_records=[
                 {"shape": "s2", "family": "f1"},
                 {"shape": "s2", "family": "f3"},
@@ -998,11 +1004,433 @@ class ProductionReportFormPairsFixR5Tests(unittest.TestCase):
             form["production_counts"]["per_kind"], {"kind b": 2})
         self.assertTrue(form["counts_present"])
         standing = mod.production_report_form(
-            produced_pairs={"kind a": [1, 2, 3], "kind b": [1]})
+            produced_pairs={
+                "kind a": [[1, 2], [3, 4], [5, 6]],
+                "kind b": [[1, 2]],
+            })
         self.assertEqual(
             standing["production_counts"]["per_kind"],
             {"kind a": 3, "kind b": 1})
         self.assertTrue(standing["counts_present"])
+
+
+class SealClaimScanGoverningReachFixR6Tests(unittest.TestCase):
+    """Fix round 6, ruling 86: the marker governing reach, again.
+
+    R6-REPORT-GOLDEN-N1, confinement Findings 1 and 2, and
+    Lead Engineer line D-2 stand counted in this act and
+    nowhere else. A marker in a subordinate clause opened
+    by a probed introducer outside the extended list, in
+    an absolute clause, or in a clause joined by a probed
+    separator or by bare juxtaposition excuses nothing.
+    """
+
+    INTRODUCER_FORMS = (
+        "The seal guarantees protection whilst the schedule "
+        "is conditional on the weather.",
+        "The seal guarantees protection lest the schedule "
+        "is conditional on the weather.",
+        "The seal guarantees protection supposing the schedule "
+        "is conditional on the weather.",
+        "The seal guarantees protection assuming the schedule "
+        "is conditional on the weather.",
+        "The seal guarantees protection given the schedule "
+        "is conditional on the weather.",
+        "The seal guarantees protection seeing the schedule "
+        "is conditional on the weather.",
+        "The seal guarantees protection excepting the schedule "
+        "is conditional on the weather.",
+        "The seal guarantees protection pending the schedule "
+        "is conditional on the weather.",
+        "The seal guarantees protection considering the schedule "
+        "is conditional on the weather.",
+        "The seal guarantees protection following the schedule "
+        "is conditional on the weather.",
+        "The seal guarantees protection despite the schedule "
+        "is conditional on the weather.",
+        "The seal guarantees protection notwithstanding the "
+        "schedule is conditional on the weather.",
+        "The seal guarantees protection supposing the policy "
+        "does not expire.",
+        "The seal guarantees protection assuming the policy "
+        "does not expire.",
+        "The seal guarantees protection in the event the policy "
+        "does not expire.",
+        "The seal guarantees protection with the schedule "
+        "conditional on the weather.",
+    )
+
+    JOINING_FORMS = (
+        "The seal guarantees protection | the schedule is "
+        "conditional on the weather.",
+        "The seal guarantees protection {the schedule is "
+        "conditional on the weather}.",
+        "The seal guarantees protection ~ the schedule is "
+        "conditional on the weather.",
+        "The seal guarantees protection the schedule is "
+        "conditional on the weather.",
+        "The seal guarantees protection & the schedule is "
+        "conditional on the weather.",
+        "The seal guarantees protection plus the schedule is "
+        "conditional on the weather.",
+        "The seal guarantees protection with the schedule is "
+        "conditional on the weather.",
+    )
+
+    def test_introducer_forms_fail(self):
+        mod = harness.require("ontoloop.report")
+        self.assertFalse(
+            mod._seal_claim_scan("The seal guarantees protection."))
+        for statement in self.INTRODUCER_FORMS:
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertFalse(result["passed"], statement)
+
+    def test_joining_forms_fail(self):
+        mod = harness.require("ontoloop.report")
+        for statement in self.JOINING_FORMS:
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertFalse(result["passed"], statement)
+
+    def test_governed_forms_and_clean_assemblies_still_pass(self):
+        from ontoloop import sealing
+
+        mod = harness.require("ontoloop.report")
+        governed = (
+            "The seal guarantees protection, conditional on "
+            "the deployment confinement fact.",
+            "The seal guarantees protection conditional on "
+            "the deployment confinement fact.",
+            "The seal stands conditional on signing "
+            "at signed strength only.",
+            "The seal does not guarantee protection.",
+            "Heads are signed at signed strength only.",
+            "The bundle does not stand signed.",
+        )
+        for statement in governed:
+            self.assertTrue(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertTrue(result["passed"], statement)
+        self.assertTrue(mod._seal_claim_scan(sealing.VERIFY_SENTENCE))
+        texts = sealing.verbatim_texts()
+        self.assertTrue(mod._seal_claim_scan(texts["seal sentence"]))
+        self.assertTrue(
+            mod._seal_claim_scan(texts["grader awareness label"]))
+        result = mod.lint_report_construction()
+        self.assertTrue(result["seal_claim_lint_passed"])
+        self.assertTrue(result["fixed_text_travel_lint_passed"])
+        travel = mod.fixed_text_travel_lint(assembly="export")
+        self.assertTrue(travel["passed"])
+
+
+class SealClaimScanMainSegmentConditionFixR6Tests(unittest.TestCase):
+    """Fix round 6, ruling 87, Lead Engineer line D-1.
+
+    The main segment governing test reads what a governing
+    phrase conditions the claim on: a phrase conditioning
+    the claim on an unrelated subject excuses nothing in
+    the claim clause itself, beside the genuine deployment
+    confinement and signed strength conditions still
+    passing in the same position.
+    """
+
+    UNRELATED_FORMS = (
+        "The seal guarantees protection conditional on "
+        "the weather.",
+        "The seal guarantees protection conditional on "
+        "the postman arriving.",
+        "The seal guarantees protection subject to "
+        "the weather.",
+    )
+
+    def test_unrelated_main_segment_conditions_fail(self):
+        mod = harness.require("ontoloop.report")
+        self.assertFalse(
+            mod._seal_claim_scan("The seal guarantees protection."))
+        for statement in self.UNRELATED_FORMS:
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertFalse(result["passed"], statement)
+
+    def test_genuine_main_segment_conditions_still_pass(self):
+        mod = harness.require("ontoloop.report")
+        governed = (
+            "The seal guarantees protection conditional on "
+            "the deployment confinement fact.",
+            "The seal stands conditional on signing "
+            "at signed strength only.",
+            "Heads are signed at signed strength only.",
+            "The seal does not guarantee protection.",
+        )
+        for statement in governed:
+            self.assertTrue(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertTrue(result["passed"], statement)
+        result = mod.lint_report_construction()
+        self.assertTrue(result["seal_claim_lint_passed"])
+        self.assertTrue(result["fixed_text_travel_lint_passed"])
+
+
+class SealClaimScanInabilityReachFixR6Tests(unittest.TestCase):
+    """Fix round 6, ruling 110: the inability reading, again.
+
+    R6-REPORT-GOLDEN-N2, confinement Finding 3, and Lead
+    Engineer line D-3 stand counted in this act and nowhere
+    else. The reading covers the probed followers, the
+    modal forms, the spaced spelling, and the window forms
+    in substance, beside the standing negated claims.
+    """
+
+    INABILITY_FORMS = (
+        "Records cannot be penetrated by outside writers.",
+        "The seal cannot be breached by outside writers.",
+        "Records cannot be compromised by outside writers.",
+        "The seal cannot be circumvented by outside writers.",
+        "Records cannot be forged after writing.",
+        "Records can not be altered after writing.",
+        "Records could never be altered after writing.",
+        "Records are never altered after writing.",
+        "Records shall never be altered after writing.",
+        "Records will never be altered after writing.",
+        "Records must never be altered after writing.",
+        "Records could not be altered after writing.",
+        "Records cannot possibly be altered after writing.",
+        "Heads cannot be signed by any outsider.",
+        "Records cannot be altered after writing.",
+    )
+
+    def test_inability_forms_fail(self):
+        mod = harness.require("ontoloop.report")
+        for statement in self.INABILITY_FORMS:
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertFalse(result["passed"], statement)
+
+    def test_negated_claims_and_clean_assemblies_still_pass(self):
+        from ontoloop import sealing
+
+        mod = harness.require("ontoloop.report")
+        governed = (
+            "The seal does not guarantee protection.",
+            "The bundle does not stand signed.",
+            "The seal stands conditional on signing "
+            "at signed strength only.",
+        )
+        for statement in governed:
+            self.assertTrue(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertTrue(result["passed"], statement)
+        texts = sealing.verbatim_texts()
+        self.assertTrue(
+            mod._seal_claim_scan(texts["grader awareness label"]))
+        self.assertTrue(mod._seal_claim_scan(sealing.VERIFY_SENTENCE))
+        result = mod.lint_report_construction()
+        self.assertTrue(result["seal_claim_lint_passed"])
+        self.assertTrue(result["fixed_text_travel_lint_passed"])
+        travel = mod.fixed_text_travel_lint(assembly="export")
+        self.assertTrue(travel["passed"])
+
+
+class SealClaimScanPrefixedCompoundsFixR6Tests(unittest.TestCase):
+    """Fix round 6, ruling 111, R6-REPORT-GOLDEN-N3.
+
+    The claim judgement reaches a judged verification root
+    standing inside a prefixed compound, beside the
+    unprefixed forms still failing and the governed forms
+    still passing.
+    """
+
+    PROBED_COMPOUNDS = (
+        "Every record stands double-checked before use.",
+        "Every record stands pre-verified before use.",
+        "Every record stands rechecked before use.",
+        "Every record stands cross-checked before use.",
+        "Every record stands revalidated before use.",
+    )
+
+    def test_probed_compounds_fail(self):
+        mod = harness.require("ontoloop.report")
+        for statement in self.PROBED_COMPOUNDS:
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertFalse(result["passed"], statement)
+
+    def test_controls_and_governed_forms_unchanged(self):
+        mod = harness.require("ontoloop.report")
+        for statement in (
+                "Every record stands checked before use.",
+                "Every record stands confirmed before use."):
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+        governed = (
+            "The seal guarantees protection conditional on "
+            "the deployment confinement fact.",
+            "The seal does not guarantee protection.",
+        )
+        for statement in governed:
+            self.assertTrue(mod._seal_claim_scan(statement), statement)
+        result = mod.lint_report_construction()
+        self.assertTrue(result["seal_claim_lint_passed"])
+        self.assertTrue(result["fixed_text_travel_lint_passed"])
+
+
+class SealClaimScanLexiconFormsFixR6Tests(unittest.TestCase):
+    """Fix round 6, ruling 112: the claim lexicon, again.
+
+    R6-REPORT-GOLDEN-N4, confinement Finding 4, and Lead
+    Engineer line D-4 stand counted in this act and nowhere
+    else. The judgement reaches the probed wordings of the
+    three papers counted here as claim statements in
+    substance, in the standing clause governing form.
+    """
+
+    PROBED_WORDINGS = (
+        "Records stand permanent after writing.",
+        "The journal is bulletproof against outside writers.",
+        "The store is foolproof against outside writers.",
+        "Access stands barred to outsiders.",
+        "The journal is unforgeable.",
+        "The store is breachproof against outside writers.",
+        "The store is hackproof against outside writers.",
+        "Records are untouchable by outside writers.",
+        "The store is inaccessible to outside writers.",
+        "The journal is indestructible.",
+        "Records are sacrosanct.",
+        "Outside writers cannot reach the store.",
+        "The store keeps outside writers out.",
+        "The bundle stands cosigned for every actor.",
+        "The journal head stands witnessed for every actor.",
+    )
+
+    def test_probed_wordings_fail(self):
+        mod = harness.require("ontoloop.report")
+        for statement in self.PROBED_WORDINGS:
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertFalse(result["passed"], statement)
+
+    def test_governed_forms_and_clean_assemblies_still_pass(self):
+        mod = harness.require("ontoloop.report")
+        governed = (
+            "The seal guarantees protection conditional on "
+            "the deployment confinement fact.",
+            "The seal does not guarantee protection.",
+            "The seal stands conditional on signing "
+            "at signed strength only.",
+        )
+        for statement in governed:
+            self.assertTrue(mod._seal_claim_scan(statement), statement)
+        result = mod.lint_report_construction()
+        self.assertTrue(result["seal_claim_lint_passed"])
+        self.assertTrue(result["fixed_text_travel_lint_passed"])
+        travel = mod.fixed_text_travel_lint(assembly="export")
+        self.assertTrue(travel["passed"])
+
+
+class SealClaimScanAssertedVerbsReachFixR6Tests(unittest.TestCase):
+    """Fix round 6, ruling 113: the asserted form, again.
+
+    R6-REPORT-GOLDEN-N5, confinement Finding 5, and Lead
+    Engineer line D-5 stand counted in this act and nowhere
+    else. The asserted form reading reaches the probed verb
+    forms of the three papers counted here, beside the
+    standing fragment boundary still holding.
+    """
+
+    PROBED_VERBS = (
+        "The journal maintains integrity for every reader.",
+        "The journal preserves integrity for every reader.",
+        "The journal upholds integrity for every reader.",
+        "The journal delivers integrity to every reader.",
+        "The journal supplies integrity to every reader.",
+        "The journal yields integrity to every reader.",
+        "The journal furnishes integrity to every reader.",
+        "The journal bestows integrity on every reader.",
+        "The journal renders integrity to every reader.",
+        "The journal sustains integrity for every reader.",
+        "The journal embodies integrity for every reader.",
+        "The journal exhibits integrity to every reader.",
+        "The mechanism yields total integrity of the journal.",
+        "The mechanism delivers leak free egress.",
+        "The mechanism yields unchangeable records.",
+    )
+
+    def test_probed_verb_forms_fail(self):
+        mod = harness.require("ontoloop.report")
+        control = "The journal holds integrity for every reader."
+        self.assertFalse(mod._seal_claim_scan(control))
+        for statement in self.PROBED_VERBS:
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertFalse(result["passed"], statement)
+
+    def test_fragment_boundary_and_clean_assemblies_hold(self):
+        mod = harness.require("ontoloop.report")
+        fragment = "Integrity label for the journal schedule."
+        self.assertTrue(mod._seal_claim_scan(fragment))
+        result = mod.fixed_text_travel_lint(
+            assembly="export", content=fragment)
+        self.assertTrue(result["passed"])
+        result = mod.lint_report_construction()
+        self.assertTrue(result["seal_claim_lint_passed"])
+        self.assertTrue(result["fixed_text_travel_lint_passed"])
+        travel = mod.fixed_text_travel_lint(assembly="export")
+        self.assertTrue(travel["passed"])
+
+
+class ProductionReportFormPairElementsFixR6Tests(unittest.TestCase):
+    """Fix round 6, ruling 114, R6-REPORT-GOLDEN-N6.
+
+    An element of the pairs list stands counted only where
+    it stands as a pair, in the pair form the surface
+    counts: a list carrying no pair in any element states
+    no count for its kind, beside the genuine pair list
+    still counting and the charged non list forms still
+    returning the governed empty form.
+    """
+
+    def test_integer_list_states_no_count(self):
+        mod = harness.require("ontoloop.report")
+        form = mod.production_report_form(
+            produced_pairs={"kind a": [1, 2, 3]})
+        self.assertEqual(form["production_counts"]["per_kind"], {})
+        self.assertFalse(form["counts_present"])
+
+    def test_string_list_states_no_count(self):
+        mod = harness.require("ontoloop.report")
+        form = mod.production_report_form(
+            produced_pairs={"kind a": ["ab", "cd"]})
+        self.assertEqual(form["production_counts"]["per_kind"], {})
+        self.assertFalse(form["counts_present"])
+
+    def test_genuine_pair_list_and_non_list_forms_unchanged(self):
+        mod = harness.require("ontoloop.report")
+        form = mod.production_report_form(
+            produced_pairs={
+                "kind a": ["ab", "cd"],
+                "kind b": [[1, 2], [3, 4]],
+                "kind c": [(1, 2)],
+            })
+        self.assertEqual(
+            form["production_counts"]["per_kind"],
+            {"kind b": 2, "kind c": 1})
+        self.assertTrue(form["counts_present"])
+        for value in ("abcd", 5, 1.5):
+            malformed = mod.production_report_form(
+                produced_pairs={"kind a": value})
+            self.assertEqual(
+                malformed["production_counts"]["per_kind"], {}, value)
+            self.assertFalse(malformed["counts_present"], value)
 
 
 if __name__ == "__main__":
