@@ -1479,7 +1479,14 @@ def _anchored_check(store, projected, anchor):
     nothing about which head is true. The check recomputes
     no chain and compares no journal signature: its only
     signing act is the sealing signature verification over
-    the anchor stated heads.
+    the anchor stated heads. The remaining stated fields of
+    the anchor object, its record count and its head store
+    sequence, stand judged against the standing manifest
+    values they were copied from, exact in type as well as
+    in value, and a stated value standing apart from the
+    manifest returns the anchor mismatch form above. A
+    stated head the canonical hashing act refuses, a float
+    among them, returns the anchor signature invalid case.
     """
     if not isinstance(anchor, dict):
         return {"output": "unverifiable", "case": "anchor for another store"}
@@ -1509,8 +1516,23 @@ def _anchored_check(store, projected, anchor):
             "output": "unverifiable",
             "case": SIGNING_KEY_UNAVAILABLE,
         }
+    except (ValueError, TypeError):
+        return {"output": "unverifiable", "case": "anchor signature invalid"}
     if not verifies:
         return {"output": "unverifiable", "case": "anchor signature invalid"}
+    manifest = store.get("manifest")
+    if isinstance(manifest, dict):
+        for anchor_field in ("record_count", "head_store_sequence"):
+            stated_value = anchor.get(anchor_field)
+            standing_value = manifest.get(anchor_field)
+            if type(stated_value) is not type(standing_value) or (
+                stated_value != standing_value
+            ):
+                return {
+                    "output": "disagreement",
+                    "form": "disagreement form",
+                    "anchor_statement": _ANCHOR_MISMATCH,
+                }
     standing = store.get("signature_object")
     if not isinstance(standing, dict):
         return {"anchor_statement": _ANCHOR_AGREEMENT}

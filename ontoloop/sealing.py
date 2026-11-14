@@ -472,6 +472,28 @@ def _exact_equal(decoded, carried):
     return decoded == carried
 
 
+_NO_CANONICAL_FORM = object()
+
+
+def _canonical_decoded(value):
+    """Return the canonical decoded form of value, or a sentinel.
+
+    The value stands encoded in canonical form under the journal
+    record kind and decoded back, so a tuple stands as the list
+    its encoding states, and a byte string stands as the text or
+    byte form its encoding decodes to. A value the canonical
+    layer refuses, a float among them, returns the sentinel, so
+    its caller judges it different from any decoded form.
+    """
+    try:
+        return _decode_canonical(
+            _canonical_form(value, JOURNAL_RECORD_KIND),
+            JOURNAL_RECORD_KIND,
+        )
+    except Exception:
+        return _NO_CANONICAL_FORM
+
+
 def _chain_check(records):
     """Recompute the chain, returning its standing in full.
 
@@ -489,7 +511,12 @@ def _chain_check(records):
     the store sequence place check beside it stands exact in
     type as well, so a value equal coercion in another type,
     such as True or 2.0 in place of a sequence integer, stands
-    as a content mismatch.
+    as a content mismatch. The carried side of that comparison
+    stands judged by its canonical decoded form first, so
+    content in a form the canonical layer states as a sequence
+    or a byte string, a tuple, bytes, or a bytearray, stands
+    judged as the form its own encoding decodes to, while every
+    scalar position keeps the exact in type test whole.
     """
     previous_hash = None
     head = None
@@ -511,7 +538,10 @@ def _chain_check(records):
                     "store_sequence": record.get("store_sequence"),
                     "record_type": record.get("record_type"),
                 }
-                if not _exact_equal(decoded, carried):
+                carried_decoded = _canonical_decoded(carried)
+                if carried_decoded is _NO_CANONICAL_FORM or (
+                    not _exact_equal(decoded, carried_decoded)
+                ):
                     return {
                         "consistent": False,
                         "fail_index": index,
@@ -718,13 +748,21 @@ def verify(store):
         }
     store_identity = _field(store, "store_identity", "store_id",
                             "identity")
+    try:
+        recomputed_manifest_hash = manifest_hash(manifest)
+    except (ValueError, TypeError):
+        return _disagreement()
     recomputed_object = build_signature_object(
-        store_identity, founding, head, manifest_hash(manifest)
+        store_identity, founding, head, recomputed_manifest_hash
     )
     standing_fields = _signature_fields(signature_object)
     if standing_fields != recomputed_object:
         return _disagreement()
-    if not verify_signature(signature_object, key):
+    try:
+        signature_verifies = verify_signature(signature_object, key)
+    except (ValueError, TypeError):
+        return _disagreement()
+    if not signature_verifies:
         return _disagreement()
     return {
         "output": "agreement",

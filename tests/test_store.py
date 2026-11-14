@@ -367,6 +367,130 @@ class TestStoreFixR4(unittest.TestCase):
         self.assertEqual(plain.get("output"), "agreement")
 
 
+class TestStoreFixR5(unittest.TestCase):
+    """Fix round 5 STORE and sealing cures, written test first.
+
+    Covers N-11 (a float valued field in a manifest or in a
+    supplied anchor returns a governed verify output, with no
+    exception escaping), N-12 (the anchored check judges the
+    anchor record_count and head_store_sequence against the
+    standing manifest values), and N-13 (the decoded against
+    carried comparison judges tuple and byte string content
+    by its canonical decoded form, with the scalar type exact
+    comparison of the Fix round 4 cure standing untouched).
+    """
+
+    def test_manifest_record_count_float_returns_disagreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        store = module.golden_record_store()
+        store["manifest"]["record_count"] = 2.0
+        for result in (module.verify(store), sealing.verify(store)):
+            self.assertEqual(result.get("output"), "disagreement")
+
+    def test_manifest_head_sequence_float_returns_disagreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        store = module.golden_record_store()
+        store["manifest"]["head_store_sequence"] = 2.0
+        for result in (module.verify(store), sealing.verify(store)):
+            self.assertEqual(result.get("output"), "disagreement")
+
+    def test_manifest_version_floats_return_disagreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        for field in ("journal_schema_version",
+                      "canonical_form_version"):
+            store = module.golden_record_store()
+            store["manifest"][field] = 1.0
+            for result in (module.verify(store),
+                           sealing.verify(store)):
+                self.assertEqual(result.get("output"), "disagreement")
+
+    def test_manifest_bool_forms_still_return_disagreement(self):
+        module = require(MODULE)
+        store = module.golden_record_store()
+        store["manifest"]["record_count"] = True
+        self.assertEqual(module.verify(store).get("output"),
+                         "disagreement")
+        store = module.golden_record_store()
+        store["manifest"]["canonical_form_version"] = True
+        self.assertEqual(module.verify(store).get("output"),
+                         "disagreement")
+
+    def test_anchor_hash_float_returns_unverifiable_invalid(self):
+        module = require(MODULE)
+        for field in ("journal_head_hash", "manifest_hash"):
+            store = module.golden_record_store()
+            anchor = dict(store["anchor_staging_copy"])
+            anchor[field] = 1.0
+            result = module.verify(store, anchor=anchor)
+            self.assertEqual(result.get("output"), "unverifiable")
+            self.assertEqual(result.get("case"),
+                             "anchor signature invalid")
+
+    def test_anchor_count_and_sequence_forms_return_mismatch(self):
+        module = require(MODULE)
+        for field in ("record_count", "head_store_sequence"):
+            for value in (999, 2.0, True):
+                store = module.golden_record_store()
+                anchor = dict(store["anchor_staging_copy"])
+                anchor[field] = value
+                result = module.verify(store, anchor=anchor)
+                self.assertEqual(result.get("output"), "disagreement")
+                self.assertEqual(result.get("anchor_statement"),
+                                 "anchor mismatch")
+
+    def test_anchor_own_copy_still_returns_agreement(self):
+        module = require(MODULE)
+        store = module.golden_record_store()
+        anchor = dict(store["anchor_staging_copy"])
+        result = module.verify(store, anchor=anchor)
+        self.assertEqual(result.get("output"), "agreement")
+        self.assertEqual(result.get("anchor_statement"),
+                         "anchor agreement")
+
+    def test_tuple_and_byte_content_verifies_as_appended(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        forms = (
+            {"items": (1, 2)},
+            (1, 2),
+            {"d": [(1, 2)]},
+            {"d": b"abc"},
+            {"d": bytearray(b"abc")},
+        )
+        for content in forms:
+            store = module.golden_record_store()
+            outcome = module.append_record(store, content, "record")
+            self.assertTrue(outcome.get("appended"))
+            self.assertEqual(module.verify(store).get("output"),
+                             "agreement")
+            self.assertEqual(sealing.verify(store).get("output"),
+                             "agreement")
+
+    def test_scalar_coercions_still_return_content_mismatch(self):
+        module = require(MODULE)
+        for replacement in (True, 1.0, "1"):
+            store = module.golden_record_store()
+            outcome = module.append_record(store, {"n": 1}, "record")
+            self.assertTrue(outcome.get("appended"))
+            store["records"][-1]["content"] = {"n": replacement}
+            result = module.verify(store)
+            self.assertEqual(result.get("output"), "disagreement")
+            self.assertIn("content_mismatch",
+                          result.get("failed_checks", []))
+        for replacement in (True, 1.0):
+            store = module.golden_record_store()
+            outcome = module.append_record(store, 1, "record")
+            self.assertTrue(outcome.get("appended"))
+            store["records"][-1]["content"] = replacement
+            result = module.verify(store)
+            self.assertEqual(result.get("output"), "disagreement")
+            self.assertIn("content_mismatch",
+                          result.get("failed_checks", []))
+
+
 class TestStoreT05(unittest.TestCase):
     """STORE-T05: sync and write failures, platform refusal kept."""
 
