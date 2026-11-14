@@ -203,6 +203,28 @@ class TestUnrowed1934CalibrationPractice(unittest.TestCase):
         self.assertTrue(record["agreement_figure"])
         self.assertTrue(record["sample_identities_under_key"])
         self.assertEqual(record["record_count_for_sample"], 1)
+        runs_three = [
+            {"id": "graded run %02d" % (index + 1),
+             "agreed": index < 3}
+            for index in range(10)
+        ]
+        record_three = module.calibration_record(runs=runs_three)
+        self.assertEqual(record_three["agreement_figure"], "3 of 10")
+        self.assertEqual(record_three["agreement_count"], 3)
+        self.assertEqual(record_three["sample_size"], 10)
+        runs_seven = [
+            {"id": "graded run %02d" % (index + 1),
+             "agreed": index < 7}
+            for index in range(10)
+        ]
+        record_seven = module.calibration_record(runs=runs_seven)
+        self.assertEqual(record_seven["agreement_figure"], "7 of 10")
+        self.assertEqual(record_seven["agreement_count"], 7)
+        self.assertEqual(record_seven["sample_size"], 10)
+        self.assertNotEqual(
+            record_three["agreement_figure"],
+            record_seven["agreement_figure"],
+        )
 
     def test_loop_report_prints_the_figure_drawn_from_that_record(self):
         module = require("ontoloop.eval")
