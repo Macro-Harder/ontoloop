@@ -635,7 +635,10 @@ def check_dataset_record(record):
     a figures value standing in no governed form,
     neither a mapping nor a name collection, stands
     as one defect in that form, with no exception on
-    either malformed position.
+    either malformed position. A figure name inside a
+    name collection standing in no hashable form
+    stands as one defect in that same form, with no
+    exception.
 
     The limbs judged, each only where its form
     stands present in the record, so the check
@@ -699,9 +702,15 @@ def check_dataset_record(record):
             add_defect()
             simple_items = []
         for name, simple_value in simple_items:
-            if not isinstance(advanced_figures, dict) or (
-                name not in advanced_figures
-            ):
+            try:
+                name_present = (
+                    isinstance(advanced_figures, dict)
+                    and name in advanced_figures
+                )
+            except TypeError:
+                add_defect()
+                continue
+            if not name_present:
                 add_defect()
                 continue
             entry = advanced_figures[name]
@@ -949,7 +958,10 @@ def meaning_check(check_id, affected_class, fixture, direction):
     accepted as the call form pins it and stands read
     by no part of this act, no test reading a fixture
     derived value on the return. A direction outside
-    the two pinned strings raises ValueError.
+    the two pinned strings raises ValueError. A check
+    identifier standing in no hashable form meets one
+    governed form in both directions, the held
+    direction form, with no exception.
     """
     if direction not in ("meaning held", "meaning changed"):
         raise ValueError("unknown meaning check direction: %r" % (direction,))
@@ -969,6 +981,24 @@ def meaning_check(check_id, affected_class, fixture, direction):
             "outcome_records_after": after,
             "meaning_change_record_entry": entry,
         }
+    try:
+        result_of_each_check = {check_id: "meaning check result recorded"}
+    except TypeError:
+        held_entry = {
+            "classification": "no meaning change shown",
+            "affected_classes": [affected_class],
+            "checks_run": [check_id],
+            "change_named": True,
+            "discharging_seat_named": True,
+            "home": "suite result record",
+        }
+        return {
+            "outcome_records_before": before,
+            "outcome_records_after": [
+                {"check_id": check_id, "result": "meaning check recorded"}
+            ],
+            "meaning_change_record_entry": held_entry,
+        }
     after = [
         {"check_id": check_id, "result": "meaning check recorded, meaning changed"}
     ]
@@ -979,7 +1009,7 @@ def meaning_check(check_id, affected_class, fixture, direction):
         "change_named": True,
         "discharging_seat_named": True,
         "home": "suite result record",
-        "result_of_each_check": {check_id: "meaning check result recorded"},
+        "result_of_each_check": result_of_each_check,
     }
     return {
         "outcome_records_before": before,
@@ -1376,6 +1406,12 @@ def test_instruction_items_against_holdout(
     A bundle standing in no mapping form returns that
     same governed refusal form at this call point, with
     no exception, before any read of the bundle.
+    Holdout material standing as an iterator stands
+    materialised once for the whole test, so every
+    instruction item stands compared against the same
+    holdout items, and a text form standing in the
+    shared recursive reading past the interpreter limit
+    returns that same governed refusal form.
     """
     if occasion not in ("candidate construction", "promotion"):
         raise ValueError("unknown instruction test occasion: %r" % (occasion,))
@@ -1411,6 +1447,10 @@ def test_instruction_items_against_holdout(
         holdout_material = bundle.get("holdout")
     if holdout_material is None:
         holdout_material = []
+    if hasattr(holdout_material, "__next__") and hasattr(
+        holdout_material, "__iter__"
+    ):
+        holdout_material = list(holdout_material)
     from ontoloop import cross_split_audit as _shared_module
 
     outcome = None
@@ -1421,6 +1461,18 @@ def test_instruction_items_against_holdout(
             occasion=occasion,
             after_partial_scoring=after_partial_scoring,
         )
+        if presented.get("text_form_refused"):
+            refusal = {
+                "fired": True,
+                "refusal_form": "cross split audit refusal",
+                "field_scope": "instruction text field",
+                "wider_material_compared": False,
+            }
+            if occasion == "promotion":
+                refusal["promotion_proceeds"] = False
+            else:
+                refusal["bundle_proceeds"] = False
+            return refusal
         if presented["fired"]:
             outcome = presented
             break

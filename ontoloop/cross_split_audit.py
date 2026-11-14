@@ -104,10 +104,18 @@ def _resolve_text(value):
     set, or frozenset stands read for the texts of its
     elements, joined in presentation order where the
     form carries one and in element order otherwise.
-    Any other value stands as it stands.
+    A byte string or bytearray stands read for the text
+    it carries, decoded as UTF-8. An iterator value, a
+    generator among them, stands read for the texts of
+    the items it yields, and any other iterable value
+    stands read for the texts of its elements in the
+    same joined form. Any other value stands as it
+    stands.
     """
     if isinstance(value, str):
         return value
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value).decode("utf-8", "replace")
     if isinstance(value, dict):
         for key in ("instruction_text", "text", "content"):
             inner = value.get(key)
@@ -123,12 +131,27 @@ def _resolve_text(value):
         if parts:
             return " ".join(parts)
         return None
+    if hasattr(value, "__iter__"):
+        parts = []
+        for element in value:
+            resolved = _resolve_text(element)
+            if resolved:
+                parts.append(str(resolved))
+        if parts:
+            return " ".join(parts)
+        return None
     return value
 
 
 def _item_fields(item):
     if isinstance(item, str):
         return {"group": None, "signature": None, "text": item}
+    if isinstance(item, (bytes, bytearray)):
+        return {
+            "group": None,
+            "signature": None,
+            "text": bytes(item).decode("utf-8", "replace"),
+        }
     if isinstance(item, dict):
         text = item.get("text")
         if text is None:
@@ -312,21 +335,24 @@ def indexed_comparisons(material):
 
 
 _SIDE_KEYS = ("candidate_items", "candidate", "holdout_items", "holdout")
+_POSITION_KEYS = _SIDE_KEYS + ("items", "pairs")
 
 
 def _ungoverned_side(material):
-    """Whether a bundle side stands in no partitioned form.
+    """Whether a bundle position stands in no partitioned form.
 
     A candidate or holdout side standing as a list or a
     tuple stands read for its items by the partitioning
-    act. A side present in any other form, a single
-    mapping or a bare string among them, stands read by
-    no limb of that act, so its items never reach a
+    act, and the items and pairs positions stand read by
+    that act in the same list and tuple forms alone. A
+    position present in any other form, a single mapping
+    or a bare string among them, stands read by no limb
+    of that act, so its material never reaches a
     comparison.
     """
     if not isinstance(material, dict):
         return False
-    for key in _SIDE_KEYS:
+    for key in _POSITION_KEYS:
         if key in material:
             value = material[key]
             if value is not None and not isinstance(
@@ -345,7 +371,15 @@ def _audit(material, scored_before_refusal):
             "typed_reason": _PRESENTATION_REASON,
         }
     if _is_bundle(material):
-        bundle = _audit_bundle(material)
+        try:
+            bundle = _audit_bundle(material)
+        except RecursionError:
+            return True, {
+                "comparisons": 0,
+                "cost_units": 0,
+                "firing_pairs": [],
+                "typed_reason": _PRESENTATION_REASON,
+            }
         return bundle["flagged"], bundle
     if material is None:
         return False, {"comparisons": 0, "cost_units": 0, "firing_pairs": []}
@@ -411,6 +445,8 @@ def _holdout_items_of(holdout_material):
         return []
     if isinstance(holdout_material, str):
         return [holdout_material]
+    if isinstance(holdout_material, (bytes, bytearray)):
+        return [bytes(holdout_material).decode("utf-8", "replace")]
     if isinstance(holdout_material, dict):
         if _is_bundle(holdout_material):
             candidate, holdout = _split_items(holdout_material)
@@ -423,6 +459,24 @@ def _holdout_items_of(holdout_material):
                 isinstance(value, (str, dict)) for value in values
             ):
                 return values
+            collected = []
+            recognised = False
+            for value in values:
+                if isinstance(value, (str, dict)):
+                    collected.append(value)
+                    recognised = True
+                elif hasattr(value, "__iter__") and not isinstance(
+                    value, (bytes, bytearray)
+                ):
+                    elements = list(value)
+                    if all(
+                        isinstance(element, (str, dict))
+                        for element in elements
+                    ):
+                        collected.extend(elements)
+                        recognised = True
+            if recognised and collected:
+                return collected
         return [holdout_material]
     if isinstance(holdout_material, (list, tuple, set, frozenset)):
         return list(holdout_material)
@@ -430,10 +484,12 @@ def _holdout_items_of(holdout_material):
         holdout_material, "__iter__"
     ):
         return list(holdout_material)
+    if hasattr(holdout_material, "__iter__"):
+        return list(holdout_material)
     return [holdout_material]
 
 
-def audit_instruction_item(
+def _audit_instruction_item_impl(
     instruction_text,
     holdout_material,
     occasion="candidate construction",
@@ -450,10 +506,18 @@ def audit_instruction_item(
     bundle mapping carrying holdout_items. Holdout
     material standing as a set, a frozenset, a generator,
     or a mapping of items stands unpacked into its items
-    and compared in the same way. An instruction text
-    value standing as a list or a mapping, and an item
-    itself standing as a list, stand read for the text
-    they carry. It compares
+    and compared in the same way. Holdout material
+    standing as a byte string or a bytearray stands read
+    for the text it carries, and holdout material
+    standing as a deque, a dictionary view, a plain
+    iterable, or a mapping whose values carry items in
+    list or tuple form or beside a value of another kind
+    stands unpacked into its items in the same way. An
+    instruction text value standing as a list or a mapping,
+    and an item itself standing as a list, stand read for
+    the text they carry, and an instruction text value
+    standing as bytes or as a generator stands read for
+    the text it carries in the same way. It compares
     the instruction text field only, and the text field
     of each holdout item only: no group, no signature,
     and no wider field of either side takes part. A
@@ -593,6 +657,69 @@ def audit_instruction_item(
     return result
 
 
+def audit_instruction_item(
+    instruction_text,
+    holdout_material,
+    occasion="candidate construction",
+    after_partial_scoring=False,
+):
+    """Return the instruction item firing outcome, plan 19.86.
+
+    The decision act stands at _audit_instruction_item_impl.
+    A text form standing in the shared recursive reading
+    that recurses past the interpreter limit, a deeply
+    nested form or a cyclic form among them, returns the
+    governed refusal form of this surface in the
+    S15-R4-N03 stated form, marked on the return under
+    text_form_refused, with no exception escaping and no
+    clearance issued on material never compared.
+    """
+    try:
+        return _audit_instruction_item_impl(
+            instruction_text,
+            holdout_material,
+            occasion=occasion,
+            after_partial_scoring=after_partial_scoring,
+        )
+    except RecursionError:
+        record_home = (
+            "Promotion Record"
+            if occasion == "promotion"
+            else "evaluation record"
+        )
+        bundle = {
+            "comparisons": 0,
+            "cost_units": 0,
+            "firing_pairs": [],
+            "typed_reason": _PRESENTATION_REASON,
+        }
+        return {
+            "instruction_text": None,
+            "verbatim": False,
+            "field_scope": "instruction text field",
+            "wider_material_compared": False,
+            "comparisons": 0,
+            "firing_pairs": [],
+            "fired": True,
+            "fired_item": None,
+            "test_result": _INSTRUCTION_TEST_RESULT,
+            "refusal_form": "cross split audit refusal",
+            "text_form_refused": True,
+            "cross_split_audit_result": _refusal(
+                record_home, False, bundle
+            ),
+            "audit_record": {
+                "home": _AUDIT_RECORD_HOME,
+                "fired_item": None,
+                "test_result_recorded": False,
+                "test_result": None,
+            },
+            "completed_evaluations_charged": 0,
+            "charging_form": None,
+            "charged_under_the_standing_charging_rules": False,
+        }
+
+
 def audit_at_build(material, scored_before_refusal=None):
     """Return the cross split audit outcome at dataset build.
 
@@ -634,6 +761,10 @@ def audit_at_promotion(material, scored_before_refusal=None):
     mapping or a bare string among them, returns this
     same refusal form at every bundle call point, with
     no comparisons counted for items never partitioned.
+    Material standing in the items position or the pairs
+    position in a form that act does not read, a mapping
+    or a bare string among them, returns the same refusal
+    form in the same way.
     """
     flagged, bundle = _audit(material, scored_before_refusal)
     if flagged:

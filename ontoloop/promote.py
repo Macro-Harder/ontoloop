@@ -985,9 +985,31 @@ def test_instruction_items_against_holdout(bundle, occasion=None,
     solely from a shared act outcome and no act ran.
     A genuine list, the empty list among it, keeps
     the standing behaviour above exactly.
+    A bundle standing in no mapping form returns that
+    same governed refusal form at this call point, with
+    no exception, before any read of the bundle, in
+    parity with the dataset sibling. Holdout material
+    standing as an iterator stands materialised once
+    for the whole test, so every instruction item stands
+    compared against the same holdout items, and a text
+    form standing in the shared recursive reading past
+    the interpreter limit returns that same governed
+    refusal form.
     """
     if occasion not in ("candidate construction", "promotion"):
         raise ValueError("unknown instruction test occasion: %r" % (occasion,))
+    if not isinstance(bundle, dict):
+        refusal = {
+            "fired": True,
+            "refusal_form": "cross split audit refusal",
+            "field_scope": "instruction text field",
+            "wider_material_compared": False,
+        }
+        if occasion == "promotion":
+            refusal["promotion_proceeds"] = False
+        else:
+            refusal["bundle_proceeds"] = False
+        return refusal
     collection = bundle.get("instruction_items")
     if not isinstance(collection, list):
         refusal = {
@@ -1008,6 +1030,10 @@ def test_instruction_items_against_holdout(bundle, occasion=None,
         holdout_material = bundle.get("holdout")
     if holdout_material is None:
         holdout_material = []
+    if hasattr(holdout_material, "__next__") and hasattr(
+        holdout_material, "__iter__"
+    ):
+        holdout_material = list(holdout_material)
     from ontoloop import cross_split_audit as _shared_module
 
     outcome = None
@@ -1018,6 +1044,18 @@ def test_instruction_items_against_holdout(bundle, occasion=None,
             occasion=occasion,
             after_partial_scoring=after_partial_scoring,
         )
+        if presented.get("text_form_refused"):
+            refusal = {
+                "fired": True,
+                "refusal_form": "cross split audit refusal",
+                "field_scope": "instruction text field",
+                "wider_material_compared": False,
+            }
+            if occasion == "promotion":
+                refusal["promotion_proceeds"] = False
+            else:
+                refusal["bundle_proceeds"] = False
+            return refusal
         if presented["fired"]:
             outcome = presented
             break
