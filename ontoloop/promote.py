@@ -169,20 +169,33 @@ def review_slice_output(reviewer="named reviewer", slice_output=None):
     statement findings list stands empty. On a call
     carrying a slice output the findings list holds
     one finding read from that output by its two
-    pinned keys alone. The record home, the filed
+    pinned keys alone. The slice output stands read
+    through the abstract mapping form, in parity with
+    the sibling surfaces of this module: an output
+    standing in no mapping form, an empty mapping,
+    and a mapping carrying one pinned key without the
+    other each return this record form with the
+    findings list empty, and no exception stands
+    raised on any such output. The record home, the filed
     position, and the search position stand in the
     forms the tests pin, the filed value standing as
     a form contract only, with the real review
     standing as a slice exit act outside this module.
     """
+    from collections.abc import Mapping as _Mapping
+
     findings = []
-    if slice_output is not None:
-        findings = [
-            {
-                "rule": slice_output["second_statement_rule"],
-                "passage": slice_output["second_statement_passage"],
-            }
-        ]
+    if isinstance(slice_output, _Mapping):
+        if (
+            "second_statement_rule" in slice_output
+            and "second_statement_passage" in slice_output
+        ):
+            findings = [
+                {
+                    "rule": slice_output["second_statement_rule"],
+                    "passage": slice_output["second_statement_passage"],
+                }
+            ]
     return {
         "accounted_rules": list(_STATE_TABLE_RULES),
         "implementation_home": {
@@ -526,6 +539,21 @@ def allowed_values(field):
     return list(_ALLOWED_VALUES[field])
 
 
+def _size_is_over_bound_marker(size):
+    """Return whether a size value carries the over bound marker.
+
+    A size standing in a byte form, bytes, bytearray, or
+    memoryview, stands read for the text it carries, in
+    parity with the plain string and UserString forms, so
+    the marker carried in any of those forms stands as the
+    marker. Any other value stands decided by its standing
+    equality with the marker string alone.
+    """
+    if isinstance(size, (bytes, bytearray, memoryview)):
+        return bytes(size) == _OVER_BOUND_MARKER.encode("utf-8")
+    return size == _OVER_BOUND_MARKER
+
+
 def construct_candidate(bundle_size=None):
     """Return the candidate construction outcome.
 
@@ -539,10 +567,14 @@ def construct_candidate(bundle_size=None):
     constructed and check_point standing at candidate
     construction, as an authored reading at shape gap
     G-18. The check compares the passed size value
-    against the marker form alone. No counting act
+    against the marker form alone. A size standing in
+    a byte form, bytes, bytearray, or memoryview,
+    stands read for the text it carries, so the marker
+    in any of those forms stands refused in the same
+    form. No counting act
     stands built and no bound figure stands imported.
     """
-    if bundle_size == _OVER_BOUND_MARKER:
+    if _size_is_over_bound_marker(bundle_size):
         return {
             "outcome": "refused",
             "check_point": "candidate construction",
@@ -566,6 +598,12 @@ def write_bundle(candidate=None, bundle_size=None):
     an authored reading at shape gap G-18, because it
     carries its own size.
 
+    A size standing in a byte form, bytes, bytearray,
+    or memoryview, stands read for the text it carries
+    at both call forms, in parity with ruling 396 at
+    candidate construction, so the marker in any of
+    those forms stands refused in the same form.
+
     On an over bound size the return carries outcome
     standing at refused, check_point standing at bundle
     writing, bundle_size_after standing equal to the
@@ -587,7 +625,7 @@ def write_bundle(candidate=None, bundle_size=None):
             size = None
     else:
         size = bundle_size
-    if size == _OVER_BOUND_MARKER:
+    if _size_is_over_bound_marker(size):
         return {
             "outcome": "refused",
             "check_point": "bundle writing",
@@ -1069,14 +1107,67 @@ def reuse_warning_at_count(count, bound=3):
     outside the governed domain of this surface, and a
     call carrying one stands refused, raising ValueError
     naming the bound.
+
+    A bound standing in a numeric form outside the plain
+    int form, a float, a Decimal, or a Fraction, stands
+    read for the value it carries, and its threshold
+    stands computed in exact arithmetic with no float
+    conversion that rounds it, so a bound of 10**100
+    fires at exactly 75 percent of the bound. A bound
+    standing in no numeric form, and a bound carrying no
+    finite value, stand refused in the same governed
+    form, raising ValueError naming the bound, and no
+    other exception stands raised on any bound form. A
+    count standing in a numeric form outside the plain
+    int form stands read for the value it carries in the
+    same way, and a count standing in no numeric form
+    stands refused, raising ValueError naming the count.
     """
-    if bound < 1:
+    from decimal import Decimal as _Decimal
+    from fractions import Fraction as _Fraction
+
+    def _finite_fraction(value):
+        if isinstance(value, bool):
+            return _Fraction(int(value))
+        if isinstance(value, int):
+            return _Fraction(value)
+        if isinstance(value, float):
+            if value != value or value in (float("inf"), float("-inf")):
+                return None
+            return _Fraction(value)
+        if isinstance(value, _Decimal):
+            if not value.is_finite():
+                return None
+            return _Fraction(value)
+        if isinstance(value, _Fraction):
+            return value
+        return None
+
+    bound_value = _finite_fraction(bound)
+    if bound_value is None or bound_value < 1:
         raise ValueError("unknown reuse warning bound: %r" % (bound,))
-    threshold = int(0.75 * bound)
+    threshold = int(bound_value * 3 // 4)
     if threshold < 1:
         threshold = 1
+    if isinstance(count, float) and count != count:
+        fired = False
+    elif isinstance(count, float) and count == float("inf"):
+        fired = True
+    elif isinstance(count, float) and count == float("-inf"):
+        fired = False
+    elif isinstance(count, _Decimal) and not count.is_finite():
+        if count.is_nan():
+            raise ValueError(
+                "unknown reuse warning count: %r" % (count,))
+        fired = count > 0
+    else:
+        count_value = _finite_fraction(count)
+        if count_value is None:
+            raise ValueError(
+                "unknown reuse warning count: %r" % (count,))
+        fired = count_value >= threshold
     return {
-        "fired": count >= threshold,
+        "fired": fired,
         "firing_point_count": threshold,
         "decision": "whether the bundle is reused for a further promotion",
         "decision_named": True,
