@@ -297,12 +297,16 @@ def append_redacted(store, material, scope="journal run"):
     replaced. The refusal form carries appended False,
     reported_appended False, refused True, no redacted
     material, no placeholders, and hits_redacted 0.
+    A gathering that meets a cycle, or that raises
+    RecursionError on deep finite nesting past the
+    interpreter limit, returns that refusal form with
+    no record written.
     """
     from ontoloop import store as _store_module
 
     try:
         items = _material_items(material)
-    except _CycleDetected:
+    except (_CycleDetected, RecursionError):
         return {
             "appended": False,
             "reported_appended": False,
@@ -702,6 +706,11 @@ class _CycleDetected(Exception):
     surfaces that gather content catch it and return
     their governed fail closed forms, so cyclic input
     returns a governed output and no RecursionError.
+    A gathering that raises RecursionError itself, on
+    deep finite nesting past the interpreter limit,
+    stands in the same position at those surfaces:
+    each catch that takes this signal also takes
+    RecursionError and returns the same governed form.
     """
 
 
@@ -996,11 +1005,14 @@ def classify_material(material):
     classification cannot run, and the act returns
     the REDACT-T06 fail closed form instead, refused
     True with form standing at no exit scan result,
-    no exit, and no classification result.
+    no exit, and no classification result. A gathering
+    that raises RecursionError, on deep finite nesting
+    past the interpreter limit, stands in the same
+    position and returns that same form.
     """
     try:
         items = _material_items(material)
-    except _CycleDetected:
+    except (_CycleDetected, RecursionError):
         return {
             "refused": True,
             "form": "no exit scan result, no exit",
@@ -1570,7 +1582,10 @@ def _assembly_content(assembly, _path=None, _top=True):
     containers of the branch being gathered, so a value
     shared across branches in acyclic form gathers in
     the ordinary way and deep finite nesting gathers to
-    its full depth.
+    its full depth. Mapping keys stand gathered beside
+    these values by _assembly_key_content, in the form
+    that act states, and exit_scan scans the two
+    gatherings together.
     """
     if isinstance(assembly, (str, bytes, bytearray)):
         return [assembly]
@@ -1611,6 +1626,71 @@ def _assembly_content(assembly, _path=None, _top=True):
     return []
 
 
+def _assembly_key_content(assembly, _path=None, _top=True):
+    """Return the mapping key content of an assembly.
+
+    Beside the value content _assembly_content gathers,
+    the exit scan also gathers mapping keys as content:
+    bytes standing as a key are content the assembly
+    carries, in substance, whatever position they stand
+    in, so the scan examines every key of every mapping
+    it reaches, at the top level and at any depth, in
+    the same content form the values take, a string or
+    byte key standing as itself and a tuple key standing
+    through its elements. The top level assembly_state
+    entry stands skipped whole, key and value together,
+    because that entry is the state label position and
+    carries no content in either part. A scalar that is
+    not a mapping key position carries no key content.
+    The traversal walks mappings and sequences under
+    the same cycle guard discipline as
+    _assembly_content, raising _CycleDetected where a
+    container stands on its own gathering path. The
+    key content stands returned apart from the value
+    content, so the fail closed floor of exit_scan,
+    which reads the value content alone, stands in its
+    standing form: a field name alone is not scannable
+    content, and an assembly carrying no value content
+    still fails closed.
+    """
+    if isinstance(assembly, dict):
+        if _path is None:
+            _path = set()
+        marker = id(assembly)
+        if marker in _path:
+            raise _CycleDetected()
+        _path.add(marker)
+        try:
+            content = []
+            for key in assembly:
+                if _top and key == "assembly_state":
+                    continue
+                content.extend(_assembly_content(key, _path, False))
+                content.extend(
+                    _assembly_key_content(assembly[key], _path, False)
+                )
+            return content
+        finally:
+            _path.discard(marker)
+    if isinstance(assembly, (list, tuple, set, frozenset)):
+        if _path is None:
+            _path = set()
+        marker = id(assembly)
+        if marker in _path:
+            raise _CycleDetected()
+        _path.add(marker)
+        try:
+            content = []
+            for element in assembly:
+                content.extend(
+                    _assembly_key_content(element, _path, False)
+                )
+            return content
+        finally:
+            _path.discard(marker)
+    return []
+
+
 def exit_scan(assembly):
     """Return the exit scan outcome for one assembly.
 
@@ -1618,7 +1698,18 @@ def exit_scan(assembly):
     actual content the assembly carries, in the form
     _assembly_content states, and decides on what the
     scan finds. No assembly_state label selects a scan
-    outcome. On an assembly whose content carries a
+    outcome. The content the scan examines stands as
+    the value content and the mapping key content
+    together, in the form _assembly_key_content
+    states, so hit material standing as a mapping key
+    refuses whole exactly as the same material standing
+    as a value refuses, while the fail closed floor
+    below reads the value content alone, in its
+    standing form. A gathering that raises
+    RecursionError, on deep finite nesting past the
+    interpreter limit, stands in the cannot run
+    position below beside a gathering that meets a
+    cycle, and returns the same fail closed form. On an assembly whose content carries a
     definite hit, the return carries exactly refused
     standing True, refused_scope standing at the
     string whole, and released_in_part standing False:
@@ -1673,7 +1764,8 @@ def exit_scan(assembly):
         return dict(cannot_run)
     try:
         content = _assembly_content(assembly)
-    except _CycleDetected:
+        key_content = _assembly_key_content(assembly)
+    except (_CycleDetected, RecursionError):
         return dict(cannot_run)
     if not content:
         return dict(cannot_run)
@@ -1685,7 +1777,7 @@ def exit_scan(assembly):
             total_bytes += len(str(item).encode("utf-8"))
     if total_bytes == 0:
         return dict(cannot_run)
-    result = classify_material(content)
+    result = classify_material(content + key_content)
     for layer in _SIX_LAYERS:
         for record in result["firing_records"][layer]:
             if record["outcome"] == "definite":

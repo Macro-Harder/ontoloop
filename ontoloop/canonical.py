@@ -95,12 +95,19 @@ def _check_kind(kind):
         raise ValueError("unknown kind tag: %r" % (kind,))
 
 
-def encode_value(value):
+def encode_value(value, _path=None):
     """Return the canonical content bytes for one value.
 
     The content carries no domain separation. A floating point
     value anywhere in the value is refused, as mechanic 2 states
-    for hashed objects.
+    for hashed objects. A container that stands on its own
+    encoding path is a cycle on that path, and the act detects
+    it and raises ValueError, the governed refusal form of this
+    module, instead of recursing without bound. The path holds
+    only the containers of the branch being encoded, so a value
+    shared across branches in acyclic form encodes in the
+    ordinary way, and deep finite nesting encodes to its full
+    depth where the interpreter recursion allows it.
     """
     if value is True:
         return b"true"
@@ -119,14 +126,40 @@ def encode_value(value):
         raw = bytes(value)
         return str(len(raw)).encode("ascii") + b":" + raw
     if isinstance(value, dict):
-        parts = []
-        for key in sorted(value.keys()):
-            if not isinstance(key, str):
-                raise TypeError("canonical form keys must be strings")
-            parts.append(encode_value(key) + b":" + encode_value(value[key]))
-        return b"{" + b",".join(parts) + b"}"
+        if _path is None:
+            _path = set()
+        marker = id(value)
+        if marker in _path:
+            raise ValueError("cyclic value in canonical form")
+        _path.add(marker)
+        try:
+            parts = []
+            for key in sorted(value.keys()):
+                if not isinstance(key, str):
+                    raise TypeError("canonical form keys must be strings")
+                parts.append(
+                    encode_value(key, _path)
+                    + b":"
+                    + encode_value(value[key], _path)
+                )
+            return b"{" + b",".join(parts) + b"}"
+        finally:
+            _path.discard(marker)
     if isinstance(value, (list, tuple)):
-        return b"[" + b",".join(encode_value(item) for item in value) + b"]"
+        if _path is None:
+            _path = set()
+        marker = id(value)
+        if marker in _path:
+            raise ValueError("cyclic value in canonical form")
+        _path.add(marker)
+        try:
+            return (
+                b"["
+                + b",".join(encode_value(item, _path) for item in value)
+                + b"]"
+            )
+        finally:
+            _path.discard(marker)
     raise TypeError("unsupported value in canonical form: %r" % type(value))
 
 

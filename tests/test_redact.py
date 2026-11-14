@@ -825,5 +825,239 @@ class TestRedactFixR3State(unittest.TestCase):
         self.assertFalse(clean["refused"])
 
 
+class TestRedactFixR4Keys(unittest.TestCase):
+    """Fix round 4, ruling 33: mapping keys gathered as content.
+
+    Written test first for S15-R4-017. The gathering act in
+    redact.py gathers mapping keys as content beside mapping
+    values, so hit bytes standing as a mapping key, top level
+    and nested, refuse whole exactly as the same bytes
+    standing as a value do, and ordinary assemblies stand
+    unchanged.
+    """
+
+    def test_hit_bytes_as_top_level_key_refuses_whole(self):
+        module = require(MODULE)
+        hit = module.secret_bearing_shapes()[0]["raw_bytes"]
+        outcome = module.exit_scan(
+            {hit: "a routine clean note", "content": "a routine clean note"}
+        )
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_hit_text_as_top_level_key_refuses_whole(self):
+        module = require(MODULE)
+        hit = module.secret_bearing_shapes()[0]["raw_bytes"]
+        outcome = module.exit_scan(
+            {
+                hit.decode("utf-8"): "a routine clean note",
+                "content": "a routine clean note",
+            }
+        )
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_hit_bytes_as_nested_key_refuses_whole(self):
+        module = require(MODULE)
+        hit = module.secret_bearing_shapes()[0]["raw_bytes"]
+        outcome = module.exit_scan(
+            {
+                "content": "a routine clean note",
+                "nested": {hit: "a routine clean note"},
+            }
+        )
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_hit_bytes_as_key_nested_through_a_list_refuses_whole(self):
+        module = require(MODULE)
+        hit = module.secret_bearing_shapes()[0]["raw_bytes"]
+        outcome = module.exit_scan(
+            {
+                "content": "a routine clean note",
+                "outer": [{"inner": {hit: "a routine clean note"}}],
+            }
+        )
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_hit_bytes_inside_a_tuple_key_refuse_whole(self):
+        module = require(MODULE)
+        hit = module.secret_bearing_shapes()[0]["raw_bytes"]
+        outcome = module.exit_scan(
+            {
+                (hit, "a routine clean note"): "a routine clean note",
+                "content": "a routine clean note",
+            }
+        )
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_same_hit_as_a_value_control_refuses_whole(self):
+        module = require(MODULE)
+        hit = module.secret_bearing_shapes()[0]["raw_bytes"]
+        outcome = module.exit_scan(
+            {"a routine clean note": hit, "content": "a routine clean note"}
+        )
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_clean_key_carrying_a_hit_value_still_refuses_whole(self):
+        module = require(MODULE)
+        hit = module.secret_bearing_shapes()[0]["raw_bytes"]
+        outcome = module.exit_scan({"note": hit})
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(outcome["refused_scope"], "whole")
+        self.assertFalse(outcome["released_in_part"])
+
+    def test_ordinary_assemblies_unchanged(self):
+        module = require(MODULE)
+        clean = module.exit_scan(
+            {"note": "a routine clean note", "other": "another clean note"}
+        )
+        self.assertFalse(clean["refused"])
+        numeric_key = module.exit_scan({1: "a routine clean note"})
+        self.assertFalse(numeric_key["refused"])
+        state_only = module.exit_scan({"assembly_state": "ready"})
+        self.assertTrue(state_only["refused"])
+        self.assertEqual(
+            state_only["form"], "no exit scan result, no exit"
+        )
+        zero_byte = module.exit_scan({"content": ""})
+        self.assertTrue(zero_byte["refused"])
+        self.assertEqual(
+            zero_byte["form"], "no exit scan result, no exit"
+        )
+
+
+class TestRedactFixR4DeepNesting(unittest.TestCase):
+    """Fix round 4, ruling 25: deep nesting fails closed.
+
+    Written test first for N-07. The gathering surfaces
+    return the fail closed form where the gathering
+    raises RecursionError, in the same catch position
+    that catches the cycle signal, beside the standing
+    deep nesting cases still deciding on their content
+    and the standing cycle forms unchanged.
+    """
+
+    def _nested_list(self, depth):
+        material = "a routine clean note"
+        for _ in range(depth):
+            material = [material]
+        return material
+
+    def _nested_mapping(self, depth):
+        material = "a routine clean note"
+        for _ in range(depth):
+            material = {"inner": material}
+        return material
+
+    def test_exit_scan_deep_list_nesting_fails_closed(self):
+        module = require(MODULE)
+        outcome = module.exit_scan(self._nested_list(1500))
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(
+            outcome["form"], "no exit scan result, no exit"
+        )
+
+    def test_exit_scan_deep_mapping_nesting_fails_closed(self):
+        module = require(MODULE)
+        outcome = module.exit_scan(self._nested_mapping(1500))
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(
+            outcome["form"], "no exit scan result, no exit"
+        )
+
+    def test_classify_material_deep_list_nesting_fails_closed(self):
+        module = require(MODULE)
+        outcome = module.classify_material(self._nested_list(1500))
+        self.assertTrue(outcome["refused"])
+        self.assertEqual(
+            outcome["form"], "no exit scan result, no exit"
+        )
+
+    def test_classify_material_deep_mapping_nesting_still_classifies(self):
+        # Protecting pin, stated on first hand evidence: in
+        # _material_items a mapping stands as a leaf, its
+        # values standing in string form, so deep mapping
+        # nesting raises nothing on this surface and the
+        # classification returns its governed form.
+        module = require(MODULE)
+        outcome = module.classify_material(self._nested_mapping(1500))
+        self.assertIn("firing_records", outcome)
+        self.assertIn("layers", outcome)
+
+    def test_append_redacted_deep_list_nesting_refuses(self):
+        module = require(MODULE)
+        store_module = require("ontoloop.store")
+        store = store_module.golden_record_store()
+        before = len(store["records"])
+        outcome = module.append_redacted(store, self._nested_list(1500))
+        self.assertFalse(outcome["appended"])
+        self.assertFalse(outcome["reported_appended"])
+        self.assertTrue(outcome["refused"])
+        self.assertIsNone(outcome["redacted_material"])
+        self.assertEqual(outcome["placeholders"], [])
+        self.assertEqual(outcome["hits_redacted"], 0)
+        self.assertEqual(len(store["records"]), before)
+
+    def test_append_redacted_deep_mapping_nesting_still_appends(self):
+        # Protecting pin on the same evidence as the
+        # classification pin above: mapping material gathers
+        # in string form, raises nothing, and clean material
+        # in that form appends in the standing form.
+        module = require(MODULE)
+        store_module = require("ontoloop.store")
+        store = store_module.golden_record_store()
+        before = len(store["records"])
+        outcome = module.append_redacted(
+            store, self._nested_mapping(1500)
+        )
+        self.assertTrue(outcome["appended"])
+        self.assertFalse(outcome["refused"])
+        self.assertEqual(outcome["hits_redacted"], 0)
+        self.assertEqual(len(store["records"]), before + 1)
+
+    def test_standing_deep_nesting_still_decides_on_content(self):
+        module = require(MODULE)
+        for depth in (100, 300, 500):
+            scanned = module.exit_scan(self._nested_list(depth))
+            self.assertFalse(scanned["refused"])
+            classified = module.classify_material(
+                self._nested_list(depth)
+            )
+            self.assertIn("firing_records", classified)
+            self.assertIn("layers", classified)
+
+    def test_cycle_forms_unchanged_beside_the_depth_form(self):
+        module = require(MODULE)
+        cyclic = []
+        cyclic.append(cyclic)
+        scanned = module.exit_scan(cyclic)
+        self.assertTrue(scanned["refused"])
+        self.assertEqual(
+            scanned["form"], "no exit scan result, no exit"
+        )
+        classified = module.classify_material(cyclic)
+        self.assertTrue(classified["refused"])
+        self.assertEqual(
+            classified["form"], "no exit scan result, no exit"
+        )
+        store_module = require("ontoloop.store")
+        store = store_module.golden_record_store()
+        before = len(store["records"])
+        appended = module.append_redacted(store, cyclic)
+        self.assertFalse(appended["appended"])
+        self.assertTrue(appended["refused"])
+        self.assertEqual(len(store["records"]), before)
+
+
 if __name__ == "__main__":
     unittest.main()

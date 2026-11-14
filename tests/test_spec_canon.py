@@ -167,5 +167,82 @@ class TestSpecCanonT04(unittest.TestCase):
             self.assertTrue(refused, kind)
 
 
+class TestSpecCanonFixR4(unittest.TestCase):
+    """Fix round 4, ruling 26: canonical cycle detection.
+
+    Written test first for N-08. The canonical encoding
+    act detects a cycle on its encoding path and raises
+    its governed ValueError form, instead of
+    RecursionError, beside the standing acyclic cases,
+    including deep finite nesting and shared acyclic
+    content still encoding byte identically.
+    """
+
+    def test_self_referential_list_raises_value_error(self):
+        module = require(MODULE)
+        material = []
+        material.append(material)
+        with self.assertRaises(ValueError):
+            module.encode_canonical(material, "journal record")
+
+    def test_self_referential_mapping_raises_value_error(self):
+        module = require(MODULE)
+        material = {}
+        material["self"] = material
+        with self.assertRaises(ValueError):
+            module.encode_canonical(material, "journal record")
+
+    def test_cycle_through_a_tuple_raises_value_error(self):
+        module = require(MODULE)
+        material = []
+        material.append((material,))
+        with self.assertRaises(ValueError):
+            module.encode_canonical(material, "journal record")
+
+    def test_encode_value_cycle_raises_value_error(self):
+        module = require(MODULE)
+        material = []
+        material.append(material)
+        with self.assertRaises(ValueError):
+            module.encode_value(material)
+
+    def test_hash_canonical_cycle_raises_value_error(self):
+        module = require(MODULE)
+        material = {}
+        material["self"] = material
+        with self.assertRaises(ValueError):
+            module.hash_canonical(material, "journal record")
+
+    def test_acyclic_encodings_byte_identical(self):
+        module = require(MODULE)
+        record = module.golden_record("journal record")
+        self.assertEqual(
+            module.encode_canonical(record, "journal record"),
+            module.golden_byte_examples()["journal record"],
+        )
+        value = {"b": [1, "x", True, None], "a": {"nested": [2, 3]}}
+        self.assertEqual(
+            module.encode_value(value),
+            b"{1:a:{6:nested:[2,3]},1:b:[1,1:x,true,null]}",
+        )
+
+    def test_deep_finite_nesting_still_encodes(self):
+        module = require(MODULE)
+        material = "x"
+        for _ in range(120):
+            material = [material]
+        produced = module.encode_canonical(material, "journal record")
+        self.assertIsInstance(produced, bytes)
+        self.assertEqual(
+            produced, module.encode_canonical(material, "journal record")
+        )
+
+    def test_shared_acyclic_content_still_encodes(self):
+        module = require(MODULE)
+        shared = [1, 2]
+        produced = module.encode_value([shared, shared, {"again": shared}])
+        self.assertEqual(produced, b"[[1,2],[1,2],{5:again:[1,2]}]")
+
+
 if __name__ == "__main__":
     unittest.main()
