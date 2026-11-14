@@ -1858,11 +1858,15 @@ def purge_without_preview(preview=None, preview_shown=False):
     stands taken on a preview that has not been
     shown for that act: where no preview stands
     shown, the attempt stands failed and the purge
-    does not proceed. Where a preview stands shown,
-    by the preview argument standing passed or by
-    the flag standing True, the failure form does
-    not stand and the purge stands as proceeding on
-    its preview.
+    does not proceed. A preview stands shown only
+    where the preview argument carries the preview
+    form, a mapping carrying at minimum the record
+    home and identities positions the preview
+    surface returns, or where the shown flag stands
+    True. Any other preview value stands as no
+    preview shown. Where a preview stands shown,
+    the failure form does not stand and the purge
+    stands as proceeding on its preview.
 
     Returns a fresh mapping. In the no preview
     case it carries three keys: the failed position
@@ -1873,7 +1877,12 @@ def purge_without_preview(preview=None, preview_shown=False):
     failed position standing False and the purge
     proceeded position standing True.
     """
-    shown = bool(preview_shown) or preview is not None
+    preview_form_shown = (
+        isinstance(preview, dict)
+        and "record_home" in preview
+        and "identities_affected" in preview
+    )
+    shown = bool(preview_shown) or preview_form_shown
     if shown:
         return {
             "failed": False,

@@ -76,16 +76,6 @@ __all__ = [
 # DG-1.
 _PINNED_VERSION = "bundle version 1"
 
-# The two hash fixture values. Two distinct authored
-# strings, the tool side value first and the
-# presented value second, standing unequal by
-# construction. Each value stands authored and
-# guessed under ruling (f), at the shape act section
-# 3.4 and disposition DG-2. No hash algorithm stands
-# named and no hash figure stands stated.
-_TOOL_SIDE_HASH = "tool side hash value"
-_PRESENTED_HASH = "presented side hash value"
-
 # The readers list. The components brief Section 7.1
 # names as the expected readers of sealed holdout
 # content: the cross split audit under the OQ-C10
@@ -272,14 +262,27 @@ def load_with_hash_mismatch(material="presented bundle content",
 
     Both hashes are real digests computed over material:
     the tool side hash over the tool material and the
-    presented hash over the material presented. Where the
-    two materials differ the digests differ, the bundle
+    presented hash over the material presented. The
+    outcome follows the computed comparison. Where the
+    digests agree, the bundle loads in the loadable form
+    the counterpart load_with_hash_check returns, and no
+    load refusal record stands written. Where the two
+    materials differ the digests differ, the bundle
     stands unloadable, and a load refusal record naming
     both sides and both hashes stands written to the load
     refusal record list and carried on this return.
     """
     tool_hash = _material_digest(tool_material)
     presented_hash = _material_digest(material)
+    if tool_hash == presented_hash:
+        return {
+            "loaded": True,
+            "position": "loadable",
+            "content_presented": True,
+            "computed_hash": presented_hash,
+            "tool_side_hash": tool_hash,
+            "presented_hash": presented_hash,
+        }
     record = {
         "checked_side": "tool side",
         "checked_against_side": "presented side",
