@@ -646,6 +646,86 @@ class TestStoreFixR6(unittest.TestCase):
             self.assertEqual(result.get("output"), "agreement")
 
 
+class TestStoreFixR7(unittest.TestCase):
+    """Fix round 7 STORE and sealing cures, written test first.
+
+    Covers ruling 173 (a records container standing in no
+    iterable form returns a governed verify output,
+    unverifiable naming no intact record, with no exception
+    escaping at the records extraction) and ruling 174
+    (cyclic identity values standing on both sides of a
+    plain equality comparison inside verify return the
+    governed disagreement form, with no exception escaping).
+    """
+
+    def test_records_container_non_iterable_scalar_returns_unverifiable(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        for value in (5, 1.5, True, object()):
+            store = module.golden_record_store()
+            store["records"] = value
+            for result in (module.verify(store), sealing.verify(store)):
+                self.assertEqual(result.get("output"), "unverifiable")
+                self.assertEqual(result.get("case"), "no intact record")
+
+    def test_records_container_non_iterable_on_attribute_store_returns_unverifiable(self):
+        import types
+
+        sealing = require("ontoloop.sealing")
+        module = require(MODULE)
+        golden = module.golden_record_store()
+        store = types.SimpleNamespace(
+            store_identity=golden["store_identity"],
+            founding_object_identity=golden["founding_object_identity"],
+            records=5,
+            manifest=golden["manifest"],
+            signature_object=golden["signature_object"],
+            key_slot=golden["key_slot"],
+        )
+        result = sealing.verify(store)
+        self.assertEqual(result.get("output"), "unverifiable")
+        self.assertEqual(result.get("case"), "no intact record")
+
+    def test_cyclic_founding_identity_on_both_sides_returns_disagreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        first = []
+        first.append(first)
+        second = []
+        second.append(second)
+        store = module.golden_record_store()
+        store["founding_object_identity"] = first
+        manifest = dict(store["manifest"])
+        manifest["founding_object_identity"] = second
+        store["manifest"] = manifest
+        for result in (module.verify(store), sealing.verify(store)):
+            self.assertEqual(result.get("output"), "disagreement")
+            self.assertEqual(result.get("form"), "disagreement form")
+
+    def test_cyclic_signature_identity_on_both_sides_returns_disagreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        first = []
+        first.append(first)
+        second = []
+        second.append(second)
+        store = module.golden_record_store()
+        store["store_identity"] = first
+        signature_object = dict(store["signature_object"])
+        signature_object["store_identity"] = second
+        store["signature_object"] = signature_object
+        for result in (module.verify(store), sealing.verify(store)):
+            self.assertEqual(result.get("output"), "disagreement")
+            self.assertEqual(result.get("form"), "disagreement form")
+
+    def test_unmutated_store_still_returns_agreement_r7(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        store = module.golden_record_store()
+        for result in (module.verify(store), sealing.verify(store)):
+            self.assertEqual(result.get("output"), "agreement")
+
+
 class TestStoreT05(unittest.TestCase):
     """STORE-T05: sync and write failures, platform refusal kept."""
 

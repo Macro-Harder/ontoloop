@@ -601,6 +601,21 @@ def _disagreement():
     return {"output": "disagreement", "form": DISAGREEMENT_FORM}
 
 
+def _equality_holds(left, right):
+    """Return True only where an equality comparison decides True.
+
+    A comparison whose equality cannot be decided, because it
+    recurses through cyclic values standing on both sides,
+    raises RecursionError; that case stands as not equal here,
+    so its caller returns the governed disagreement form of
+    the surface with no exception escaping.
+    """
+    try:
+        return bool(left == right)
+    except RecursionError:
+        return False
+
+
 def _prefix_reading():
     return {
         "reading": PREFIX_READING,
@@ -699,7 +714,10 @@ def verify(store):
         store = globals()["_read_example_store_bytes"](store)
     elif isinstance(store, str):
         raise _not_built()
-    records = _records_of(store)
+    try:
+        records = _records_of(store)
+    except TypeError:
+        return {"output": "unverifiable", "case": "no intact record"}
     manifest = _field(store, "manifest")
     if not records or not isinstance(manifest, dict):
         raise _not_built()
@@ -722,8 +740,8 @@ def verify(store):
             return _prefix_reading()
         return {"output": "unverifiable", "case": TORN_FINAL_LINE}
     head = chain["head"]
-    if store_founding is not None and (
-        manifest.get("founding_object_identity") != store_founding
+    if store_founding is not None and not _equality_holds(
+        manifest.get("founding_object_identity"), store_founding
     ):
         return _disagreement()
     last = records[-1]
@@ -771,7 +789,7 @@ def verify(store):
         standing_fields = _signature_fields(signature_object)
     except Exception:
         return _disagreement()
-    if standing_fields != recomputed_object:
+    if not _equality_holds(standing_fields, recomputed_object):
         return _disagreement()
     try:
         signature_verifies = verify_signature(signature_object, key)
