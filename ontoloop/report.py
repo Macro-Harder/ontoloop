@@ -728,6 +728,39 @@ _CLAIM_CONCEPT_ROOTS = (
     "invinc",
     "initiall",
     "frank",
+    "mirror",
+    "clon",
+    "screenshot",
+    "email",
+    "upload",
+    "archiv",
+    "broadcast",
+    "stol",
+    "wip",
+    "exfiltrat",
+    "purg",
+    "film",
+    "scan",
+    "trac",
+    "impermeab",
+    "burglarproof",
+    "vandalproof",
+    "ageless",
+    "endless",
+    "boundless",
+    "perfect",
+    "impeccab",
+    "undying",
+    "infallib",
+    "corroborat",
+    "failsafe",
+    "errorproof",
+    "peerless",
+    "matchless",
+    "errorfree",
+    "riskfree",
+    "rubberstamp",
+    "timestamp",
 )
 
 # The exact assertion words, beside the assertion roots
@@ -860,6 +893,17 @@ _ASSERTION_ROOTS = (
     "declar",
     "proclaim",
     "affirm",
+    "epitomiz",
+    "personif",
+    "incarnat",
+    "shield",
+    "guard",
+    "attain",
+    "reach",
+    "realis",
+    "evidenc",
+    "document",
+    "record",
 )
 
 # The wordings that mark a claim statement as standing
@@ -897,6 +941,16 @@ _GOVERNING_CONDITION_PHRASES = (
     "conditional upon",
     "depending on",
     "contingent on",
+    "reliant on",
+    "dependent on",
+    "subject only to",
+    "only under",
+    "only with",
+    "conditioned upon",
+    "premised on",
+    "predicated on",
+    "based on",
+    "resting on",
     "conditional",
     "only at signed strength",
     "subject to",
@@ -1020,6 +1074,12 @@ def _clause_claim(clause):
         "tri", "dual", "twice", "well", "fully",
         "super", "anti", "extra", "trans", "intra", "neo",
         "omni", "poly",
+        "mega", "giga", "nano", "pico", "hemi", "mono", "bi",
+        "quad", "penta", "hexa", "octo", "deca", "kilo", "milli",
+        "centi", "deci", "proto", "retro", "infra", "supra",
+        "meta", "para", "hypo", "epi", "endo", "exo", "hetero",
+        "homo", "iso", "tele", "pan", "uni",
+        "triple", "hand", "machine", "deep",
     )
     verification_roots = ("check", "verif", "validat", "confirm", "certif")
     for word in words:
@@ -1241,6 +1301,7 @@ def _main_segment(clause):
             index >= 4
             and word in (
                 "could", "might", "should", "would", "ought", "dare",
+                "shall", "must", "will", "can",
             )
             and index + 1 < len(words)
             and words[index + 1] in ("not", "never")
@@ -1255,7 +1316,7 @@ def _main_segment(clause):
             trimmed = between
             if trimmed and trimmed[-1] in (
                 "is", "are", "was", "were", "has", "have", "had",
-                "need", "needs",
+                "need", "needs", "shall", "must", "will", "can",
             ):
                 trimmed = trimmed[:-1]
             if not trimmed or len(trimmed) > 5:
@@ -1372,6 +1433,9 @@ def _clause_inability_form(clause):
         "print", "photograph", "transcrib", "download", "mov",
         "renam", "spoof", "replay", "sniff", "replicat", "extract",
         "substitut", "hidd",
+        "mirror", "clon", "screenshot", "email", "upload", "archiv",
+        "broadcast", "stol", "wip", "exfiltrat", "purg", "corrupt",
+        "film", "scan", "trac",
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -1383,6 +1447,10 @@ def _clause_inability_form(clause):
         "to", "for",
         "absolutely", "manner", "fashion", "method", "guise",
         "point", "purpose",
+        "conceivably", "remotely", "event", "conditions",
+        "regardless", "somehow", "anyhow", "just", "merely",
+        "truly", "actually", "even", "still", "the", "least",
+        "stretch", "pretext", "on", "account",
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -1419,14 +1487,11 @@ def _clause_inability_form(clause):
         else:
             continue
         cursor = start
-        steps = 0
         while (
             cursor < len(words)
-            and steps < 64
             and words[cursor] in fillers
         ):
             cursor += 1
-            steps += 1
         if cursor < len(words) and words[cursor].startswith(targets):
             return True
     return False
@@ -1501,7 +1566,7 @@ def _seal_claim_scan(assembly_text):
                 and len(main_words) < len(clause_words)
                 and main_words[-1] == "only"
                 and clause_words[len(main_words)]
-                in ("if", "when", "where")
+                in ("if", "when", "where", "with")
             ):
                 complement = " ".join(clause_words[len(main_words) + 1:])
                 if _governing_condition_holds(
@@ -1511,7 +1576,7 @@ def _seal_claim_scan(assembly_text):
             if (
                 main_words
                 and len(main_words) < len(clause_words)
-                and main_words[-1] == "conditional"
+                and main_words[-1] in ("conditional", "conditioned")
                 and clause_words[len(main_words)] == "upon"
             ):
                 complement = " ".join(clause_words[len(main_words) + 1:])
@@ -1523,7 +1588,10 @@ def _seal_claim_scan(assembly_text):
                 main_words
                 and len(main_words) < len(clause_words)
                 and clause_words[len(main_words)]
-                in ("provided", "given")
+                in (
+                    "provided", "given", "assuming", "granted",
+                    "presuming", "supposing",
+                )
             ):
                 complement = " ".join(clause_words[len(main_words) + 1:])
                 if _governing_condition_holds(
