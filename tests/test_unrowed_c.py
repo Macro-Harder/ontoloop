@@ -9,6 +9,8 @@ carry them. A comment block at each class names the subsection, the
 obligation as stated, and the transcription choice for that obligation.
 """
 
+import ast
+import inspect
 import unittest
 
 from tests import harness
@@ -238,6 +240,72 @@ class Unrowed2018Tests(unittest.TestCase):
             self.assertFalse(mod.core_exit_passes(undisposed_failure=failure), limb)
         disposed = mod.dispose_determinism_failure(failure)
         self.assertTrue(mod.core_exit_passes(undisposed_failure=None, disposed=[disposed]))
+
+    # Fix round 2, R2-CORE-1: core_exit_passes checks every entry of
+    # its disposed list, and an undisposed argument in a non mapping
+    # form fails closed in form rather than by exception.
+    def test_core_exit_passes_checks_every_disposed_entry(self):
+        mod = harness.require("ontoloop.core")
+        failure = mod.determinism_check_with_barred_practice(limb="run")
+        self.assertFalse(failure["disposed"])
+        self.assertFalse(
+            mod.core_exit_passes(undisposed_failure=None, disposed=[failure]))
+        self.assertFalse(
+            mod.core_exit_passes(disposed=[{"disposed": False, "row_failed": True}]))
+        disposed = mod.dispose_determinism_failure(failure)
+        self.assertFalse(
+            mod.core_exit_passes(
+                undisposed_failure=None,
+                disposed=[disposed, {"disposed": False, "row_failed": True}]))
+        self.assertTrue(
+            mod.core_exit_passes(undisposed_failure=None, disposed=[disposed]))
+        self.assertTrue(
+            mod.core_exit_passes(undisposed_failure=None, disposed=[]))
+
+    def test_core_exit_passes_non_mapping_undisposed_argument_fails_closed(self):
+        mod = harness.require("ontoloop.core")
+        for argument in ("failure", 123, ["disposed"]):
+            self.assertFalse(
+                mod.core_exit_passes(undisposed_failure=argument), repr(argument))
+
+    # Fix round 2, R2-CORE-2: the run limb seed input stands set
+    # valued in form, so the order the seed emits is the set
+    # iteration order itself, and the run limb still records its
+    # failure under its standing computation name.
+    def test_run_limb_seed_input_stands_set_valued_in_form(self):
+        mod = harness.require("ontoloop.core")
+        tree = ast.parse(inspect.getsource(
+            mod.determinism_check_with_barred_practice))
+        seed_calls = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "_seeded_set_order_computation"
+        ]
+        self.assertEqual(len(seed_calls), 2)
+        for call in seed_calls:
+            self.assertEqual(len(call.args), 1)
+            argument = call.args[0]
+            self.assertIsInstance(argument, ast.Call)
+            self.assertIsInstance(argument.func, ast.Name)
+            self.assertEqual(argument.func.id, "set")
+        seed = getattr(mod, "_seeded_set_order_computation")
+        first_values = set((0, 8, 16))
+        second_values = set((16, 8, 0))
+        self.assertEqual(seed(first_values), list(first_values))
+        self.assertEqual(seed(second_values), list(second_values))
+        self.assertNotEqual(seed(first_values), seed(second_values))
+        self.assertEqual(sorted(seed(first_values)), [0, 8, 16])
+
+    def test_run_limb_still_records_its_failure(self):
+        mod = harness.require("ontoloop.core")
+        failure = mod.determinism_check_with_barred_practice(limb="run")
+        self.assertTrue(failure["row_failed"])
+        self.assertEqual(failure["recorded_limb"], "run")
+        self.assertEqual(
+            failure["recorded_computation"],
+            "seeded computation emitting set iteration order")
+        self.assertFalse(failure["disposed"])
 
 
 if __name__ == "__main__":

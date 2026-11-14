@@ -2067,21 +2067,21 @@ _SEEDED_COMPUTATIONS = {
 }
 
 
-def _seeded_set_order_computation(order):
+def _seeded_set_order_computation(values):
     """Return the output of the seeded order computation.
 
-    The seeded computation builds its output in the
-    order its set valued input stands constructed in,
-    preserving that construction sequence as its
-    output order, the order dependent form the run
-    limb exists to expose: two runs over differently
-    constructed inputs yield differently ordered
-    outputs.
+    The argument stands set valued in form: the act
+    takes a set and returns its members as a list in
+    the order the set itself iterates them, so the
+    order the act emits is the set iteration order
+    itself, the barred practice the run limb exists
+    to expose. Two sets holding the same members and
+    constructed in different orders can iterate in
+    different orders where the members hashes collide
+    in the set table, and the act returns each set own
+    iteration order unchanged.
     """
-    seen = {}
-    for value in order:
-        seen[value] = True
-    return list(seen)
+    return list(values)
 
 
 def determinism_check_with_barred_practice(limb="source"):
@@ -2093,8 +2093,12 @@ def determinism_check_with_barred_practice(limb="source"):
     the seeded source text, which groups by the
     builtin hash function and iterates a set, and finds
     both practices. On the run limb, the seeded order
-    computation runs twice over differently constructed
-    inputs and its outputs differ in order. The return
+    computation runs twice over set valued inputs
+    holding the same members, the members 0, 8, and 16,
+    whose hashes collide in a small set table, with the
+    second set constructed in the reverse order, and
+    its outputs differ in order because each output is
+    the iteration order of its own set. The return
     records the failure in the form plan subsection
     20.18 clause four states: row_failed standing
     True, recorded_limb standing at the limb that
@@ -2108,8 +2112,8 @@ def determinism_check_with_barred_practice(limb="source"):
         )
         failed = bool(hash_uses or set_order)
     elif limb == "run":
-        first = _seeded_set_order_computation(["alpha", "beta", "gamma"])
-        second = _seeded_set_order_computation(["gamma", "beta", "alpha"])
+        first = _seeded_set_order_computation(set((0, 8, 16)))
+        second = _seeded_set_order_computation(set((16, 8, 0)))
         failed = first != second
     else:
         raise ValueError("unknown determinism limb: %r" % (limb,))
@@ -2135,6 +2139,26 @@ def dispose_determinism_failure(failure):
     return disposed
 
 
+def _failure_marked_disposed(failure):
+    """Return whether a failure value stands marked disposed.
+
+    A value stands marked disposed only where it
+    carries a mapping form whose disposed position
+    stands true. A value in any other form, including
+    a string, carries no such mark and stands
+    undisposed, and reading its position raises
+    nothing: the reading fails closed in form rather
+    than by exception.
+    """
+    get = getattr(failure, "get", None)
+    if not callable(get):
+        return False
+    try:
+        return bool(get("disposed"))
+    except Exception:
+        return False
+
+
 def core_exit_passes(undisposed_failure=None, disposed=None):
     """Return whether the CORE exit stands passed.
 
@@ -2142,14 +2166,27 @@ def core_exit_passes(undisposed_failure=None, disposed=None):
     stands undisposed against it, in the form plan
     subsection 20.18 clause four states: an undisposed
     failure, given as the undisposed_failure argument
-    in a form not marked disposed, blocks the exit, and
-    where every failure stands disposed, as the
-    disposed argument lists, or no failure stands at
-    all, the exit stands passed.
+    in a form not marked disposed, blocks the exit,
+    and every entry of the disposed argument list is
+    checked the same way, so an entry standing
+    undisposed in that list blocks the exit as well.
+    An undisposed argument standing in a non mapping
+    form, including a string, blocks the exit and
+    raises nothing. Where every failure stands
+    disposed, as the disposed argument lists, or no
+    failure stands at all, the exit stands passed.
     """
     if undisposed_failure is not None:
-        if not undisposed_failure.get("disposed"):
+        if not _failure_marked_disposed(undisposed_failure):
             return False
+    if disposed is not None:
+        try:
+            entries = iter(disposed)
+        except TypeError:
+            return False
+        for entry in entries:
+            if not _failure_marked_disposed(entry):
+                return False
     return True
 
 
