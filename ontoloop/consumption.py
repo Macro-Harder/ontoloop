@@ -373,9 +373,19 @@ def _bundle_copy(bundle):
     standing anywhere inside such a value, including
     inside a WeakSet, a WeakKeyDictionary, a
     WeakValueDictionary, a weak reference, a partial
-    application, or a function closure cell, stands
+    application, a function closure cell, a function
+    default value, a bound method, or a property
+    accessor function, stands
     under the same refusal as a member standing in a
-    walked position. A dictionary view standing at
+    walked position. A generator or a threading lock
+    standing inside such a value stands refused with
+    a ValueError, in place of the exception the deep
+    copy act raises on a value it cannot copy, and a
+    dictionary view or a mapping proxy standing in a
+    function default value copies in the form its
+    walked position gives it, the function standing
+    rebuilt over the copied default values where a
+    default value carries such a form. A dictionary view standing at
     any position copies as a fresh list of copies of
     the material it carries, an items view as a fresh
     list of copies of its pairs, and a mapping proxy
@@ -394,8 +404,12 @@ def _bundle_copy(bundle):
     timedelta, or a range value, as a UUID, a
     timezone, or a pure path value, as a tzinfo value
     of any form, a ZoneInfo value among them, as an
-    IPv4Address or IPv6Network value, as a compiled
-    pattern value, as a slice value, as an enum member
+    IPv4Address, IPv6Address, IPv4Network, IPv6Network,
+    IPv4Interface, or IPv6Interface value, as a compiled
+    pattern value, as a slice value whose start, stop,
+    and step components each carry no mutable state
+    under this same reading, as an Ellipsis value,
+    as an enum member
     carrying no mutable instance state, or as a tuple
     or frozenset whose elements all carry no mutable
     state under this same reading. An accepted shape
@@ -407,7 +421,10 @@ def _bundle_copy(bundle):
     or time value carrying a tzinfo carries no
     mutable state only where the tzinfo it carries
     itself carries no mutable state under this same
-    reading. A container or wrapper part carrying
+    reading. A slot declared with a name carrying a
+    leading double underscore stands read, at every
+    slot reading of this act, at the storage name the
+    interpreter forms from its declaring class. A container or wrapper part carrying
     instance attribute state copies that state apart
     in both directions, its attribute mapping copied
     by this same act, with its type and its entries,
@@ -432,6 +449,7 @@ def _bundle_copy(bundle):
     import ipaddress as _ipaddress_module
     import pathlib as _pathlib_module
     import re as _re_module
+    import threading as _threading_module
     import types as _types_module
     import uuid as _uuid_module
     import weakref as _weakref_module
@@ -493,12 +511,21 @@ def _bundle_copy(bundle):
         _datetime_module.tzinfo,
         _pathlib_module.PurePath,
         _ipaddress_module.IPv4Address,
+        _ipaddress_module.IPv6Address,
+        _ipaddress_module.IPv4Network,
         _ipaddress_module.IPv6Network,
+        _ipaddress_module.IPv4Interface,
+        _ipaddress_module.IPv6Interface,
         _re_module.Pattern,
         slice,
         tuple,
         frozenset,
     )
+
+    def _slot_storage_name(cls, name):
+        if name.startswith("__") and not name.endswith("__"):
+            return "_" + cls.__name__.lstrip("_") + name
+        return name
 
     def _added_slot_values(value):
         values = []
@@ -513,7 +540,9 @@ def _bundle_copy(bundle):
                 if name in ("__dict__", "__weakref__"):
                     continue
                 try:
-                    values.append(getattr(value, name))
+                    values.append(
+                        getattr(value, _slot_storage_name(cls, name))
+                    )
                 except Exception:
                     continue
         return values
@@ -527,10 +556,13 @@ def _bundle_copy(bundle):
                 (
                     _ipaddress_module.IPv4Network,
                     _ipaddress_module.IPv6Network,
+                    _ipaddress_module.IPv4Interface,
+                    _ipaddress_module.IPv6Interface,
                 ),
             ):
                 intrinsic = (
                     "network_address",
+                    "network",
                     "netmask",
                     "_prefixlen",
                     "hosts",
@@ -553,6 +585,8 @@ def _bundle_copy(bundle):
 
     def _state_immutable(value, seen=None):
         if _is_atom(value):
+            return True
+        if value is Ellipsis:
             return True
         if seen is None:
             seen = frozenset()
@@ -587,15 +621,25 @@ def _bundle_copy(bundle):
                 ):
                     return False
             return _instance_state_immutable(value, seen)
+        if isinstance(value, slice):
+            for component in (value.start, value.stop, value.step):
+                if component is not None and not _state_immutable(
+                    component, seen
+                ):
+                    return False
+            return _instance_state_immutable(value, seen)
         if isinstance(
             value,
             (
                 _datetime_module.tzinfo,
                 _zoneinfo_module.ZoneInfo,
                 _ipaddress_module.IPv4Address,
+                _ipaddress_module.IPv6Address,
+                _ipaddress_module.IPv4Network,
                 _ipaddress_module.IPv6Network,
+                _ipaddress_module.IPv4Interface,
+                _ipaddress_module.IPv6Interface,
                 _re_module.Pattern,
-                slice,
             ),
         ):
             return _instance_state_immutable(value, seen)
@@ -681,6 +725,17 @@ def _bundle_copy(bundle):
                                 pending.append(cell.cell_contents)
                             except Exception:
                                 continue
+                    if item.__defaults__:
+                        pending.extend(item.__defaults__)
+                    if item.__kwdefaults__:
+                        pending.extend(item.__kwdefaults__.values())
+                elif isinstance(item, _types_module.MethodType):
+                    pending.append(item.__self__)
+                    pending.append(item.__func__)
+                elif isinstance(item, property):
+                    for accessor in (item.fget, item.fset, item.fdel):
+                        if accessor is not None:
+                            pending.append(accessor)
                 elif isinstance(
                     item,
                     (
@@ -706,7 +761,9 @@ def _bundle_copy(bundle):
                     slots = (slots,)
                 for slot in slots:
                     try:
-                        pending.append(getattr(item, slot))
+                        pending.append(
+                            getattr(item, _slot_storage_name(klass, slot))
+                        )
                     except Exception:
                         pass
         return False
@@ -776,6 +833,13 @@ def _bundle_copy(bundle):
                                 pending.append(cell.cell_contents)
                             except Exception:
                                 continue
+                    if item.__defaults__:
+                        pending.extend(item.__defaults__)
+                    if item.__kwdefaults__:
+                        pending.extend(item.__kwdefaults__.values())
+                elif isinstance(item, _types_module.MethodType):
+                    pending.append(item.__self__)
+                    pending.append(item.__func__)
                 elif isinstance(
                     item,
                     (
@@ -801,10 +865,264 @@ def _bundle_copy(bundle):
                     slots = (slots,)
                 for slot in slots:
                     try:
-                        pending.append(getattr(item, slot))
+                        pending.append(
+                            getattr(item, _slot_storage_name(klass, slot))
+                        )
                     except Exception:
                         pass
         return found
+
+    def _walk_nodes(root):
+        nodes = []
+        pending = [root]
+        seen = set()
+        while pending:
+            item = pending.pop()
+            if isinstance(item, _enum_module.Enum):
+                continue
+            if _is_atom(item):
+                continue
+            if id(item) in seen:
+                continue
+            seen.add(id(item))
+            nodes.append(item)
+            try:
+                if isinstance(item, dict):
+                    pending.extend(item.keys())
+                    pending.extend(item.values())
+                elif isinstance(item, _collections.ChainMap):
+                    pending.extend(item.maps)
+                elif isinstance(item, _collections.UserDict):
+                    pending.append(item.data)
+                elif isinstance(item, _weakref_module.WeakSet):
+                    pending.extend(list(item))
+                elif isinstance(
+                    item,
+                    (
+                        _weakref_module.WeakKeyDictionary,
+                        _weakref_module.WeakValueDictionary,
+                    ),
+                ):
+                    pending.extend(list(item.keys()))
+                    pending.extend(list(item.values()))
+                elif isinstance(
+                    item, _types_module.MappingProxyType
+                ):
+                    pending.extend(list(item.keys()))
+                    pending.extend(list(item.values()))
+                elif isinstance(
+                    item,
+                    (
+                        _abc_module.KeysView,
+                        _abc_module.ValuesView,
+                        _abc_module.ItemsView,
+                    ),
+                ):
+                    pending.extend(list(item))
+                elif isinstance(item, _weakref_module.ReferenceType):
+                    target = item()
+                    if target is not None:
+                        pending.append(target)
+                elif isinstance(item, _functools_module.partial):
+                    pending.append(item.func)
+                    pending.extend(item.args)
+                    if item.keywords:
+                        pending.append(dict(item.keywords))
+                elif isinstance(item, _types_module.FunctionType):
+                    closure = item.__closure__
+                    if closure:
+                        for cell in closure:
+                            try:
+                                pending.append(cell.cell_contents)
+                            except Exception:
+                                continue
+                    if item.__defaults__:
+                        pending.extend(item.__defaults__)
+                    if item.__kwdefaults__:
+                        pending.extend(item.__kwdefaults__.values())
+                elif isinstance(item, _types_module.MethodType):
+                    pending.append(item.__self__)
+                    pending.append(item.__func__)
+                elif isinstance(item, property):
+                    for accessor in (item.fget, item.fset, item.fdel):
+                        if accessor is not None:
+                            pending.append(accessor)
+                elif isinstance(
+                    item,
+                    (
+                        list,
+                        tuple,
+                        set,
+                        frozenset,
+                        _collections.deque,
+                        _collections.UserList,
+                    ),
+                ):
+                    pending.extend(item)
+            except Exception:
+                pass
+            mapping = getattr(item, "__dict__", None)
+            if isinstance(mapping, dict):
+                pending.append(mapping)
+            for klass in type(item).__mro__:
+                slots = klass.__dict__.get("__slots__")
+                if not slots:
+                    continue
+                if isinstance(slots, str):
+                    slots = (slots,)
+                for slot in slots:
+                    try:
+                        pending.append(
+                            getattr(item, _slot_storage_name(klass, slot))
+                        )
+                    except Exception:
+                        pass
+        return nodes
+
+    def _functions_with_replacement_defaults(root, replacements):
+        marked = []
+        for node in _walk_nodes(root):
+            if not isinstance(node, _types_module.FunctionType):
+                continue
+            defaults = list(node.__defaults__ or ())
+            if node.__kwdefaults__:
+                defaults.extend(node.__kwdefaults__.values())
+            for default in defaults:
+                if any(
+                    id(part) in replacements
+                    for part in _walk_nodes(default)
+                ):
+                    marked.append(node)
+                    break
+        return marked
+
+    def _function_with_copied_defaults(func):
+        if func.__defaults__:
+            new_defaults = tuple(
+                _bundle_copy(part) for part in func.__defaults__
+            )
+        else:
+            new_defaults = None
+        built = _types_module.FunctionType(
+            func.__code__,
+            func.__globals__,
+            func.__name__,
+            new_defaults,
+            func.__closure__,
+        )
+        if func.__kwdefaults__:
+            built.__kwdefaults__ = {
+                key: _bundle_copy(part)
+                for key, part in func.__kwdefaults__.items()
+            }
+        if func.__dict__:
+            built.__dict__.update(_bundle_copy(dict(func.__dict__)))
+        try:
+            built.__module__ = func.__module__
+        except Exception:
+            pass
+        try:
+            built.__qualname__ = func.__qualname__
+        except Exception:
+            pass
+        try:
+            if func.__annotations__:
+                built.__annotations__ = dict(func.__annotations__)
+        except Exception:
+            pass
+        return built
+
+    _lock_type = type(_threading_module.Lock())
+
+    def _fallback_holds_uncopyable(value):
+        pending = [value]
+        seen = set()
+        while pending:
+            item = pending.pop()
+            if isinstance(item, (_types_module.GeneratorType, _lock_type)):
+                return True
+            if isinstance(item, _enum_module.Enum):
+                continue
+            if _is_atom(item):
+                continue
+            if id(item) in seen:
+                continue
+            seen.add(id(item))
+            try:
+                if isinstance(item, dict):
+                    pending.extend(item.keys())
+                    pending.extend(item.values())
+                elif isinstance(item, _collections.ChainMap):
+                    pending.extend(item.maps)
+                elif isinstance(item, _collections.UserDict):
+                    pending.append(item.data)
+                elif isinstance(item, _weakref_module.WeakSet):
+                    pending.extend(list(item))
+                elif isinstance(
+                    item,
+                    (
+                        _weakref_module.WeakKeyDictionary,
+                        _weakref_module.WeakValueDictionary,
+                    ),
+                ):
+                    pending.extend(list(item.keys()))
+                    pending.extend(list(item.values()))
+                elif isinstance(
+                    item, _types_module.MappingProxyType
+                ):
+                    pending.extend(list(item.keys()))
+                    pending.extend(list(item.values()))
+                elif isinstance(
+                    item,
+                    (
+                        _abc_module.KeysView,
+                        _abc_module.ValuesView,
+                        _abc_module.ItemsView,
+                    ),
+                ):
+                    pending.extend(list(item))
+                elif isinstance(item, _weakref_module.ReferenceType):
+                    target = item()
+                    if target is not None:
+                        pending.append(target)
+                elif isinstance(item, _functools_module.partial):
+                    pending.append(item.func)
+                    pending.extend(item.args)
+                    if item.keywords:
+                        pending.append(dict(item.keywords))
+                elif isinstance(item, _types_module.MethodType):
+                    pending.append(item.__self__)
+                elif isinstance(
+                    item,
+                    (
+                        list,
+                        tuple,
+                        set,
+                        frozenset,
+                        _collections.deque,
+                        _collections.UserList,
+                    ),
+                ):
+                    pending.extend(item)
+            except Exception:
+                pass
+            mapping = getattr(item, "__dict__", None)
+            if isinstance(mapping, dict):
+                pending.append(mapping)
+            for klass in type(item).__mro__:
+                slots = klass.__dict__.get("__slots__")
+                if not slots:
+                    continue
+                if isinstance(slots, str):
+                    slots = (slots,)
+                for slot in slots:
+                    try:
+                        pending.append(
+                            getattr(item, _slot_storage_name(klass, slot))
+                        )
+                    except Exception:
+                        pass
+        return False
 
     def _attr_mapping(value):
         mapping = getattr(value, "__dict__", None)
@@ -1141,11 +1459,17 @@ def _bundle_copy(bundle):
             raise ValueError(
                 "enum member with mutable instance state in bundle copy"
             )
+        if _fallback_holds_uncopyable(current):
+            raise ValueError("uncopyable value in bundle copy")
         replacements = _fallback_replacements(current)
         if replacements:
             deep_memo = {}
             for marker, part in replacements.items():
                 deep_memo[marker] = _bundle_copy(part)
+            for func in _functions_with_replacement_defaults(
+                current, replacements
+            ):
+                deep_memo[id(func)] = _function_with_copied_defaults(func)
             built = _copy_module.deepcopy(current, deep_memo)
         else:
             built = _copy_module.deepcopy(current)
