@@ -301,6 +301,72 @@ class TestStoreFixR3(unittest.TestCase):
         self.assertFalse(result["supports_judging_use"])
 
 
+class TestStoreFixR4(unittest.TestCase):
+    """Fix round 4 STORE and sealing cure, written test first.
+
+    Covers N-06 (the decoded against carried comparison in
+    the sealing chain check stands exact in type as well as
+    in value, so a carried field whose type differs from the
+    decoded type returns disagreement with content_mismatch
+    among the failed checks, at the record comparison and
+    at the store_sequence place check beside it).
+    """
+
+    def test_store_sequence_replaced_by_true_returns_disagreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        store = module.golden_record_store()
+        store["records"][0]["store_sequence"] = True
+        result = module.verify(store)
+        self.assertEqual(result.get("output"), "disagreement")
+        self.assertIn("content_mismatch", result.get("failed_checks", []))
+        direct = sealing.verify(store)
+        self.assertEqual(direct.get("output"), "disagreement")
+        self.assertIn("content_mismatch", direct.get("failed_checks", []))
+
+    def test_store_sequence_replaced_by_float_returns_disagreement(self):
+        module = require(MODULE)
+        sealing = require("ontoloop.sealing")
+        store = module.golden_record_store()
+        store["records"][1]["store_sequence"] = 2.0
+        result = module.verify(store)
+        self.assertEqual(result.get("output"), "disagreement")
+        self.assertIn("content_mismatch", result.get("failed_checks", []))
+        direct = sealing.verify(store)
+        self.assertEqual(direct.get("output"), "disagreement")
+        self.assertIn("content_mismatch", direct.get("failed_checks", []))
+
+    def test_content_int_replaced_by_true_returns_disagreement(self):
+        module = require(MODULE)
+        store = module.golden_record_store()
+        outcome = module.append_record(store, {"n": 1}, "record")
+        self.assertTrue(outcome.get("appended"))
+        store["records"][-1]["content"] = {"n": True}
+        result = module.verify(store)
+        self.assertEqual(result.get("output"), "disagreement")
+        self.assertIn("content_mismatch", result.get("failed_checks", []))
+
+    def test_content_int_replaced_by_float_returns_disagreement(self):
+        module = require(MODULE)
+        store = module.golden_record_store()
+        outcome = module.append_record(store, {"n": 1}, "record")
+        self.assertTrue(outcome.get("appended"))
+        store["records"][-1]["content"] = {"n": 1.0}
+        result = module.verify(store)
+        self.assertEqual(result.get("output"), "disagreement")
+        self.assertIn("content_mismatch", result.get("failed_checks", []))
+
+    def test_genuine_records_still_agree_exactly(self):
+        module = require(MODULE)
+        store = module.golden_record_store()
+        outcome = module.append_record(store, {"n": 1}, "record")
+        self.assertTrue(outcome.get("appended"))
+        result = module.verify(store)
+        self.assertEqual(result.get("output"), "agreement")
+        plain = module.verify(module.golden_record_store())
+        self.assertEqual(plain.get("output"), "agreement")
+
+
 class TestStoreT05(unittest.TestCase):
     """STORE-T05: sync and write failures, platform refusal kept."""
 

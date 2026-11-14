@@ -432,6 +432,46 @@ def sign_store(store):
     return {"signature_object": signature_object, "anchor": anchor}
 
 
+def _exact_equal(decoded, carried):
+    """Return True only where decoded and carried match exactly.
+
+    Exact stands in type as well as in value, recursively for
+    mappings and sequences: the integer 1, the boolean True,
+    and the float 1.0 stand as different values here, although
+    ordinary equality holds them equal, and a nested value
+    standing in a different type from its decoded form, such
+    as a content value of True or 1.0 in place of 1, stands
+    different as well. Mapping keys stand matched by this
+    same exact test, never by a coercive lookup.
+    """
+    if type(decoded) is not type(carried):
+        return False
+    if isinstance(decoded, dict):
+        if len(decoded) != len(carried):
+            return False
+        carried_keys = list(carried.keys())
+        for decoded_key, decoded_value in decoded.items():
+            match = None
+            for position, carried_key in enumerate(carried_keys):
+                if _exact_equal(decoded_key, carried_key):
+                    match = position
+                    break
+            if match is None:
+                return False
+            carried_key = carried_keys.pop(match)
+            if not _exact_equal(decoded_value, carried[carried_key]):
+                return False
+        return True
+    if isinstance(decoded, (list, tuple)):
+        if len(decoded) != len(carried):
+            return False
+        return all(
+            _exact_equal(decoded_item, carried_item)
+            for decoded_item, carried_item in zip(decoded, carried)
+        )
+    return decoded == carried
+
+
 def _chain_check(records):
     """Recompute the chain, returning its standing in full.
 
@@ -444,7 +484,12 @@ def _chain_check(records):
     recomputed and linked, so the records before a failure at a
     non final index form a chain consistent prefix by
     construction, and a failure with no index at or after it is a
-    failure at the final line.
+    failure at the final line. The decoded against carried
+    comparison stands exact in type as well as in value, and
+    the store sequence place check beside it stands exact in
+    type as well, so a value equal coercion in another type,
+    such as True or 2.0 in place of a sequence integer, stands
+    as a content mismatch.
     """
     previous_hash = None
     head = None
@@ -466,7 +511,7 @@ def _chain_check(records):
                     "store_sequence": record.get("store_sequence"),
                     "record_type": record.get("record_type"),
                 }
-                if decoded != carried:
+                if not _exact_equal(decoded, carried):
                     return {
                         "consistent": False,
                         "fail_index": index,
@@ -485,10 +530,18 @@ def _chain_check(records):
             return {"consistent": False, "fail_index": index}
         if index > 0 and record.get("predecessor_hash") != previous_hash:
             return {"consistent": False, "fail_index": index}
-        if "store_sequence" in record and (
-            record.get("store_sequence") != index + 1
-        ):
-            return {"consistent": False, "fail_index": index}
+        if "store_sequence" in record:
+            sequence_value = record.get("store_sequence")
+            if type(sequence_value) is not int:
+                if sequence_value == index + 1:
+                    return {
+                        "consistent": False,
+                        "fail_index": index,
+                        "failed_checks": ["content_mismatch"],
+                    }
+                return {"consistent": False, "fail_index": index}
+            if sequence_value != index + 1:
+                return {"consistent": False, "fail_index": index}
         previous_hash = recomputed
         head = recomputed
     return {"consistent": True, "head": head}
