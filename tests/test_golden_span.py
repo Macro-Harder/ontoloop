@@ -168,5 +168,52 @@ class TestGoldenT04(unittest.TestCase):
         stage_carried(STAGE_REASON_T04)
 
 
+class TestGoldenReReadWindowTypeFixR3(unittest.TestCase):
+    """Fix round 3, S15-R3-011: the reader window type limb.
+
+    The window limb refuses a schema version that does not
+    stand as an integer of the window, in the same refusal
+    case the limb already returns, beside the standing
+    integer cases. This entry stands beside S15-R1-065 and
+    does not reopen it.
+    """
+
+    def _sound_record(self):
+        module = require(MODULE)
+        golden = module.golden_record_sets()
+        for record in golden["records"].values():
+            if record["schema_version"] == 1:
+                return record
+        return next(iter(golden["records"].values()))
+
+    def test_boolean_and_float_versions_stand_refused(self):
+        module = require(MODULE)
+        sound = self._sound_record()
+        for wrong_type in (True, 1.0):
+            record = dict(sound)
+            record["schema_version"] = wrong_type
+            reread = module.re_read(record)
+            self.assertFalse(reread["read"], wrong_type)
+            self.assertEqual(
+                reread["refusal"]["case"],
+                "schema version outside the reader window",
+                wrong_type,
+            )
+
+    def test_standing_integer_cases_stand_as_they_stood(self):
+        module = require(MODULE)
+        sound = self._sound_record()
+        reread = module.re_read(dict(sound))
+        self.assertTrue(reread["read"])
+        outside = dict(sound)
+        outside["schema_version"] = 999
+        refused = module.re_read(outside)
+        self.assertFalse(refused["read"])
+        self.assertEqual(
+            refused["refusal"]["case"],
+            "schema version outside the reader window",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

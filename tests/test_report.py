@@ -404,5 +404,74 @@ class ProductionReportFormFixR2Tests(unittest.TestCase):
         self.assertFalse(form["counts_present"])
 
 
+class SealClaimScanSubstanceFixR3Tests(unittest.TestCase):
+    """Fix round 3, S15-R3-018: the seal claim judgement in substance.
+
+    A statement counts as a claim statement where it states a
+    seal, verify, or confinement claim in substance, beyond the
+    listed subject words. A conditional or negated marker
+    excuses a claim only where it governs that claim, so a
+    compound statement joining an unconditional claim clause
+    to an unrelated conditional or negated clause fails on the
+    claim clause, as the same clause standing alone fails.
+    """
+
+    OUTSIDE_WORDING = (
+        "Agents are confined.",
+        "Exposure is controlled at all times.",
+        "Record integrity stands guaranteed for every store.",
+        "Each envelope is tamper proof.",
+        "Every record stands attested before use.",
+        "Authenticity of each entry stands certified.",
+    )
+
+    def test_claims_outside_the_subject_list_fail(self):
+        mod = harness.require("ontoloop.report")
+        for statement in self.OUTSIDE_WORDING:
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertFalse(result["passed"], statement)
+
+    def test_compound_statement_fails_as_the_claim_clause_alone_fails(self):
+        mod = harness.require("ontoloop.report")
+        control = "The seal guarantees protection."
+        compounds = (
+            "The seal guarantees protection and does not expire.",
+            "The seal guarantees protection and the schedule "
+            "is conditional on the weather.",
+        )
+        self.assertFalse(mod._seal_claim_scan(control))
+        for statement in compounds:
+            self.assertFalse(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertFalse(result["passed"], statement)
+
+    def test_governed_forms_and_clean_assemblies_still_pass(self):
+        mod = harness.require("ontoloop.report")
+        governed = (
+            "The seal stands conditional on signing "
+            "at signed strength only.",
+            "The seal guarantees protection conditional on "
+            "the deployment confinement fact.",
+            "Records stand attested conditional on "
+            "the deployment confinement fact.",
+            "Record integrity stands guaranteed conditional on "
+            "the deployment confinement fact.",
+            "The seal does not guarantee protection.",
+        )
+        for statement in governed:
+            self.assertTrue(mod._seal_claim_scan(statement), statement)
+            result = mod.fixed_text_travel_lint(
+                assembly="export", content=statement)
+            self.assertTrue(result["passed"], statement)
+        result = mod.lint_report_construction()
+        self.assertTrue(result["seal_claim_lint_passed"])
+        self.assertTrue(result["fixed_text_travel_lint_passed"])
+        travel = mod.fixed_text_travel_lint(assembly="export")
+        self.assertTrue(travel["passed"])
+
+
 if __name__ == "__main__":
     unittest.main()

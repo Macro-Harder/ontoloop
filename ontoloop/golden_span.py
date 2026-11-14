@@ -191,9 +191,12 @@ def re_read(record):
     keys, record identity, record type, schema version,
     and payload. Its record type must stand among the
     record types the dictionary inventory states. Its
-    schema version must stand inside the reader window
-    the landed CORE position presents, lower edge to
-    reader version inclusive. Its payload must stand
+    schema version must stand as an integer inside the
+    reader window the landed CORE position presents,
+    lower edge to reader version inclusive: a version
+    of another type stands outside the window in the
+    same refusal case, whatever value it equals. Its
+    payload must stand
     as a mapping whose keys stand exactly as the field
     names the inventory states for its record type.
     A record passing every limb returns read True with
@@ -221,7 +224,10 @@ def re_read(record):
             return refusal("envelope key missing: " + key)
     if record["record_type"] not in _record_types():
         return refusal("record type unlisted")
-    if record["schema_version"] not in _schema_versions():
+    version = record["schema_version"]
+    if isinstance(version, bool) or not isinstance(version, int):
+        return refusal("schema version outside the reader window")
+    if version not in _schema_versions():
         return refusal("schema version outside the reader window")
     payload = record["payload"]
     if not isinstance(payload, dict):

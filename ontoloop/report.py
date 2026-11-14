@@ -555,16 +555,99 @@ _SEAL_CLAIM_PHRASES = (
     "controlled exposure claimed",
 )
 
-# The subjects a Section 7.1 claim statement speaks of.
-_CLAIM_SUBJECTS = (
+# The concept roots a Section 7.1 claim statement speaks
+# of, in substance. A statement counts as a claim
+# statement where a clause of it carries one of these
+# concepts in an asserted form, whatever wording carries
+# the concept: the listed subject words of the earlier
+# form stand inside these roots, not as their boundary.
+# Sealing concepts come first, then verification
+# concepts, then confinement concepts.
+_CLAIM_CONCEPT_ROOTS = (
     "seal",
-    "sealed",
-    "sealing",
-    "verify",
-    "verified",
-    "verification",
-    "confinement",
-    "controlled exposure",
+    "tamper",
+    "integrity",
+    "protect",
+    "verif",
+    "attest",
+    "certif",
+    "authentic",
+    "validat",
+    "confin",
+    "contain",
+    "control",
+    "expos",
+    "isolat",
+    "restrict",
+    "prevent",
+    "quarantin",
+    "egress",
+    "leak",
+    "segregat",
+)
+
+# The exact assertion words, beside the assertion roots
+# below. A clause carrying a claim concept in one of
+# these asserted forms states a claim. A fragment with
+# no asserted form states none, whatever concept word it
+# happens to carry in a label or a name.
+_ASSERTION_WORDS = (
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "am",
+    "can",
+    "cannot",
+    "must",
+    "shall",
+    "will",
+    "do",
+    "does",
+    "did",
+    "has",
+    "have",
+    "had",
+    "held",
+    "kept",
+    "bound",
+)
+
+# The assertion roots. A word beginning with one of
+# these roots stands in asserted form in a clause.
+_ASSERTION_ROOTS = (
+    "stand",
+    "remain",
+    "guarante",
+    "assur",
+    "ensur",
+    "prevent",
+    "block",
+    "hold",
+    "keep",
+    "bind",
+    "appl",
+    "cover",
+    "protect",
+    "check",
+    "prov",
+    "confirm",
+    "validat",
+    "seal",
+    "verif",
+    "confin",
+    "contain",
+    "control",
+    "isolat",
+    "restrict",
+    "resist",
+    "stay",
+    "lock",
+    "provid",
+    "attest",
+    "certif",
 )
 
 # The wordings that mark a claim statement as standing
@@ -579,8 +662,6 @@ _UNCONDITIONAL_MARKERS = (
     "at all times",
     "without exception",
     "no exception",
-    "guaranteed",
-    "assured",
     "binds all",
     "applies to all",
     "all actors",
@@ -589,19 +670,40 @@ _UNCONDITIONAL_MARKERS = (
     "every surface",
 )
 
-# The wordings that carry the governed conditional or
-# negated form of a claim, so a statement carrying one
-# of them does not stand as an unconditional claim.
-_CONDITIONAL_MARKERS = (
+# The wordings that carry the governed conditional form
+# of a claim. Such a wording excuses a claim only where
+# it governs that claim: standing in the claim clause
+# itself, or standing in a fragment clause of the same
+# statement, a clause with no asserted form of its own
+# that reads as the condition of the statement claim.
+# A conditional wording standing in a clause that
+# asserts something else governs that other assertion,
+# not the claim, and excuses nothing.
+_GOVERNING_CONDITION_PHRASES = (
     "conditional on",
-    "conditional",
     "conditioned on",
-    "provided",
+    "conditional",
     "subject to",
+    "provided",
     "at signed strength only",
     "signed strength only",
+    "except under",
+    "except where",
+    "only where",
+    "only when",
+    "only if",
+)
+
+# The wordings that carry a negated form of a claim. A
+# negation excuses a claim only where it stands in the
+# claim clause itself, negating that claim. A negation
+# standing in another clause of the statement, speaking
+# of another matter, governs that other matter only.
+_NEGATED_CLAIM_MARKERS = (
     "does not",
     "do not",
+    "did not",
+    "cannot",
     "not claimed",
     "no claim stands",
     "never claimed",
@@ -628,19 +730,91 @@ def _assembly_text(assembly):
     return "\n".join(parts)
 
 
+# The finite verb words. A clause carrying none of
+# these stands as a fragment: it asserts nothing of its
+# own, so a governing condition phrase standing in it
+# reads as the condition of the claim of its statement.
+_FINITE_VERB_WORDS = (
+    "is", "are", "was", "were", "be", "been", "am",
+    "do", "does", "did", "can", "cannot", "must",
+    "shall", "will", "has", "have", "had",
+    "stands", "stand", "stood", "remains", "remain",
+    "guarantees", "guarantee", "assures", "assure",
+    "ensures", "ensure", "prevents", "prevent",
+    "blocks", "block", "holds", "hold", "keeps", "keep",
+    "binds", "bind", "applies", "apply", "covers",
+    "cover", "protects", "protect", "checks", "check",
+    "proves", "prove", "confirms", "confirm",
+    "validates", "validate", "seals", "seal",
+    "verifies", "verify", "confines", "confine",
+    "contains", "contain", "controls", "control",
+    "isolates", "isolate", "restricts", "restrict",
+    "resists", "resist", "stays", "stay", "locks",
+    "lock", "provides", "provide", "attests", "attest",
+    "certifies", "certify", "requires", "require",
+    "spends", "spend", "judges", "judge", "agrees",
+    "agree", "shows", "show", "lists", "list",
+    "carries", "carry", "names", "name", "states",
+    "state",
+)
+
+
+def _clause_words(clause):
+    import re
+
+    return re.findall(r"[a-z]+", clause)
+
+
+def _clause_asserted(clause):
+    """Return True where a clause stands in asserted form."""
+    for word in _clause_words(clause):
+        if word in _ASSERTION_WORDS:
+            return True
+        if any(word.startswith(root) for root in _ASSERTION_ROOTS):
+            return True
+    return False
+
+
+def _clause_claim(clause):
+    """Return True where a clause states a claim in substance.
+
+    A clause states a claim where it carries a seal,
+    verify, or confinement concept in an asserted form.
+    The concept roots reach beyond the listed subject
+    words, so a claim phrased in fresh wording on any of
+    the three matters stands judged, and a concept word
+    standing in a label or a name, with no asserted form
+    in its clause, states no claim.
+    """
+    if not _clause_asserted(clause):
+        return False
+    return any(
+        word.startswith(root)
+        for word in _clause_words(clause)
+        for root in _CLAIM_CONCEPT_ROOTS
+    )
+
+
 def _seal_claim_scan(assembly_text):
     """Return True where no unconditional claim stands.
 
-    The judgement runs over each statement of the text.
-    A statement speaking of a seal, verify, or
-    confinement claim fails the scan where it carries
-    an unconditional marker, in whatever wording, and
-    it fails where it carries neither the governed
-    conditional form nor a negated form of the claim:
-    a claim stated without its condition stands
-    unconditional as stated. The listed phrases above
-    stand as examples inside this judgement, refused
-    outright, not as its boundary.
+    The judgement runs clause by clause over each
+    statement of the text. A clause stating a seal,
+    verify, or confinement claim in substance fails the
+    scan where it carries an unconditional marker, in
+    whatever wording, and it fails where no governed
+    conditional form and no negation governs that
+    clause: a conditional or negated marker excuses a
+    claim only where it governs that claim, standing in
+    the claim clause itself, or, for a condition,
+    standing in a fragment clause of the same statement
+    that reads as the condition of the statement claim.
+    A compound statement joining an unconditional claim
+    clause to an unrelated conditional or negated clause
+    therefore fails on the claim clause, as the same
+    clause standing alone fails. The listed phrases
+    above stand as examples inside this judgement,
+    refused outright, not as its boundary.
     """
     import re
 
@@ -649,16 +823,55 @@ def _seal_claim_scan(assembly_text):
         if phrase in lowered:
             return False
     for statement in re.split(r"[.;\n]+", lowered):
-        if not any(
-            re.search(r"\b" + re.escape(subject) + r"\b", statement)
-            for subject in _CLAIM_SUBJECTS
-        ):
-            continue
-        if any(marker in statement for marker in _UNCONDITIONAL_MARKERS):
+        clauses = re.split(r",|\band\b|\bbut\b|\byet\b", statement)
+        governed_by_fragment = any(
+            not any(
+                word in _FINITE_VERB_WORDS
+                for word in _clause_words(clause)
+            )
+            and any(
+                phrase in clause
+                for phrase in _GOVERNING_CONDITION_PHRASES
+            )
+            for clause in clauses
+        )
+        for clause in clauses:
+            if not _clause_claim(clause):
+                continue
+            if any(
+                marker in clause for marker in _UNCONDITIONAL_MARKERS
+            ):
+                return False
+            if any(
+                phrase in clause
+                for phrase in _GOVERNING_CONDITION_PHRASES
+            ):
+                continue
+            words = _clause_words(clause)
+            negated = (
+                "not" in words
+                or "never" in words
+                or any(
+                    marker in clause for marker in _NEGATED_CLAIM_MARKERS
+                )
+                or any(
+                    word == "no"
+                    and index + 1 < len(words)
+                    and (
+                        words[index + 1] == "claim"
+                        or any(
+                            words[index + 1].startswith(root)
+                            for root in _CLAIM_CONCEPT_ROOTS
+                        )
+                    )
+                    for index, word in enumerate(words)
+                )
+            )
+            if negated:
+                continue
+            if governed_by_fragment:
+                continue
             return False
-        if any(marker in statement for marker in _CONDITIONAL_MARKERS):
-            continue
-        return False
     return True
 
 
