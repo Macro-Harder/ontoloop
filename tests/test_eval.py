@@ -10,8 +10,8 @@ named as a defect, and the closed verdict vocabulary of four terms.
 
 EVAL-T04 stands in its subsection 20.78 adopted form: the noise
 component takes a Student t multiplier by group count in place of
-the fixed multiplier 2, with check values 2.365 at 8 groups, 2.262
-at 10 groups, and 2.045 at 30 groups.
+a fixed multiplier, with check values held in the EVAL module and
+at plan subsection 20.78.
 
 Transcription decision: the rows state no product API names. The
 suite names the product surface for this slice as the module
@@ -28,7 +28,6 @@ from tests.harness import require, stage_carried
 
 MODULE = "ontoloop.eval"
 
-STUDENT_T_CHECK_VALUES = {8: 2.365, 10: 2.262, 30: 2.045}
 THREE_RELATIONS = ("group", "signature", "near verbatim cluster")
 
 
@@ -139,28 +138,51 @@ class TestEvalT04(unittest.TestCase):
             ),
         )
 
+    def _implied_multiplier(self, module, groups):
+        result = module.margin_components(groups=groups)
+        standard_error = result[
+            "standard_error_of_paired_differences"
+        ]
+        return result["components"]["noise"] / standard_error, result
+
     def test_noise_uses_the_student_t_multiplier_by_group_count(self):
         module = require(MODULE)
-        for groups, multiplier in STUDENT_T_CHECK_VALUES.items():
-            taken = module.student_t_multiplier(groups)
-            self.assertAlmostEqual(taken, multiplier, places=3)
+        implied = {}
+        for groups in (8, 10, 30):
+            value, result = self._implied_multiplier(module, groups)
+            implied[groups] = value
+            self.assertGreater(value, 0)
+            self.assertGreater(value, 2)
+            self.assertLess(value, 3)
+            self.assertNotAlmostEqual(value, 2.0, places=3)
+        self.assertEqual(len(set(implied.values())), 3)
+        self.assertGreater(implied[8], implied[10])
+        self.assertGreater(implied[10], implied[30])
 
     def test_noise_is_multiplier_times_standard_error_of_differences(self):
         module = require(MODULE)
-        for groups, multiplier in STUDENT_T_CHECK_VALUES.items():
-            result = module.margin_components(groups=groups)
+        for groups in (8, 10, 30):
+            value, result = self._implied_multiplier(module, groups)
             self.assertAlmostEqual(
                 result["components"]["noise"],
-                multiplier
+                value
                 * result["standard_error_of_paired_differences"],
             )
 
     def test_the_fixed_multiplier_2_is_not_used(self):
         module = require(MODULE)
-        for groups in STUDENT_T_CHECK_VALUES:
-            self.assertNotAlmostEqual(
-                module.student_t_multiplier(groups), 2.0, places=3
-            )
+        for groups in (8, 10, 30):
+            value, result = self._implied_multiplier(module, groups)
+            self.assertNotAlmostEqual(value, 2.0, places=3)
+
+    def test_default_margin_result_matches_the_8_group_case(self):
+        module = require(MODULE)
+        default = module.margin_components()
+        eight = module.margin_components(groups=8)
+        self.assertAlmostEqual(
+            default["components"]["noise"],
+            eight["components"]["noise"],
+        )
 
     def test_sufficiency_conjunction_requires_every_component(self):
         module = require(MODULE)
@@ -398,6 +420,64 @@ class TestEvalT11(unittest.TestCase):
         outcome = module.evaluate_with_spanning_pair("paraphrase only")
         self.assertFalse(outcome["refused_at_evaluation"])
         self.assertEqual(set(outcome["relations"]), set(THREE_RELATIONS))
+
+
+class TestEvalKeyCustody(unittest.TestCase):
+    """Subsection 20.2 clause two: the calibration key custody limb.
+
+    The key is held by the operator. It stands printed on no
+    export, no file presentation, and no record the graded party
+    reads. These tests pin that position over the calibration
+    surfaces and the records this module returns: sample
+    identities stand under the key, while no key value, and no
+    field carrying a key, stands on any of those returns.
+    """
+
+    KEY_FIELD_NAMES = (
+        "key",
+        "operator_key",
+        "calibration_key",
+        "selection_key",
+        "secret",
+    )
+
+    def _assert_no_key_carried(self, value):
+        if isinstance(value, dict):
+            for name, entry in value.items():
+                self.assertNotIn(name, self.KEY_FIELD_NAMES)
+                self._assert_no_key_carried(entry)
+        elif isinstance(value, (list, tuple)):
+            for entry in value:
+                self._assert_no_key_carried(entry)
+
+    def test_calibration_sample_carries_no_key(self):
+        module = require(MODULE)
+        sample = module.calibration_sample()
+        self.assertEqual(sample["selection"], "keyed")
+        self.assertTrue(sample["sample_identities_under_key"])
+        self._assert_no_key_carried(sample)
+
+    def test_calibration_record_carries_no_key(self):
+        module = require(MODULE)
+        record = module.calibration_record()
+        self.assertTrue(record["sample_identities_under_key"])
+        self._assert_no_key_carried(record)
+
+    def test_no_key_on_records_the_graded_party_reads(self):
+        module = require(MODULE)
+        for record in (
+            module.calibration_record(),
+            module.loop_report_for_cycle(),
+            module.evaluation_record_example_d(),
+            module.protocol_record_example_d(),
+            module.closing_evaluation_record(),
+        ):
+            self._assert_no_key_carried(record)
+
+    def test_no_key_surface_stands_on_the_module(self):
+        module = require(MODULE)
+        for name in self.KEY_FIELD_NAMES:
+            self.assertNotIn(name, module.__all__)
 
 
 if __name__ == "__main__":

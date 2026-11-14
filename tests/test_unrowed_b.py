@@ -470,6 +470,11 @@ class TestUnrowed1936EvaluationCallPoint(unittest.TestCase):
         outcome = module.audit_at_evaluation("flagged material in bundle")
         self.assertTrue(outcome["candidate_bundle_refused"])
 
+    def test_no_promotion_proceeds_on_the_refused_bundle_at_evaluation(self):
+        module = require("ontoloop.cross_split_audit")
+        outcome = module.audit_at_evaluation("flagged material in bundle")
+        self.assertFalse(outcome["promotion_proceeded"])
+
     def test_record_home_is_the_evaluation_record(self):
         module = require("ontoloop.cross_split_audit")
         outcome = module.audit_at_evaluation("flagged material in bundle")
@@ -511,6 +516,91 @@ class TestUnrowed1936PromotionCallPoint(unittest.TestCase):
         module = require("ontoloop.cross_split_audit")
         outcome = module.audit_at_promotion("flagged material in bundle")
         self.assertEqual(outcome["record_home"], "Promotion Record")
+
+    def test_charging_at_promotion_where_a_case_was_scored_first(self):
+        module = require("ontoloop.cross_split_audit")
+        outcome = module.audit_at_promotion(
+            "flagged material in bundle", scored_before_refusal=True
+        )
+        self.assertEqual(outcome["completed_evaluations_charged"], 1)
+
+    def test_charging_at_promotion_where_no_case_was_scored(self):
+        module = require("ontoloop.cross_split_audit")
+        outcome = module.audit_at_promotion(
+            "flagged material in bundle", scored_before_refusal=False
+        )
+        self.assertEqual(outcome["completed_evaluations_charged"], 0)
+
+
+# ------------------------------------------------------------------
+# Subsection 19.94, the dataset build audit bounding rule.
+# Obligation as stated: pair comparisons grow with the square of
+# the material compared; comparisons run over an index keyed on
+# the group and signature relations, so pairs sharing neither
+# relation are not compared; pairs the index selects carry the
+# full comparison. Revisit volume: 20,000 runs in scope, guessed.
+# Example E prices a cross split audit comparison per pair at
+# 5 work units, guessed.
+# Transcription choice: one test case class in this file,
+# exercised through the module ontoloop.cross_split_audit, with
+# candidate and holdout items presented as mappings carrying a
+# group, a signature, and a text, so the index selection and the
+# per pair cost counting are exercised in fact.
+# ------------------------------------------------------------------
+class TestUnrowed1994CrossSplitIndex(unittest.TestCase):
+    """Subsection 19.94: comparisons over the keyed index only."""
+
+    def _material(self, candidate, holdout):
+        return {
+            "candidate_items": candidate,
+            "holdout_items": holdout,
+        }
+
+    def test_pairs_sharing_neither_relation_are_not_compared(self):
+        module = require("ontoloop.cross_split_audit")
+        result = module.indexed_comparisons(
+            self._material(
+                [{"group": "g1", "signature": "s1",
+                  "text": "alpha beta gamma"}],
+                [{"group": "g2", "signature": "s2",
+                  "text": "delta epsilon zeta"}],
+            )
+        )
+        self.assertEqual(result["comparisons"], 0)
+        self.assertEqual(result["cost_units"], 0)
+
+    def test_a_pair_sharing_a_group_is_compared_at_the_example_e_weight(self):
+        module = require("ontoloop.cross_split_audit")
+        result = module.indexed_comparisons(
+            self._material(
+                [{"group": "g1", "signature": "s1",
+                  "text": "alpha beta gamma"}],
+                [{"group": "g1", "signature": "s2",
+                  "text": "delta epsilon zeta"}],
+            )
+        )
+        self.assertEqual(result["comparisons"], 1)
+        self.assertEqual(result["cost_weight_per_pair"], 5)
+        self.assertEqual(result["cost_units"], 5)
+
+    def test_cost_counts_every_selected_pair_and_no_other_pair(self):
+        module = require("ontoloop.cross_split_audit")
+        result = module.indexed_comparisons(
+            self._material(
+                [{"group": "g1", "signature": "s1",
+                  "text": "alpha beta gamma"},
+                 {"group": "g3", "signature": "s3",
+                  "text": "eta theta iota"}],
+                [{"group": "g1", "signature": "s9",
+                  "text": "delta epsilon zeta"},
+                 {"group": "g9", "signature": "s3",
+                  "text": "kappa lambda mu"}],
+            )
+        )
+        self.assertEqual(result["comparisons"], 2)
+        self.assertEqual(result["cost_units"], 10)
+        self.assertEqual(result["revisit_volume_runs"], 20000)
+        self.assertFalse(result["all_pairs_compared"])
 
 
 # ------------------------------------------------------------------

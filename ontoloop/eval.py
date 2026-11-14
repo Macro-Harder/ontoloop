@@ -41,7 +41,15 @@ __all__ = [
     "aggregate_example",
     "evaluate_example_d",
     "margin_components",
-    "student_t_multiplier",
+    "calibration_outcome",
+    "calibration_sample",
+    "calibration_record",
+    "calibration_record_homes",
+    "calibration_cadence",
+    "calibration_re_grade_case",
+    "proceeding_decision_for_flagged_version",
+    "loop_report_for_cycle",
+    "closing_evaluation_record",
     "estimate_and_start",
     "example_e_weights",
     "move_pointer_between_evaluation_and_promotion",
@@ -80,6 +88,16 @@ _STUDENT_T_MULTIPLIERS = {8: 2.365, 10: 2.262, 30: 2.045}
 # and in the fragment paper, under the build entry
 # disposition of DG-9.
 _DEFAULT_GROUPS = 8
+
+# The conditional marking carried as data on every
+# margin result, in the governing words of plan
+# subsection 18.101 point two. The marking travels
+# attached to the figures it marks, on the margin
+# result itself, on the margin section of the
+# evaluation record, and on the protocol record.
+# Stating the marking in this form settles nothing
+# about the banked item it names.
+_CONDITIONAL_MARKING = "conditional on BQ-15 through D-16"
 
 # The margin figures. The D-1 value stands grounded
 # in its guessed form as the header states. The D-2
@@ -248,20 +266,22 @@ def evaluate_example_d(case):
     raise ValueError("unknown Example D case: %r" % (case,))
 
 
-def student_t_multiplier(groups):
-    """Student t multiplier value, EVAL-T04.
+def _student_t_multiplier(groups):
+    """Student t multiplier value, private to this module.
 
     Takes one integer group count, standing as the
     count of complete pairs in the judgement, and
     returns the Student t multiplier for that count
-    from the adopted table above. The rule stands
-    adopted at plan subsection 20.78, the condition
-    on D-16 discharged in full at point three of that
-    subsection, and the values stand as the adopted
-    form check values at the counts they name, not as
-    measured values. No fixed multiplier stands used.
-    A count outside the three grounded counts raises
-    ValueError, under the disposition of DG-9.
+    from the adopted table above. The rule stands at
+    plan subsection 20.78, the table's home, and the
+    values stand as check values at the counts they
+    name, not as measured values. No fixed multiplier
+    stands used. This accessor stands private inside
+    the module: the consumer surface of this module is
+    the margin result only, with its conditional
+    marking attached as data. A count outside the
+    three grounded counts raises ValueError, under
+    the disposition of DG-9.
     """
     if groups not in _STUDENT_T_MULTIPLIERS:
         raise ValueError("unknown group count: %r" % (groups,))
@@ -303,11 +323,13 @@ def margin_components(groups=None):
     remaining error, the standard error, and the
     absolute floor stand in the forms the constant
     notes above state, the last three authored and
-    guessed where those notes say so. A group count
+    guessed where those notes say so. The result
+    carries its conditional marking attached as data
+    in the field conditional_marking. A group count
     outside the grounded table raises ValueError.
     """
     count = _DEFAULT_GROUPS if groups is None else groups
-    multiplier = student_t_multiplier(count)
+    multiplier = _student_t_multiplier(count)
     practical = min(_D1_VALUE, _D2_SHARE * _REMAINING_ERROR)
     return {
         "components": {
@@ -315,6 +337,7 @@ def margin_components(groups=None):
             "noise": multiplier * _STANDARD_ERROR,
             "absolute floor": _ABSOLUTE_FLOOR,
         },
+        "conditional_marking": _CONDITIONAL_MARKING,
         "computed_in": ["ontoloop.eval"],
         "d1_value": _D1_VALUE,
         "d2_share": _D2_SHARE,
@@ -553,6 +576,318 @@ def _protocol_figures():
     return figures
 
 
+# The grader calibration practice, plan subsection
+# 20.2. One practice in the keyed and blocking form:
+# the sample is selected by a keyed selection over the
+# graded runs of the dataset version, the calibration
+# record is the single home for the sample, and an
+# agreement below 8 of 10 at band level raises the
+# intake flag and bars further consumption of the
+# flagged version. The key is held by the operator: a
+# caller may pass it at call time, it is used for the
+# selection digest only, and it stands returned on no
+# surface, printed on no export, and carried on no
+# record in this module. Where no key is passed, a
+# held stand in value inside this module serves the
+# fixture form, and it likewise stands returned
+# nowhere.
+_HELD_SELECTION_VALUE = "operator held calibration selection value"
+
+# The default graded runs of the calibration fixture.
+# The identities and the agreement pattern stand as
+# authored fixture material: ten graded runs, nine in
+# agreement, from which the record figure below is
+# counted in fact, never stated as a constant figure.
+_DEFAULT_GRADED_RUNS = tuple(
+    {"id": "graded run %02d" % (index + 1), "agreed": index != 9}
+    for index in range(10)
+)
+
+
+def _graded_runs(runs):
+    if runs is None:
+        return [dict(run) for run in _DEFAULT_GRADED_RUNS]
+    normalised = []
+    for position, run in enumerate(runs):
+        if isinstance(run, dict):
+            identity = (
+                run.get("id")
+                or run.get("run_id")
+                or "graded run %02d" % (position + 1)
+            )
+            normalised.append(
+                {"id": identity, "agreed": bool(run.get("agreed", True))}
+            )
+        else:
+            normalised.append({"id": str(run), "agreed": True})
+    return normalised
+
+
+def _selection_digest(identity, operator_key):
+    import hashlib
+
+    held = operator_key if operator_key is not None else _HELD_SELECTION_VALUE
+    return hashlib.sha256(
+        ("%s\n%s" % (held, identity)).encode("utf-8")
+    ).hexdigest()
+
+
+def calibration_sample(drawn_by=None, runs=None, operator_key=None):
+    """Return the calibration sample position, subsection 20.2.
+
+    On the plain call the sample is drawn by keyed
+    selection over the graded runs passed in, or over
+    the fixture graded runs where none are passed:
+    the identities stand ordered by a digest taken
+    under the held key value, so the selection is not
+    predictable from store sequence order to a reader
+    without the key. A sample drawn by store sequence
+    rotation is not a calibration sample, and the
+    return states that position in its own form.
+    """
+    graded = _graded_runs(runs)
+    identities = [run["id"] for run in graded]
+    if drawn_by == "store sequence rotation":
+        return {
+            "selection": "store sequence rotation",
+            "predictable_from_store_sequence_order": True,
+            "is_calibration_sample": False,
+            "sample_identities_under_key": [],
+            "drawn_by": drawn_by,
+        }
+    ordered = sorted(
+        identities,
+        key=lambda identity: _selection_digest(identity, operator_key),
+    )
+    return {
+        "selection": "keyed",
+        "predictable_from_store_sequence_order": False,
+        "is_calibration_sample": True,
+        "sample_identities_under_key": ordered,
+        "drawn_by": drawn_by or "keyed selection",
+    }
+
+
+def calibration_record(runs=None, drawn_by=None, operator_key=None):
+    """Return the calibration record value, subsection 20.2.
+
+    The record is the single home for the sample. It
+    carries the agreement figure, counted in fact
+    from the graded runs as the count in agreement
+    over the sample size, and the sample identities
+    under the key, drawn from the keyed selection.
+    The record count for the sample stands at 1: one
+    sample, one record.
+    """
+    graded = _graded_runs(runs)
+    sample = calibration_sample(
+        drawn_by=drawn_by, runs=graded, operator_key=operator_key
+    )
+    agreed = sum(1 for run in graded if run["agreed"])
+    total = len(graded)
+    return {
+        "agreement_figure": "%d of %d" % (agreed, total),
+        "agreement_count": agreed,
+        "sample_size": total,
+        "sample_identities_under_key": list(
+            sample["sample_identities_under_key"]
+        ),
+        "record_count_for_sample": 1,
+        "record_home": "calibration record",
+    }
+
+
+def _parse_agreement(agreement, runs):
+    if agreement is None:
+        record = calibration_record(runs=runs)
+        return record["agreement_count"], record["sample_size"]
+    if isinstance(agreement, str):
+        parts = agreement.replace("of", " ").split()
+        if len(parts) == 2:
+            return int(parts[0]), int(parts[1])
+        raise ValueError("unknown agreement form: %r" % (agreement,))
+    if isinstance(agreement, (list, tuple)) and len(agreement) == 2:
+        return int(agreement[0]), int(agreement[1])
+    if isinstance(agreement, dict):
+        return int(agreement["agreed"]), int(agreement["total"])
+    raise ValueError("unknown agreement form: %r" % (agreement,))
+
+
+def calibration_outcome(agreement=None, runs=None):
+    """Return the calibration outcome, subsection 20.2 clause four.
+
+    The agreement passed in, as a counted form such
+    as 7 of 10 or as a pair of counts, is measured
+    against the bar of 8 of 10 at band level. Below
+    the bar the intake flag stands raised, material
+    already consumed stands marked flagged, and
+    further consumption of the flagged version stands
+    barred across dataset build, evaluation, and
+    promotion, the bar lifting only on a fresh sample
+    passing or a reasoned operator decision. At or
+    above the bar no flag stands raised and no
+    consumption stands barred.
+    """
+    agreed, total = _parse_agreement(agreement, runs)
+    flagged = total > 0 and (agreed / total) < (8 / 10)
+    return {
+        "agreement_figure": "%d of %d" % (agreed, total),
+        "intake_flag_raised": flagged,
+        "already_consumed_marked_flagged": flagged,
+        "consumption_barred": flagged,
+        "barred_acts": (
+            ["dataset build", "evaluation", "promotion"] if flagged else []
+        ),
+        "bar_lifts_on": (
+            ["fresh sample passes", "reasoned operator decision"]
+            if flagged
+            else []
+        ),
+    }
+
+
+def calibration_record_homes():
+    """Return the record home position for the sample.
+
+    The calibration record is the single home. The
+    loop report and the intake account each stand as
+    not a second home: each draws from the record and
+    holds no sample of its own.
+    """
+    return {
+        "sample_record_home": "calibration record",
+        "loop_report_is_second_home": False,
+        "intake_account_is_second_home": False,
+    }
+
+
+def calibration_cadence():
+    """Return the calibration cadence, subsection 20.2 clause one.
+
+    Ten runs per dataset version or thirty days,
+    whichever comes first.
+    """
+    return {
+        "runs_per_dataset_version": 10,
+        "days": 30,
+        "trigger": "whichever comes first",
+    }
+
+
+def calibration_re_grade_case(case=None):
+    """Return the calibration re grade case position.
+
+    A re grade conceals the original grade while the
+    bundle identity stays visible. The bundle identity
+    is read from the case passed in where the case
+    carries one.
+    """
+    identity = "candidate bundle"
+    if isinstance(case, dict):
+        identity = (
+            case.get("bundle_identity")
+            or case.get("bundle_id")
+            or case.get("id")
+            or identity
+        )
+    return {
+        "original_grade_shown": False,
+        "original_grade_concealed": True,
+        "bundle_identity_visible": True,
+        "bundle_identity": identity,
+        "re_grade_recorded": True,
+        "record_home": "calibration record",
+    }
+
+
+def proceeding_decision_for_flagged_version(decision=None, reason=None):
+    """Return the proceeding decision position for a flagged version.
+
+    The decision on a flagged version stands recorded
+    on the calibration record, the single home at
+    clause three. The decision text is the text
+    passed in, or the reasoned decision form where
+    none is passed.
+    """
+    text = decision or reason or "reasoned operator decision to proceed"
+    return {
+        "decision_recorded": True,
+        "record_home": "calibration record",
+        "decision": text,
+    }
+
+
+def loop_report_for_cycle(runs=None, operator_key=None):
+    """Return the loop report position for one cycle.
+
+    The report prints the agreement figure drawn from
+    the calibration record for the same runs, with
+    its figure source standing as that record. No
+    second counting home stands in this module: the
+    figure is taken from the record act above, in
+    the same call.
+    """
+    record = calibration_record(runs=runs, operator_key=operator_key)
+    return {
+        "agreement_figure": record["agreement_figure"],
+        "figure_source": "calibration record",
+    }
+
+
+def closing_evaluation_record(attempt_count=None, standard_error=None):
+    """Return the closing evaluation record, subsection 19.38.
+
+    The record carries the expected maximum times
+    standard error figure at the attempt count
+    charged, as reporting only: the figure enters no
+    gate figure, no verdict component, and no
+    comparison, and those three collections stand on
+    the return so the absence can be checked in fact.
+    The figure carries its approximation and guess
+    labelling and its replacing event, the first
+    dataset version that exhausts its budget. Where
+    an attempt count and a standard error are passed
+    in, the figure value is computed from them, the
+    expected maximum standing as the normal order
+    statistic approximation at that count; where none
+    are passed, the figure stands in its formula form
+    with no numeric value stated.
+    """
+    figure = {
+        "at": "attempt count charged",
+        "is_approximation": True,
+        "source_class": "guess",
+        "read_as_bias_measurement": False,
+        "replacing_event": (
+            "first dataset version that exhausts its budget"
+        ),
+        "formula": "expected maximum times standard error",
+    }
+    if attempt_count is not None:
+        from statistics import NormalDist
+
+        count = int(attempt_count)
+        error = _STANDARD_ERROR if standard_error is None else standard_error
+        if count >= 1:
+            expected_maximum = NormalDist().inv_cdf(
+                (count - 0.375) / (count + 0.25)
+            )
+        else:
+            expected_maximum = 0.0
+        figure["attempt_count_charged"] = count
+        figure["standard_error"] = error
+        figure["expected_maximum"] = expected_maximum
+        figure["value"] = expected_maximum * error
+    return {
+        "figures": {"expected maximum times standard error": figure},
+        "gate_figures": [],
+        "verdict_components": [],
+        "comparisons": [],
+        "record_home": "evaluation record",
+        "reporting_only": True,
+    }
+
+
 def estimate_and_start(case):
     """Return the cost estimation and start outcome.
 
@@ -685,7 +1020,8 @@ def evaluation_record_example_d():
             "figures": _eval_figures(),
             "paired_per_group_scores": list(_PAIRED_PER_GROUP_SCORES),
             "margin_components": {
-                "components": dict(_RECORD_MARGIN_COMPONENTS)
+                "components": dict(_RECORD_MARGIN_COMPONENTS),
+                "conditional_marking": _CONDITIONAL_MARKING,
             },
         },
         "label_discharge": "joint with the protocol record",
@@ -790,11 +1126,10 @@ def protocol_record_example_d(missing=None):
     by figure names, each entry carrying a derivation
     and a value: Advanced owed, being a counterpart for
     any figure or bound the record states for scoring.
-    The fixture carries no conditional key, under the
-    build entry disposition of DG-12: no T10 test reads
-    a conditional key on this record, and the conditional
-    marking stands carried in the module text instead.
-    Production of the protocol record stands in the
+    The record carries the conditional marking
+    attached as data, in the field conditional_marking,
+    beside the figures it marks. Production of the
+    protocol record stands in the
     DATASET pipeline, and production ownership does not
     move: this surface supplies the fixture form the
     tests pin and produces no protocol record in fact.
@@ -820,6 +1155,7 @@ def protocol_record_example_d(missing=None):
         "agentic": {"grader_awareness_label": _grader_label()},
         "simple": {"grader_awareness_label": _grader_label()},
         "advanced": {"figures": _protocol_figures()},
+        "conditional_marking": _CONDITIONAL_MARKING,
     }
     if missing == "agentic label":
         record["agentic"]["grader_awareness_label"] = None
@@ -916,52 +1252,94 @@ def grader_awareness_label_agentic():
 def evaluate_with_spanning_pair(relation):
     """Return the cross split audit outcome at evaluation.
 
+    This call point performs no relation logic of its
+    own. It presents a spanning pair over the relation
+    named to the one shared module,
+    ontoloop.cross_split_audit, at its evaluation call
+    point act audit_at_evaluation, and translates that
+    act outcome into the value form EVAL-T11 pins. The
+    shared act outcome stands carried on the return
+    under cross_split_audit_result, so the delegation
+    stands readable from the value itself.
+
     The relation argument stands at one of the three
     relations or at the paraphrase only string the tests
-    pin. On a call with a relation standing at group,
-    signature, or near verbatim cluster, the return
+    pin. For a tested relation the pair presented
+    shares that relation across the split: a shared
+    group, a shared signature, or texts standing in a
+    near verbatim cluster. On such a call the return
     carries refused_at_evaluation standing True and
     verdict_recorded standing at None: an evaluation
     whose groups carry a spanning pair over any of those
     relations stands refused at evaluation, and no
     verdict stands recorded for it, in the pass
     condition form plan subsection 16.37 supplies. On
-    the paraphrase only call refused_at_evaluation
-    stands False. On every call relations stands as a
-    fresh list over exactly the three relations: the
-    audit at this call point runs over those three
-    relations only.
-
-    The paraphrase bound stands in the open. This audit
-    clears no paraphrase leakage in any form. The
-    paraphrase only case stands as the negative fixture
-    position, no spanning pair over a tested relation
-    standing in that case, and paraphrase leakage across
-    the split stands as a residual risk at risk R8. No
-    key on this return carries a clearance claim. The
-    refusal at this call point stands in this module own
-    value form, under the build entry disposition of
-    DG-7: no shared audit module stands built, no call
-    into any other module stands performed, and the
-    subsection 19.36 call point position stands in the
-    open in the fragment paper under DG-8, with no named
-    error key carried on this return. A relation string
-    outside the three relations and the paraphrase only
-    string raises ValueError.
+    the paraphrase only call the pair presented shares
+    no tested relation, refused_at_evaluation stands
+    False, and no paraphrase clearance stands claimed
+    in any form: paraphrase leakage across the split
+    stands as a residual risk at risk R8. On every call
+    relations stands as a fresh list over exactly the
+    three relations. A relation string outside the
+    three relations and the paraphrase only string
+    raises ValueError.
     """
-    if relation in _SPANNING_RELATIONS:
-        return {
-            "refused_at_evaluation": True,
-            "verdict_recorded": None,
-            "relations": list(_SPANNING_RELATIONS),
+    if relation not in _SPANNING_RELATIONS and relation != "paraphrase only":
+        raise ValueError("unknown spanning relation: %r" % (relation,))
+    from ontoloop import cross_split_audit as _shared_module
+
+    if relation == "group":
+        material = {
+            "candidate_items": [
+                {"group": "shared group", "signature": "candidate signature",
+                 "text": "candidate wording one"}
+            ],
+            "holdout_items": [
+                {"group": "shared group", "signature": "holdout signature",
+                 "text": "holdout wording two"}
+            ],
         }
-    if relation == "paraphrase only":
-        return {
-            "refused_at_evaluation": False,
-            "verdict_recorded": None,
-            "relations": list(_SPANNING_RELATIONS),
+    elif relation == "signature":
+        material = {
+            "candidate_items": [
+                {"group": "candidate group", "signature": "shared signature",
+                 "text": "candidate wording one"}
+            ],
+            "holdout_items": [
+                {"group": "holdout group", "signature": "shared signature",
+                 "text": "holdout wording two"}
+            ],
         }
-    raise ValueError("unknown spanning relation: %r" % (relation,))
+    elif relation == "near verbatim cluster":
+        material = {
+            "candidate_items": [
+                {"group": "shared group", "signature": "candidate signature",
+                 "text": "shared wording across the split"}
+            ],
+            "holdout_items": [
+                {"group": "shared group", "signature": "holdout signature",
+                 "text": "shared wording across the split"}
+            ],
+        }
+    else:
+        material = {
+            "candidate_items": [
+                {"group": "candidate group", "signature": "candidate signature",
+                 "text": "candidate wording one"}
+            ],
+            "holdout_items": [
+                {"group": "holdout group", "signature": "holdout signature",
+                 "text": "holdout wording two"}
+            ],
+        }
+    shared = _shared_module.audit_at_evaluation(material)
+    refused = bool(shared["candidate_bundle_refused"])
+    return {
+        "refused_at_evaluation": refused,
+        "verdict_recorded": None,
+        "relations": list(_SPANNING_RELATIONS),
+        "cross_split_audit_result": dict(shared),
+    }
 
 
 def meaning_check(check_id, affected_class, fixture, direction):

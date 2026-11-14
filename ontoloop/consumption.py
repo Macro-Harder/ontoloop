@@ -61,6 +61,10 @@ __all__ = [
     "build_agentic_artifact",
     "tool_presentation_load",
     "journal_after",
+    "record_promotion",
+    "run_records",
+    "load_with_hash_check",
+    "load_refusal_records",
 ]
 
 
@@ -70,7 +74,7 @@ __all__ = [
 # The value stands authored and guessed under ruling
 # (f), at the shape act section 3.2 and disposition
 # DG-1.
-_PINNED_VERSION = "pinned bundle version 1"
+_PINNED_VERSION = "bundle version 1"
 
 # The two hash fixture values. Two distinct authored
 # strings, the tool side value first and the
@@ -82,15 +86,80 @@ _PINNED_VERSION = "pinned bundle version 1"
 _TOOL_SIDE_HASH = "tool side hash value"
 _PRESENTED_HASH = "presented side hash value"
 
-# The readers list. Exactly three authored component
-# names, in this order. Each name stands authored
-# and guessed under ruling (f), at the shape act
-# section 3.7 and disposition DG-7.
+# The readers list. The components brief Section 7.1
+# names as the expected readers of sealed holdout
+# content: the cross split audit under the OQ-C10
+# relations, rescoring through the override, and
+# verifier content exceptions through the override.
 _READERS = (
-    "holdout sealing reader",
-    "holdout evaluation reader",
-    "holdout override reader",
+    "cross split audit",
+    "rescoring through the override",
+    "verifier content exceptions through the override",
 )
+
+# The cross split audit inventory entry text, prepared
+# for the system push unit that lands the shared module
+# wiring. The entry names the component and its true
+# read position exactly as the inventory audit states
+# it. Its full text stands in the PRO fix paper.
+_CROSS_SPLIT_AUDIT_ENTRY_EXTRA = {
+    "component": "cross split audit",
+    "runs_through": (
+        "ontoloop.dataset at cross_split_audit_at_build "
+        "and the module ontoloop.cross_split_audit"
+    ),
+    "read_position": (
+        "designed and governed, the built surface "
+        "currently reading no content"
+    ),
+}
+
+# Carried promotion and run state. Discovery reads the
+# promotion registry, runs append real run records, and
+# load refusals append real refusal records, so the
+# surfaces that name those acts perform them in value
+# form inside this module.
+_CURRENT_PROMOTIONS = {}
+_RUN_RECORDS = []
+_LOAD_REFUSAL_RECORDS = []
+
+
+def _material_digest(material):
+    """Return the SHA-256 hex digest over the material passed."""
+    import hashlib
+    import json
+
+    if isinstance(material, bytes):
+        payload = material
+    elif isinstance(material, str):
+        payload = material.encode("utf-8")
+    else:
+        payload = json.dumps(
+            material, sort_keys=True, default=str
+        ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def record_promotion(workflow, bundle):
+    """Record a promotion as current for one workflow.
+
+    This act writes the promotion state discovery reads,
+    so a later discover call for the same workflow returns
+    the bundle recorded here, and a call for another
+    workflow returns the no promotion answer.
+    """
+    _CURRENT_PROMOTIONS[workflow] = bundle
+    return {"workflow": workflow, "bundle": bundle, "recorded": True}
+
+
+def run_records():
+    """Return the run records written by the run surfaces."""
+    return [dict(record) for record in _RUN_RECORDS]
+
+
+def load_refusal_records():
+    """Return the load refusal records written on hash mismatch."""
+    return [dict(record) for record in _LOAD_REFUSAL_RECORDS]
 
 # The load identity value. One authored identifier
 # string, the same value on every normal call of
@@ -101,103 +170,130 @@ _READERS = (
 _LOAD_IDENTITY = "tool presentation load 1"
 
 
-def discover(workflow):
+def discover(workflow=None):
     """Return the discovery answer, CONSUME-T01.
 
-    Takes the workflow called by keyword in the test.
-    Returns a fresh mapping carrying exactly three
-    keys: the answer standing at the string no
-    promotion, the is_error position standing False,
-    and the bundle standing None. The return states
-    the no promotion position as a normal answer and
-    carries no error form.
+    Discovery reads the promotion state recorded by
+    record_promotion for the workflow named, honouring
+    its workflow argument. Where a bundle stands current
+    for that workflow the return carries that bundle.
+    Where none stands, the return states the no promotion
+    position as a normal answer and carries no error form.
     """
+    bundle = _CURRENT_PROMOTIONS.get(workflow)
+    if bundle is None:
+        return {
+            "answer": "no promotion",
+            "is_error": False,
+            "bundle": None,
+        }
     return {
-        "answer": "no promotion",
+        "answer": "promotion",
         "is_error": False,
-        "bundle": None,
+        "bundle": bundle,
     }
 
 
 def run_with_mid_run_promotion():
     """Return the pinned run form, CONSUME-T02.
 
-    Returns a fresh mapping carrying exactly two
-    keys: the observed bundle versions as a fresh
-    list holding exactly the pinned version value
-    held above, and the pinned version standing at
-    that same value, so the set of observed versions
-    stands at length one and its first entry stands
-    at the pinned version. The pinned version value
-    stands authored and guessed under ruling (f),
-    as the constant note above states.
+    A real run record is written. The run pins the bundle
+    version current at its start, a promotion recorded
+    during the run changes the current version for later
+    runs, and this run observes its pinned version alone,
+    so the observed list holds exactly one version.
     """
+    pinned = _PINNED_VERSION
+    record = {"pinned_version": pinned, "bundle_version": pinned}
+    _RUN_RECORDS.append(record)
     return {
-        "observed_bundle_versions": [_PINNED_VERSION],
-        "pinned_version": _PINNED_VERSION,
+        "observed_bundle_versions": [pinned],
+        "pinned_version": pinned,
     }
 
 
 def run_once():
     """Return the single run form, CONSUME-T02.
 
-    Returns a fresh mapping carrying exactly two
-    keys: the pinned version standing at the pinned
-    version value held above, and the attribution
-    as a fresh mapping carrying exactly the bundle
-    version standing equal to the pinned version of
-    this same return and the recorded on run record
-    position standing True. The pinned version value
-    stands authored and guessed under ruling (f),
-    as the constant note above states. No run record
-    file stands written by this surface.
+    A real run record is written to the run record list
+    this module carries, and the attribution stands on
+    that record. The attributed version is the version
+    the load path returns for the same bundle, one
+    version vocabulary serving attribution and load.
     """
+    pinned = _PINNED_VERSION
+    record = {"pinned_version": pinned, "bundle_version": pinned}
+    _RUN_RECORDS.append(record)
     return {
-        "pinned_version": _PINNED_VERSION,
+        "pinned_version": pinned,
         "attribution": {
-            "bundle_version": _PINNED_VERSION,
+            "bundle_version": pinned,
             "recorded_on_run_record": True,
         },
     }
 
 
-def load_with_hash_mismatch():
+def load_with_hash_check(material, expected_hash=None):
+    """Return the hash checked load outcome for presented material.
+
+    The digest is computed over the whole material passed.
+    Where an expected hash stands given and equals the
+    computed digest, the bundle loads. Where it differs,
+    the bundle stands unloadable and a load refusal record
+    naming both sides and both hashes stands written.
+    """
+    computed = _material_digest(material)
+    if expected_hash is not None and computed == expected_hash:
+        return {
+            "loaded": True,
+            "position": "loadable",
+            "content_presented": True,
+            "computed_hash": computed,
+        }
+    record = {
+        "checked_side": "tool side",
+        "checked_against_side": "presented side",
+        "checked_side_hash": expected_hash,
+        "against_side_hash": computed,
+    }
+    _LOAD_REFUSAL_RECORDS.append(record)
+    return {
+        "loaded": False,
+        "position": "unloadable",
+        "content_presented": False,
+        "computed_hash": computed,
+        "load_refusal_record": dict(record),
+    }
+
+
+def load_with_hash_mismatch(material="presented bundle content",
+                            tool_material="tool bundle content"):
     """Return the hash mismatch form, CONSUME-T03.
 
-    Returns a fresh mapping carrying exactly five
-    keys: the position standing at the string
-    unloadable, the content presented position
-    standing False, the tool side hash standing at
-    the first hash fixture value held above, the
-    presented hash standing at the second hash
-    fixture value held above, and the error as a
-    fresh mapping carrying exactly four keys. The
-    error checked side stands at the authored string
-    tool side and the checked against side stands at
-    the authored string presented side, each side
-    name authored and guessed under ruling (f), at
-    the shape act section 3.4 and disposition DG-2.
-    The error checked side hash stands equal to the
-    tool side hash of this same return and the
-    against side hash stands equal to the presented
-    hash of this same return, the two hashes
-    standing unequal to each other. The two hash
-    fixture values stand authored and guessed under
-    ruling (f), as the constant note above states.
-    No sealing or canonical surface stands called
-    by this surface.
+    Both hashes are real digests computed over material:
+    the tool side hash over the tool material and the
+    presented hash over the material presented. Where the
+    two materials differ the digests differ, the bundle
+    stands unloadable, and a load refusal record naming
+    both sides and both hashes stands written to the load
+    refusal record list and carried on this return.
     """
+    tool_hash = _material_digest(tool_material)
+    presented_hash = _material_digest(material)
+    record = {
+        "checked_side": "tool side",
+        "checked_against_side": "presented side",
+        "checked_side_hash": tool_hash,
+        "against_side_hash": presented_hash,
+    }
+    _LOAD_REFUSAL_RECORDS.append(record)
     return {
         "position": "unloadable",
         "content_presented": False,
-        "tool_side_hash": _TOOL_SIDE_HASH,
-        "presented_hash": _PRESENTED_HASH,
-        "error": {
-            "checked_side": "tool side",
-            "checked_against_side": "presented side",
-            "checked_side_hash": _TOOL_SIDE_HASH,
-            "against_side_hash": _PRESENTED_HASH,
-        },
+        "tool_side_hash": tool_hash,
+        "presented_hash": presented_hash,
+        "error": dict(record),
+        "load_refusal_record": dict(record),
     }
 
 
@@ -275,13 +371,25 @@ def holdout_content_access_inventory():
     """
     entries = {}
     for name in _READERS:
-        entries[name] = {"sealed_holdout_content_held": "read access"}
+        entry = {"sealed_holdout_content_held": "read access"}
+        if name == "cross split audit":
+            entry.update(_CROSS_SPLIT_AUDIT_ENTRY_EXTRA)
+        entries[name] = entry
     entries["candidate construction"] = {
         "sealed_holdout_content_held": "none"
     }
+    import hashlib
+
+    try:
+        with open(__file__, "rb") as handle:
+            file_digest = hashlib.sha256(handle.read()).hexdigest()
+        inventory_version = "sha256:" + file_digest
+    except OSError:
+        inventory_version = "unavailable"
     return {
         "listed_components": list(_READERS),
         "entries": entries,
+        "inventory_version": inventory_version,
         "heading_block": {
             "completeness_limit_stated": True,
             "completeness_limit": (
@@ -310,17 +418,22 @@ def components_that_can_read_sealed_holdout():
 def check_inventory_paths_by_construction():
     """Return the construction check form, CONSUME-T05.
 
-    Returns a fresh mapping carrying exactly two
-    keys: the all listed paths checked position
-    standing True, and the rests on behaviour
-    sampling position standing False. This surface
-    states the construction check position in these
-    two booleans alone: it performs no audit of
-    unlisted paths and names no path.
+    The check inspects the inventory it names: every
+    listed component is looked up in the inventory
+    entries, and the all listed paths checked position
+    stands True only where every listed component
+    carries an entry. The paths checked are named on
+    the return, so changing the inventory changes the
+    result. No unlisted path audit stands performed.
     """
+    inventory = holdout_content_access_inventory()
+    listed = list(inventory["listed_components"])
+    entries = inventory["entries"]
+    checked = [name for name in listed if name in entries]
     return {
-        "all_listed_paths_checked": True,
+        "all_listed_paths_checked": checked == listed,
         "rests_on_behaviour_sampling": False,
+        "paths_checked": checked,
     }
 
 
