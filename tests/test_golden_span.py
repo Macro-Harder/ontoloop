@@ -120,6 +120,44 @@ class TestGoldenT03(unittest.TestCase):
         self.assertFalse(regenerated["counts_as_evidence"])
 
 
+class TestGoldenCombinedIdentityVersionFixR2(unittest.TestCase):
+    """Fix round 2, R2-REPORT-GOLDEN-N1: combined field values.
+
+    Each field name carrying both identity and version carries
+    an identity formed from the record type and the version, in
+    the identity limb form, at each schema version, beside a
+    pure version field of the same record still carrying the
+    schema version itself.
+    """
+
+    COMBINED = (
+        ("Dataset", "Dataset identity and version",
+         "Curation input versions"),
+        ("Evaluation", "Scorer identity and version",
+         "Cost table version"),
+        ("Run", "Workflow identity and definition version",
+         "Signature version"),
+    )
+
+    def test_combined_fields_carry_identity_form_at_each_version(self):
+        module = require(MODULE)
+        golden = module.golden_record_sets()
+        for record_type, field, pure_version_field in self.COMBINED:
+            slug = field.lower().replace(" ", "-")
+            for version in golden["schema_versions"]:
+                record = golden["records"][(record_type, version)]
+                self.assertEqual(
+                    record["payload"][field],
+                    "golden-" + record_type.lower() + "-"
+                    + str(version) + "-" + slug,
+                    (record_type, field, version),
+                )
+                self.assertEqual(
+                    record["payload"][pure_version_field], version,
+                    (record_type, pure_version_field, version),
+                )
+
+
 class TestGoldenT04(unittest.TestCase):
     """GOLDEN-T04: the suite stands before DATASET grouping opens."""
 

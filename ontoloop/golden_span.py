@@ -87,12 +87,16 @@ def _field_value(record_type, schema_version, field):
     answered in a form its name states: a version
     field carries the schema version itself, an
     identity field carries an identity formed from
-    the type and the version, and every other field
-    carries a value naming its field, its type, and
-    its version.
+    the type and the version, a field whose name
+    carries both identity and version carries that
+    identity form, and every other field carries a
+    value naming its field, its type, and its
+    version.
     """
     lowered = field.lower()
     slug = lowered.replace(" ", "-")
+    if "identity" in lowered and "version" in lowered:
+        return "golden-" + record_type.lower() + "-" + str(schema_version) + "-" + slug
     if "version" in lowered:
         return schema_version
     if "identity" in lowered or lowered.endswith(" id"):

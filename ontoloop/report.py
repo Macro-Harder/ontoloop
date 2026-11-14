@@ -544,10 +544,68 @@ _BUILD_KIND_WITHOUT = "without weakened ingest"
 # The seal claim phrases the construction lint refuses.
 # A construction assembly carrying any one of these
 # phrases presents a seal claim in unqualified form.
+# The phrases stand as examples inside the seal claim
+# judgement below, not as its boundary: the judgement
+# fails a statement of a seal, verify, or confinement
+# claim in whatever wording, where the statement does
+# not carry the governed conditional form of the claim.
 _SEAL_CLAIM_PHRASES = (
     "seal claim stands unqualified",
     "seal verified",
     "controlled exposure claimed",
+)
+
+# The subjects a Section 7.1 claim statement speaks of.
+_CLAIM_SUBJECTS = (
+    "seal",
+    "sealed",
+    "sealing",
+    "verify",
+    "verified",
+    "verification",
+    "confinement",
+    "controlled exposure",
+)
+
+# The wordings that mark a claim statement as standing
+# without its governed condition, in any phrasing.
+_UNCONDITIONAL_MARKERS = (
+    "unconditionally",
+    "without condition",
+    "without any condition",
+    "no condition",
+    "in all cases",
+    "in every case",
+    "at all times",
+    "without exception",
+    "no exception",
+    "guaranteed",
+    "assured",
+    "binds all",
+    "applies to all",
+    "all actors",
+    "every actor",
+    "all surfaces",
+    "every surface",
+)
+
+# The wordings that carry the governed conditional or
+# negated form of a claim, so a statement carrying one
+# of them does not stand as an unconditional claim.
+_CONDITIONAL_MARKERS = (
+    "conditional on",
+    "conditional",
+    "conditioned on",
+    "provided",
+    "subject to",
+    "at signed strength only",
+    "signed strength only",
+    "does not",
+    "do not",
+    "not claimed",
+    "no claim stands",
+    "never claimed",
+    "not prevented",
 )
 
 
@@ -571,17 +629,115 @@ def _assembly_text(assembly):
 
 
 def _seal_claim_scan(assembly_text):
-    """Return True where no unqualified seal claim stands."""
-    lowered = assembly_text.lower()
+    """Return True where no unconditional claim stands.
+
+    The judgement runs over each statement of the text.
+    A statement speaking of a seal, verify, or
+    confinement claim fails the scan where it carries
+    an unconditional marker, in whatever wording, and
+    it fails where it carries neither the governed
+    conditional form nor a negated form of the claim:
+    a claim stated without its condition stands
+    unconditional as stated. The listed phrases above
+    stand as examples inside this judgement, refused
+    outright, not as its boundary.
+    """
+    import re
+
+    lowered = str(assembly_text).lower()
     for phrase in _SEAL_CLAIM_PHRASES:
         if phrase in lowered:
             return False
+    for statement in re.split(r"[.;\n]+", lowered):
+        if not any(
+            re.search(r"\b" + re.escape(subject) + r"\b", statement)
+            for subject in _CLAIM_SUBJECTS
+        ):
+            continue
+        if any(marker in statement for marker in _UNCONDITIONAL_MARKERS):
+            return False
+        if any(marker in statement for marker in _CONDITIONAL_MARKERS):
+            continue
+        return False
     return True
 
 
-def _fixed_text_scan(assembly_text):
-    """Return True where no paraphrase stands in the text."""
-    return "paraphrase" not in assembly_text.lower()
+def _verbatim_targets():
+    """Return the standing verbatim texts, as sealing states them.
+
+    The seal sentence and the grader awareness label
+    stand as the sealing module verbatim texts state
+    them. The verify sentence stands in its governed
+    form, the landed sealing constant, which is the
+    form the sealing module travel lint compares a
+    carried verify sentence against in whole form.
+    """
+    from ontoloop import sealing
+
+    texts = sealing.verbatim_texts()
+    return {
+        "seal sentence": texts["seal sentence"],
+        "verify sentence": sealing.VERIFY_SENTENCE,
+        "grader awareness label": texts["grader awareness label"],
+    }
+
+
+def _carried_mapping(content):
+    """Return the surface mapping a content value carries, or None.
+
+    A mapping content stands as itself. A text content
+    whose whole form is a serialised mapping, in the
+    JSON form or in the Python mapping form, stands as
+    that mapping. Any other text stands as no mapping.
+    """
+    import ast
+    import json
+
+    if isinstance(content, dict):
+        return content
+    if isinstance(content, str):
+        stripped = content.strip()
+        if stripped.startswith("{"):
+            for parser in (json.loads, ast.literal_eval):
+                try:
+                    parsed = parser(stripped)
+                except Exception:
+                    continue
+                if isinstance(parsed, dict):
+                    return parsed
+    return None
+
+
+def _fixed_text_scan(content):
+    """Return True where no carried text stands paraphrased.
+
+    A content carrying a surface mapping stands judged
+    by the sealing module travel lint over that mapping:
+    each carried text stands compared whole against
+    the verbatim text the sealing module states for it,
+    and a carried text that differs from its verbatim
+    text while standing in its place fails, whether or
+    not any listed word or phrase stands in it. A text
+    content naming a governed text as a key, whose
+    verbatim text does not stand in the text, likewise
+    carries a differing text in that place and fails.
+    A text carrying an unconditional claim fails,
+    through the seal claim judgement, as a statement of
+    the governed claim in a form other than its own.
+    No single word scan stands as this test.
+    """
+    mapping = _carried_mapping(content)
+    if mapping is not None:
+        from ontoloop import sealing
+
+        return bool(sealing.travel_lint(mapping)["passed"])
+    text = content if isinstance(content, str) else str(content)
+    lowered = text.lower()
+    for name, verbatim in _verbatim_targets().items():
+        if ("'%s':" % name) in lowered or ('"%s":' % name) in lowered:
+            if verbatim not in text:
+                return False
+    return _seal_claim_scan(text)
 
 
 def lint_report_construction():
@@ -591,12 +747,16 @@ def lint_report_construction():
     construction assembly this module actually builds:
     the assembly text stands rebuilt from the loop
     report and the report artifact at call time, the
-    seal claim lint scans that text for an unqualified
-    seal claim phrase, and the fixed text travel lint
-    scans the same text for a paraphrase standing in
-    it. Both passed positions stand derived from those
-    scans, and a construction whose text carried a
-    refused phrase would fail the matching lint.
+    seal claim lint judges that text for an
+    unconditional statement of a Section 7.1 claim in
+    whatever wording, and the fixed text travel lint
+    compares any carried text in it whole against the
+    standing verbatim texts, in the sealing module
+    travel lint form. Both passed positions stand
+    derived from those judgements, and a construction
+    whose text carried an unconditional claim or a
+    differing carried text would fail the matching
+    lint.
     Returns a fresh mapping carrying exactly three
     keys: the two passed positions and the assembly
     standing at the string report construction.
@@ -620,14 +780,19 @@ def fixed_text_travel_lint(assembly="export", paraphrase_of=None,
     the paraphrase name at one of the three verbatim
     text name strings held above or at None. The lint
     examines the actual assembly: where the caller
-    passes content, that content stands scanned as
-    the assembly text; otherwise the assembly text
-    stands rebuilt from the module construction acts
-    for the named assembly at call time. The lint
-    fails where a paraphrase stands declared by the
-    caller for any one of the three texts, and it
-    fails where the scanned text itself carries a
-    paraphrase. Returns a fresh mapping carrying
+    passes content, that content stands judged as
+    the assembly material, a serialised surface in it
+    standing judged by the sealing module travel lint
+    over the surface it carries; otherwise the
+    assembly text stands rebuilt from the module
+    construction acts for the named assembly at call
+    time. The lint fails where a paraphrase stands
+    declared by the caller for any one of the three
+    texts, and it fails where a carried text in the
+    material differs whole from its standing verbatim
+    text while standing in its place, or where the
+    material carries an unconditional claim. Returns
+    a fresh mapping carrying
     exactly three keys: the passed position derived
     from that examination, the texts checked position
     standing at the integer 3, and the assembly

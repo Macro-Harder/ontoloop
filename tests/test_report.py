@@ -263,5 +263,146 @@ class ReportT10Tests(unittest.TestCase):
         self.assertFalse(report["per_build_flag"])
 
 
+class ReportLintScanDepthFixR2Tests(unittest.TestCase):
+    """Fix round 2, CL-16: whole form travel and seal claim judgement.
+
+    The three tests stand in the exact three part form triage
+    ruling 3 states: the paraphrased surface, an unconditional
+    seal claim in wording outside the three listed phrases, and
+    the standing clean assemblies beside a listed phrase.
+    """
+
+    def test_paraphrased_surface_fails_the_travel_lint(self):
+        import json
+
+        from ontoloop import sealing
+
+        mod = harness.require("ontoloop.report")
+        surface = sealing.paraphrased_surface()
+        sealing_result = sealing.travel_lint(surface)
+        self.assertFalse(sealing_result["passed"])
+        result = mod.fixed_text_travel_lint(
+            assembly="export", content=json.dumps(surface))
+        self.assertFalse(result["passed"])
+
+    def test_unconditional_seal_claim_outside_listed_phrases_fails(self):
+        mod = harness.require("ontoloop.report")
+        original = mod.build_loop_report
+
+        def carrying_claim(**kwargs):
+            built = original(**kwargs)
+            built["all_wording"] = (
+                "the seal binds all actors unconditionally "
+                "and the confinement of every surface stands "
+                "assured in every case"
+            )
+            return built
+
+        mod.build_loop_report = carrying_claim
+        try:
+            result = mod.lint_report_construction()
+            travel = mod.fixed_text_travel_lint(assembly="export")
+        finally:
+            mod.build_loop_report = original
+        self.assertFalse(result["seal_claim_lint_passed"])
+        self.assertFalse(result["fixed_text_travel_lint_passed"])
+        self.assertFalse(travel["passed"])
+
+    def test_clean_assemblies_pass_and_listed_phrase_still_fails(self):
+        mod = harness.require("ontoloop.report")
+        result = mod.lint_report_construction()
+        self.assertTrue(result["seal_claim_lint_passed"])
+        self.assertTrue(result["fixed_text_travel_lint_passed"])
+        travel = mod.fixed_text_travel_lint(assembly="export")
+        self.assertTrue(travel["passed"])
+        original = mod.build_loop_report
+
+        def carrying_phrase(**kwargs):
+            built = original(**kwargs)
+            built["all_wording"] = "seal verified"
+            return built
+
+        mod.build_loop_report = carrying_phrase
+        try:
+            listed = mod.lint_report_construction()
+        finally:
+            mod.build_loop_report = original
+        self.assertFalse(listed["seal_claim_lint_passed"])
+
+
+class ProductionReportFormFixR2Tests(unittest.TestCase):
+    """Fix round 2, triage ruling 6: the production report form.
+
+    This class is the form test charged as the first act of the
+    report region in Fix round 2. It discharges the P-20 test
+    position at cluster CL-R2-3 only: no criterion 6 position,
+    no F6 reservation, and no part of S15-R1-093 stands
+    discharged by it, and no populated store position stands
+    claimed by it. It pins the form on material passed directly
+    to the surface.
+    """
+
+    def test_form_stands_labelled_beside_the_commitment(self):
+        mod = harness.require("ontoloop.report")
+        form = mod.production_report_form()
+        self.assertEqual(form["form"], "production")
+        self.assertEqual(form["label"], "production report form")
+        self.assertTrue(form["beside_specification_commitment"])
+        self.assertFalse(form["merged_into_specification_commitment"])
+        commitment = form["specification_commitment"]
+        self.assertEqual(commitment["form"], "minimum")
+        self.assertEqual(commitment["count"], 30)
+        self.assertNotEqual(commitment["evidence"], form["evidence"])
+
+    def test_counts_computed_from_the_material_passed(self):
+        mod = harness.require("ontoloop.report")
+        pairs = {"kind a": [1, 2, 3], "kind b": [1]}
+        records = [
+            {"shape": "shape one", "family": "family one"},
+            {"shape": "shape one", "family": "family two"},
+            {"shape": "shape two", "family": "family one"},
+        ]
+        form = mod.production_report_form(
+            produced_pairs=pairs, produced_records=records)
+        counts = form["production_counts"]
+        self.assertEqual(counts["per_kind"], {"kind a": 3, "kind b": 1})
+        self.assertEqual(
+            counts["per_shape"], {"shape one": 2, "shape two": 1})
+        self.assertEqual(
+            counts["per_family"], {"family one": 2, "family two": 1})
+        self.assertTrue(form["counts_present"])
+
+    def test_counts_vary_with_differing_material_passed(self):
+        mod = harness.require("ontoloop.report")
+        first = mod.production_report_form(
+            produced_pairs={"kind a": [1]},
+            produced_records=[{"shape": "s1", "family": "f1"}])
+        second = mod.production_report_form(
+            produced_pairs={"kind a": [1, 2], "kind c": [1, 2, 3, 4]},
+            produced_records=[
+                {"shape": "s2", "family": "f1"},
+                {"shape": "s2", "family": "f3"},
+            ])
+        self.assertNotEqual(
+            first["production_counts"], second["production_counts"])
+        self.assertEqual(
+            second["production_counts"]["per_kind"],
+            {"kind a": 2, "kind c": 4})
+        self.assertEqual(
+            second["production_counts"]["per_shape"], {"s2": 2})
+        self.assertEqual(
+            second["production_counts"]["per_family"],
+            {"f1": 1, "f3": 1})
+
+    def test_no_material_passed_claims_no_production_count(self):
+        mod = harness.require("ontoloop.report")
+        form = mod.production_report_form()
+        counts = form["production_counts"]
+        self.assertEqual(counts["per_kind"], {})
+        self.assertEqual(counts["per_shape"], {})
+        self.assertEqual(counts["per_family"], {})
+        self.assertFalse(form["counts_present"])
+
+
 if __name__ == "__main__":
     unittest.main()
