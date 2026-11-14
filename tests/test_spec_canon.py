@@ -182,36 +182,46 @@ class TestSpecCanonFixR4(unittest.TestCase):
         module = require(MODULE)
         material = []
         material.append(material)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.encode_canonical(material, "journal record")
+        self.assertEqual(
+            str(caught.exception), "cyclic value in canonical form")
 
     def test_self_referential_mapping_raises_value_error(self):
         module = require(MODULE)
         material = {}
         material["self"] = material
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.encode_canonical(material, "journal record")
+        self.assertEqual(
+            str(caught.exception), "cyclic value in canonical form")
 
     def test_cycle_through_a_tuple_raises_value_error(self):
         module = require(MODULE)
         material = []
         material.append((material,))
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.encode_canonical(material, "journal record")
+        self.assertEqual(
+            str(caught.exception), "cyclic value in canonical form")
 
     def test_encode_value_cycle_raises_value_error(self):
         module = require(MODULE)
         material = []
         material.append(material)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.encode_value(material)
+        self.assertEqual(
+            str(caught.exception), "cyclic value in canonical form")
 
     def test_hash_canonical_cycle_raises_value_error(self):
         module = require(MODULE)
         material = {}
         material["self"] = material
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.hash_canonical(material, "journal record")
+        self.assertEqual(
+            str(caught.exception), "cyclic value in canonical form")
 
     def test_acyclic_encodings_byte_identical(self):
         module = require(MODULE)
@@ -234,7 +244,9 @@ class TestSpecCanonFixR4(unittest.TestCase):
         produced = module.encode_canonical(material, "journal record")
         self.assertIsInstance(produced, bytes)
         self.assertEqual(
-            produced, module.encode_canonical(material, "journal record")
+            produced,
+            b"ontoloop-v1\x00journal record\x00"
+            + b"[" * 120 + b"1:x" + b"]" * 120,
         )
 
     def test_shared_acyclic_content_still_encodes(self):

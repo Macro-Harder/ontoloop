@@ -194,11 +194,16 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertEqual(stop["bundle"], bundle)
         discovery = module.discovery_after_stop(stop, bundle=bundle)
         self.assertEqual(discovery["promotion"], None)
+        self.assertEqual(discovery["bundle"], bundle)
         companion_stop = dict(stop)
         companion_stop["effective_on_loading"] = False
         companion = module.discovery_after_stop(
             companion_stop, bundle=bundle)
         self.assertEqual(companion["promotion"], bundle)
+        self.assertEqual(companion["bundle"], bundle)
+        differing = module.discovery_after_stop(
+            stop, bundle="another bundle passed to the call")
+        self.assertEqual(differing["bundle"], bundle)
 
     def test_loading_stop_record_boundary_and_journal_landing(self):
         module = require("ontoloop.ops")
@@ -208,6 +213,7 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIs(stop["journal_record_landed"], False)
         landed = module.journal_record_after_append(stop)
         self.assertIs(landed["journal_record_landed"], True)
+        self.assertEqual(landed["stop"], stop)
 
 
 # ------------------------------------------------------------------
@@ -258,6 +264,7 @@ class _FreshnessCheckPoint:
         self.assertIn("stale_flag_cleared", record)
         self.assertIs(record["stale_flag"], True)
         self.assertIs(record["stale_flag_cleared"], False)
+        self.assertEqual(record["record_home"], "holdout lifecycle record")
 
     def test_stale_material_is_excluded_from_the_act_in_hand(self):
         check = self._fresh()
@@ -279,6 +286,17 @@ class _FreshnessCheckPoint:
         )
         self.assertIs(result["lifecycle_record"]["stale_flag_cleared"], True)
         self.assertIs(result["lifecycle_record"]["stale_flag"], False)
+        self.assertEqual(
+            result["lifecycle_record"]["record_home"],
+            "holdout lifecycle record")
+        self.assertEqual(
+            result["dataset_record"]["record_home"], "dataset record")
+        self.assertEqual(
+            set(result["stale_material"]), formerly_stale)
+        self.assertEqual(result["reaffirming_actor"], "operator")
+        self.assertEqual(
+            result["dataset_record"]["reaffirmation"]["check_point"],
+            self.CHECK_POINT)
         included = set(result["included_material"])
         self.assertTrue(formerly_stale <= included)
 
@@ -339,6 +357,13 @@ class TestUnrowed196Promotion(_FreshnessCheckPoint, unittest.TestCase):
     """Subsection 19.6: freshness check at promotion."""
 
     CHECK_POINT = "promotion"
+
+    def test_freshness_check_at_promotion_delegates_to_the_dataset_home(self):
+        promote = require("ontoloop.promote")
+        dataset = require("ontoloop.dataset")
+        result = promote.freshness_check_at_promotion()
+        self.assertEqual(result, dataset.freshness_check("promotion"))
+        self.assertEqual(result["check_point"], "promotion")
 
 
 # ------------------------------------------------------------------

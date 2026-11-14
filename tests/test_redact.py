@@ -1006,6 +1006,10 @@ class TestRedactFixR4DeepNesting(unittest.TestCase):
         outcome = module.classify_material(self._nested_mapping(1500))
         self.assertIn("firing_records", outcome)
         self.assertIn("layers", outcome)
+        self.assertEqual(
+            outcome["firing_records"],
+            {layer: [] for layer in range(1, 7)})
+        self.assertEqual(set(outcome["layers"]), set(range(1, 7)))
 
     def test_append_redacted_deep_list_nesting_refuses(self):
         module = require(MODULE)
@@ -1048,6 +1052,11 @@ class TestRedactFixR4DeepNesting(unittest.TestCase):
             )
             self.assertIn("firing_records", classified)
             self.assertIn("layers", classified)
+            self.assertEqual(
+                classified["firing_records"],
+                {layer: [] for layer in range(1, 7)})
+            self.assertEqual(
+                set(classified["layers"]), set(range(1, 7)))
 
     def test_cycle_forms_unchanged_beside_the_depth_form(self):
         module = require(MODULE)

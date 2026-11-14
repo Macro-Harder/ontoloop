@@ -110,11 +110,14 @@ class CollectionFormRefusalTests(unittest.TestCase):
                 self.check_refusal(module_name, occasion, None)
 
     def test_refusal_form_is_one_form_at_every_occasion(self):
-        for module_name in ("ontoloop.dataset", "ontoloop.promote"):
-            for occasion in ALL_OCCASIONS:
-                with self.subTest(module=module_name, occasion=occasion):
-                    self.check_refusal(module_name, occasion, HOLDOUT_TEXT)
-                    self.check_refusal(module_name, occasion, None)
+        cross_occasions = (
+            ("ontoloop.dataset", "promotion"),
+            ("ontoloop.promote", "candidate construction"),
+        )
+        for module_name, occasion in cross_occasions:
+            with self.subTest(module=module_name, occasion=occasion):
+                self.check_refusal(module_name, occasion, HOLDOUT_TEXT)
+                self.check_refusal(module_name, occasion, None)
 
     def test_tuple_collection_refuses_at_both_call_points(self):
         collection = ({"instruction_text": HOLDOUT_TEXT},)

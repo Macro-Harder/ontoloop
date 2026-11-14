@@ -234,6 +234,42 @@ class TestUnrowed1934CalibrationPractice(unittest.TestCase):
             report["agreement_figure"], record["agreement_figure"]
         )
         self.assertEqual(report["figure_source"], "calibration record")
+        runs_seven = [
+            {"id": "graded run %02d" % (index + 1),
+             "agreed": index < 7}
+            for index in range(10)
+        ]
+        record_seven = module.calibration_record(runs=runs_seven)
+        report_seven = module.loop_report_for_cycle(runs=runs_seven)
+        self.assertEqual(report_seven["agreement_figure"], "7 of 10")
+        self.assertEqual(
+            report_seven["agreement_figure"],
+            record_seven["agreement_figure"])
+        self.assertEqual(report_seven["figure_source"], "calibration record")
+
+    def test_sample_identities_stand_in_keyed_digest_order(self):
+        import hashlib
+
+        module = require("ontoloop.eval")
+        probe_key = "probe key r5"
+        identities = [
+            "graded run 04", "graded run 01",
+            "graded run 03", "graded run 02",
+        ]
+        runs = [{"id": identity, "agreed": True}
+                for identity in identities]
+        sample = module.calibration_sample(
+            runs=runs, operator_key=probe_key)
+        expected = sorted(
+            identities,
+            key=lambda identity: hashlib.sha256(
+                ("%s\n%s" % (probe_key, identity)).encode("utf-8")
+            ).hexdigest(),
+        )
+        self.assertNotEqual(expected, identities)
+        self.assertNotEqual(expected, sorted(identities))
+        self.assertEqual(
+            sample["sample_identities_under_key"], expected)
 
     def test_below_8_of_10_raises_the_intake_flag(self):
         module = require("ontoloop.eval")

@@ -269,6 +269,17 @@ class Unrowed1987Tests(unittest.TestCase):
         self.assertEqual(result["outcome"], "confirmed")
         self.assertNotIn("bar_reason", result)
 
+    def test_non_mapping_confirm_record_bars_confirmation(self):
+        mod = harness.require("ontoloop.promote")
+        for record in (None, "Provisional Record", 123,
+                       ["Provisional Record"]):
+            result = mod.confirm_provisional(record)
+            self.assertEqual(result["outcome"], "barred", repr(record))
+            self.assertEqual(
+                result["bar_reason"],
+                "no comparison in the provisional record",
+                repr(record))
+
     def test_comparison_basis_stated_by_name_with_its_reason(self):
         mod = harness.require("ontoloop.promote")
         record = mod.provisional_record(comparable_displaced_period=False)
@@ -285,6 +296,7 @@ class Unrowed1987Tests(unittest.TestCase):
             "no comparable displaced period stands, so the "
             "operator named baseline period stands as the basis")
         self.assertNotEqual(record["comparison_basis_reason"], "")
+        self.assertIsNone(record["comparison"])
 
 
 # ---------------------------------------------------------------------
