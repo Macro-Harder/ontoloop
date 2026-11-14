@@ -94,6 +94,67 @@ def relations():
     return list(RELATIONS)
 
 
+import array as _array_module
+from collections.abc import Mapping as _Mapping
+
+
+def _byte_content(value):
+    """Return the byte content a byte like value carries.
+
+    A memoryview stands read as the byte content it
+    views, and a byte array in the array form stands
+    read as the bytes it holds, in the same form as a
+    byte string or a bytearray.
+    """
+    if isinstance(value, memoryview):
+        return value.tobytes()
+    if isinstance(value, _array_module.array) and value.typecode in (
+        "b",
+        "B",
+        "u",
+    ):
+        return value.tobytes()
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value)
+    return None
+
+
+def _is_byte_like(value):
+    return _byte_content(value) is not None
+
+
+def _materialise_iterators(value, depth=0):
+    """Return a form of the value with iterators listed once.
+
+    An iterator standing in any position, inside a
+    mapping value or inside a collection among them,
+    stands replaced by the list of the items it yields,
+    so a later re-reading of the returned form stands
+    over the same items. Mapping and collection forms
+    stand rebuilt in re-iterable forms holding the
+    materialised values. Any other value stands as it
+    stands.
+    """
+    if depth > 100:
+        return value
+    if isinstance(value, _Mapping):
+        return {
+            key: _materialise_iterators(inner, depth + 1)
+            for key, inner in value.items()
+        }
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return [
+            _materialise_iterators(element, depth + 1)
+            for element in value
+        ]
+    if hasattr(value, "__next__") and hasattr(value, "__iter__"):
+        return [
+            _materialise_iterators(element, depth + 1)
+            for element in list(value)
+        ]
+    return value
+
+
 def _resolve_text(value):
     """Read the text a value carries, in its stated forms.
 
@@ -105,7 +166,10 @@ def _resolve_text(value):
     elements, joined in presentation order where the
     form carries one and in element order otherwise.
     A byte string or bytearray stands read for the text
-    it carries, decoded as UTF-8. An iterator value, a
+    it carries, decoded as UTF-8. A memoryview stands
+    read as the byte content it views, and a byte array
+    in the array form stands read as the bytes it holds,
+    in that same decoded form. An iterator value, a
     generator among them, stands read for the texts of
     the items it yields, and any other iterable value
     stands read for the texts of its elements in the
@@ -114,9 +178,10 @@ def _resolve_text(value):
     """
     if isinstance(value, str):
         return value
-    if isinstance(value, (bytes, bytearray)):
-        return bytes(value).decode("utf-8", "replace")
-    if isinstance(value, dict):
+    byte_content = _byte_content(value)
+    if byte_content is not None:
+        return byte_content.decode("utf-8", "replace")
+    if isinstance(value, _Mapping):
         for key in ("instruction_text", "text", "content"):
             inner = value.get(key)
             if inner is not None:
@@ -146,13 +211,14 @@ def _resolve_text(value):
 def _item_fields(item):
     if isinstance(item, str):
         return {"group": None, "signature": None, "text": item}
-    if isinstance(item, (bytes, bytearray)):
+    byte_content = _byte_content(item)
+    if byte_content is not None:
         return {
             "group": None,
             "signature": None,
-            "text": bytes(item).decode("utf-8", "replace"),
+            "text": byte_content.decode("utf-8", "replace"),
         }
-    if isinstance(item, dict):
+    if isinstance(item, _Mapping):
         text = item.get("text")
         if text is None:
             text = item.get("instruction_text")
@@ -163,6 +229,9 @@ def _item_fields(item):
             "signature": item.get("signature"),
             "text": _resolve_text(text),
         }
+    resolved = _resolve_text(item)
+    if isinstance(resolved, str):
+        return {"group": None, "signature": None, "text": resolved}
     return {"group": None, "signature": None, "text": None}
 
 
@@ -195,6 +264,16 @@ def _split_items(material):
                 if isinstance(pair, (list, tuple)) and len(pair) == 2:
                     candidate.append(pair[0])
                     holdout.append(pair[1])
+                elif isinstance(pair, _Mapping):
+                    cand = pair.get("candidate")
+                    if cand is None:
+                        cand = pair.get("candidate_item")
+                    hold = pair.get("holdout")
+                    if hold is None:
+                        hold = pair.get("holdout_item")
+                    if cand is not None and hold is not None:
+                        candidate.append(cand)
+                        holdout.append(hold)
     elif isinstance(material, (list, tuple)):
         for item in material:
             side = None
@@ -359,6 +438,20 @@ def _ungoverned_side(material):
                 value, (list, tuple)
             ):
                 return True
+    pairs = material.get("pairs")
+    if isinstance(pairs, (list, tuple)):
+        for pair in pairs:
+            if isinstance(pair, (list, tuple)) and len(pair) == 2:
+                continue
+            if isinstance(pair, _Mapping) and (
+                pair.get("candidate") is not None
+                or pair.get("candidate_item") is not None
+            ) and (
+                pair.get("holdout") is not None
+                or pair.get("holdout_item") is not None
+            ):
+                continue
+            return True
     return False
 
 
@@ -445,10 +538,13 @@ def _holdout_items_of(holdout_material):
         return []
     if isinstance(holdout_material, str):
         return [holdout_material]
-    if isinstance(holdout_material, (bytes, bytearray)):
-        return [bytes(holdout_material).decode("utf-8", "replace")]
-    if isinstance(holdout_material, dict):
-        if _is_bundle(holdout_material):
+    byte_content = _byte_content(holdout_material)
+    if byte_content is not None:
+        return [byte_content.decode("utf-8", "replace")]
+    if isinstance(holdout_material, _Mapping):
+        if isinstance(holdout_material, dict) and _is_bundle(
+            holdout_material
+        ):
             candidate, holdout = _split_items(holdout_material)
             return holdout
         if holdout_material and not any(
@@ -456,23 +552,22 @@ def _holdout_items_of(holdout_material):
         ):
             values = list(holdout_material.values())
             if all(
-                isinstance(value, (str, dict)) for value in values
+                isinstance(value, (str, _Mapping))
+                or _is_byte_like(value)
+                for value in values
             ):
                 return values
             collected = []
             recognised = False
             for value in values:
-                if isinstance(value, (str, dict)):
+                if isinstance(value, (str, _Mapping)) or _is_byte_like(
+                    value
+                ):
                     collected.append(value)
                     recognised = True
-                elif hasattr(value, "__iter__") and not isinstance(
-                    value, (bytes, bytearray)
-                ):
+                elif hasattr(value, "__iter__"):
                     elements = list(value)
-                    if all(
-                        isinstance(element, (str, dict))
-                        for element in elements
-                    ):
+                    if elements:
                         collected.extend(elements)
                         recognised = True
             if recognised and collected:

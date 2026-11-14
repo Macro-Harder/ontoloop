@@ -1048,12 +1048,13 @@ def test_instruction_items_against_holdout(bundle, occasion=None,
     same governed refusal form at this call point, with
     no exception, before any read of the bundle, in
     parity with the dataset sibling. Holdout material
-    standing as an iterator stands materialised once
-    for the whole test, so every instruction item stands
-    compared against the same holdout items, and a text
-    form standing in the shared recursive reading past
-    the interpreter limit returns that same governed
-    refusal form.
+    standing as an iterator, at the top level or in any
+    position inside it, a mapping of items value among
+    them, stands materialised once for the whole test,
+    so every instruction item stands compared against
+    the same holdout items, and a text form standing in
+    the shared recursive reading past the interpreter
+    limit returns that same governed refusal form.
     """
     if occasion not in ("candidate construction", "promotion"):
         raise ValueError("unknown instruction test occasion: %r" % (occasion,))
@@ -1089,11 +1090,11 @@ def test_instruction_items_against_holdout(bundle, occasion=None,
         holdout_material = bundle.get("holdout")
     if holdout_material is None:
         holdout_material = []
-    if hasattr(holdout_material, "__next__") and hasattr(
-        holdout_material, "__iter__"
-    ):
-        holdout_material = list(holdout_material)
     from ontoloop import cross_split_audit as _shared_module
+
+    holdout_material = _shared_module._materialise_iterators(
+        holdout_material
+    )
 
     outcome = None
     for item in items:
