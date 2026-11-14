@@ -146,6 +146,44 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             order.index("repair verification"),
             order.index("stop append"),
         )
+        swapped = list(module.incident_append_order(
+            acts=("stop append", "purge append", "repair verification"),
+        ))
+        self.assertEqual(
+            set(swapped),
+            {"repair verification", "purge append", "stop append"},
+        )
+        self.assertLess(
+            swapped.index("repair verification"),
+            swapped.index("stop append"),
+        )
+        self.assertLess(
+            swapped.index("repair verification"),
+            swapped.index("purge append"),
+        )
+        self.assertLess(
+            swapped.index("stop append"),
+            swapped.index("purge append"),
+        )
+        reordered = list(module.incident_append_order(
+            acts=("purge append", "stop append", "repair verification"),
+        ))
+        self.assertEqual(
+            set(reordered),
+            {"repair verification", "purge append", "stop append"},
+        )
+        self.assertLess(
+            reordered.index("repair verification"),
+            reordered.index("purge append"),
+        )
+        self.assertLess(
+            reordered.index("repair verification"),
+            reordered.index("stop append"),
+        )
+        self.assertLess(
+            reordered.index("purge append"),
+            reordered.index("stop append"),
+        )
 
     def test_loading_stop_takes_effect_before_its_journal_record(self):
         module = require("ontoloop.ops")
@@ -211,6 +249,8 @@ class _FreshnessCheckPoint:
         record = check["lifecycle_record"]
         self.assertIn("stale_flag", record)
         self.assertIn("stale_flag_cleared", record)
+        self.assertIs(record["stale_flag"], True)
+        self.assertIs(record["stale_flag_cleared"], False)
 
     def test_stale_material_is_excluded_from_the_act_in_hand(self):
         check = self._fresh()
