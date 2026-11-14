@@ -368,11 +368,25 @@ def _bundle_copy(bundle):
     views, so a copied part shares no mutable state
     with the caller part in either direction. A value
     standing in none of these forms copies through
-    the standard deep copy act.
+    the standard deep copy act. An enum member stands
+    as a governed form of its own: a member carrying
+    mutable instance state stands refused with a
+    ValueError, and a member carrying no mutable
+    instance state stands shared as an immutable
+    value. A container or wrapper part carrying
+    instance attribute state copies that state apart
+    in both directions, its attribute mapping copied
+    by this same act, with its type and its entries,
+    elements, maps, or text preserved, and a
+    defaultdict part keeps the factory it was
+    recorded with. Where a subclass type does not
+    allow its construction in the form a limb needs,
+    the copy stands in the plain base form.
     """
     import array as _array_module
     import collections as _collections
     import copy as _copy_module
+    import enum as _enum_module
     import types as _types_module
 
     def _is_atom(value):
@@ -395,6 +409,40 @@ def _bundle_copy(bundle):
         except Exception:
             return tuple(parts)
 
+    def _state_immutable(value):
+        if _is_atom(value):
+            return True
+        if isinstance(value, (tuple, frozenset)):
+            return all(_state_immutable(item) for item in value)
+        return False
+
+    def _enum_carries_mutable(member):
+        mapping = getattr(member, "__dict__", None)
+        if not mapping:
+            return False
+        internal = ("_value_", "_name_", "__objclass__", "_sort_order_")
+        for key in mapping:
+            if key in internal:
+                continue
+            if not _state_immutable(mapping[key]):
+                return True
+        return False
+
+    def _attr_mapping(value):
+        mapping = getattr(value, "__dict__", None)
+        if isinstance(mapping, dict):
+            return mapping
+        return None
+
+    def _apply_attrs(built, copied_mapping):
+        try:
+            built.__dict__.update(copied_mapping)
+        except Exception:
+            try:
+                built.__dict__ = dict(copied_mapping)
+            except Exception:
+                pass
+
     memo = {}
     in_progress = set()
     results = []
@@ -407,18 +455,33 @@ def _bundle_copy(bundle):
                 del results[len(results) - child_count:]
             else:
                 parts = []
-            if kind == "mapping":
+            attr_copy = None
+            if _attr_mapping(current) is not None:
+                attr_copy = parts[-1]
+                parts = parts[:-1]
+            if kind == "attrs":
+                _apply_attrs(placeholder, attr_copy)
+                results.append(placeholder)
+            elif kind == "mapping":
                 for index in range(0, len(parts), 2):
                     placeholder[parts[index]] = parts[index + 1]
+                if attr_copy is not None:
+                    _apply_attrs(placeholder, attr_copy)
                 results.append(placeholder)
             elif kind == "chainmap":
                 placeholder.maps = list(parts)
+                if attr_copy is not None:
+                    _apply_attrs(placeholder, attr_copy)
                 results.append(placeholder)
             elif kind == "sequence":
                 placeholder.extend(parts)
+                if attr_copy is not None:
+                    _apply_attrs(placeholder, attr_copy)
                 results.append(placeholder)
             elif kind == "set":
                 placeholder.update(parts)
+                if attr_copy is not None:
+                    _apply_attrs(placeholder, attr_copy)
                 results.append(placeholder)
             elif kind == "tuple":
                 in_progress.discard(id(current))
@@ -427,24 +490,45 @@ def _bundle_copy(bundle):
                 else:
                     built = _tuple_form(current, parts)
                     memo[id(current)] = built
+                    if attr_copy is not None:
+                        _apply_attrs(built, attr_copy)
                     results.append(built)
             elif kind == "frozenset":
                 in_progress.discard(id(current))
                 if id(current) in memo:
                     results.append(memo[id(current)])
                 else:
-                    built = frozenset(parts)
+                    try:
+                        built = type(current)(parts)
+                    except Exception:
+                        built = frozenset(parts)
                     memo[id(current)] = built
+                    if attr_copy is not None:
+                        _apply_attrs(built, attr_copy)
                     results.append(built)
             continue
         if id(current) in memo:
             results.append(memo[id(current)])
+            continue
+        if isinstance(current, _enum_module.Enum):
+            if _enum_carries_mutable(current):
+                raise ValueError(
+                    "enum member with mutable instance state in bundle copy"
+                )
+            results.append(current)
             continue
         if id(current) in in_progress:
             parts = []
             for child in list(current):
                 if id(child) in memo:
                     parts.append(memo[id(child)])
+                elif isinstance(child, _enum_module.Enum):
+                    if _enum_carries_mutable(child):
+                        raise ValueError(
+                            "enum member with mutable instance state "
+                            "in bundle copy"
+                        )
+                    parts.append(child)
                 elif _is_atom(child):
                     parts.append(child)
                 elif _is_atom_subclass(child):
@@ -454,9 +538,17 @@ def _bundle_copy(bundle):
                 else:
                     raise ValueError("cyclic value in bundle copy")
             if isinstance(current, frozenset):
-                built = frozenset(parts)
+                try:
+                    built = type(current)(parts)
+                except Exception:
+                    built = frozenset(parts)
             else:
                 built = _tuple_form(current, parts)
+            cyclic_attrs = _attr_mapping(current)
+            if cyclic_attrs is not None:
+                _apply_attrs(
+                    built, _copy_module.deepcopy(cyclic_attrs)
+                )
             memo[id(current)] = built
             results.append(built)
             continue
@@ -464,9 +556,17 @@ def _bundle_copy(bundle):
             results.append(current)
             continue
         if isinstance(current, bytearray):
-            built = bytearray(current)
+            try:
+                built = type(current)(current)
+            except Exception:
+                built = bytearray(current)
             memo[id(current)] = built
-            results.append(built)
+            attrs = _attr_mapping(current)
+            if attrs is None:
+                results.append(built)
+                continue
+            stack.append((current, True, "attrs", built, 1))
+            stack.append((attrs, False, None, None, 0))
             continue
         if isinstance(current, memoryview):
             built = bytearray(current.tobytes())
@@ -474,14 +574,28 @@ def _bundle_copy(bundle):
             results.append(built)
             continue
         if isinstance(current, _array_module.array):
-            built = _array_module.array(current.typecode, current)
+            try:
+                built = type(current)(current.typecode, current)
+            except Exception:
+                built = _array_module.array(current.typecode, current)
             memo[id(current)] = built
-            results.append(built)
+            attrs = _attr_mapping(current)
+            if attrs is None:
+                results.append(built)
+                continue
+            stack.append((current, True, "attrs", built, 1))
+            stack.append((attrs, False, None, None, 0))
             continue
         if isinstance(current, _collections.ChainMap):
-            placeholder = _collections.ChainMap({})
+            try:
+                placeholder = type(current)()
+            except Exception:
+                placeholder = _collections.ChainMap({})
             memo[id(current)] = placeholder
             children = list(current.maps)
+            attrs = _attr_mapping(current)
+            if attrs is not None:
+                children.append(attrs)
             stack.append((current, True, "chainmap", placeholder,
                           len(children)))
             for child in reversed(children):
@@ -495,7 +609,21 @@ def _bundle_copy(bundle):
             if isinstance(current, _types_module.MappingProxyType):
                 placeholder = {}
             elif isinstance(current, _collections.UserDict):
-                placeholder = _collections.UserDict()
+                try:
+                    placeholder = type(current)()
+                except Exception:
+                    placeholder = _collections.UserDict()
+            elif isinstance(current, _collections.defaultdict):
+                try:
+                    placeholder = type(current)(current.default_factory)
+                except Exception:
+                    try:
+                        placeholder = type(current)()
+                        placeholder.default_factory = current.default_factory
+                    except Exception:
+                        placeholder = _collections.defaultdict(
+                            current.default_factory
+                        )
             else:
                 try:
                     placeholder = type(current)()
@@ -506,6 +634,9 @@ def _bundle_copy(bundle):
             for key in current:
                 children.append(key)
                 children.append(current[key])
+            attrs = _attr_mapping(current)
+            if attrs is not None:
+                children.append(attrs)
             stack.append((current, True, "mapping", placeholder,
                           len(children)))
             for child in reversed(children):
@@ -515,9 +646,15 @@ def _bundle_copy(bundle):
             current, (list, _collections.deque, _collections.UserList)
         ):
             if isinstance(current, _collections.deque):
-                placeholder = _collections.deque()
+                try:
+                    placeholder = type(current)()
+                except Exception:
+                    placeholder = _collections.deque()
             elif isinstance(current, _collections.UserList):
-                placeholder = _collections.UserList()
+                try:
+                    placeholder = type(current)()
+                except Exception:
+                    placeholder = _collections.UserList()
             else:
                 try:
                     placeholder = type(current)()
@@ -525,20 +662,37 @@ def _bundle_copy(bundle):
                     placeholder = []
             memo[id(current)] = placeholder
             children = list(current)
+            attrs = _attr_mapping(current)
+            if attrs is not None:
+                children.append(attrs)
             stack.append((current, True, "sequence", placeholder,
                           len(children)))
             for child in reversed(children):
                 stack.append((child, False, None, None, 0))
             continue
         if isinstance(current, _collections.UserString):
-            built = _collections.UserString(str(current))
+            try:
+                built = type(current)(str(current))
+            except Exception:
+                built = _collections.UserString(str(current))
             memo[id(current)] = built
-            results.append(built)
+            attrs = _attr_mapping(current)
+            if attrs is None:
+                results.append(built)
+                continue
+            stack.append((current, True, "attrs", built, 1))
+            stack.append((attrs, False, None, None, 0))
             continue
         if isinstance(current, set):
-            placeholder = set()
+            try:
+                placeholder = type(current)()
+            except Exception:
+                placeholder = set()
             memo[id(current)] = placeholder
             children = list(current)
+            attrs = _attr_mapping(current)
+            if attrs is not None:
+                children.append(attrs)
             stack.append((current, True, "set", placeholder,
                           len(children)))
             for child in reversed(children):
@@ -547,6 +701,9 @@ def _bundle_copy(bundle):
         if isinstance(current, tuple):
             in_progress.add(id(current))
             children = list(current)
+            attrs = _attr_mapping(current)
+            if attrs is not None:
+                children.append(attrs)
             stack.append((current, True, "tuple", None, len(children)))
             for child in reversed(children):
                 stack.append((child, False, None, None, 0))
@@ -554,6 +711,9 @@ def _bundle_copy(bundle):
         if isinstance(current, frozenset):
             in_progress.add(id(current))
             children = list(current)
+            attrs = _attr_mapping(current)
+            if attrs is not None:
+                children.append(attrs)
             stack.append((current, True, "frozenset", None,
                           len(children)))
             for child in reversed(children):
