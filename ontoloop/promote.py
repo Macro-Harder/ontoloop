@@ -678,27 +678,42 @@ def _reason_carries_content(reason):
     """Return whether a retain reason carries content in substance.
 
     A string carries content only where it holds a non
-    whitespace character. A byte form carries content
-    only where its bytes hold one. A mapping carries
-    content only where one of its values carries
-    content, and a list, tuple, or set form only where
-    one of its items carries content. Any other value
-    carries content on its standing truthiness alone,
-    so the empty string, the empty list, and the
-    integer 0 carry none, as before.
+    whitespace character, and a UserString carries
+    content as the text it wraps, on the same test. A
+    byte form carries content only where its bytes
+    hold one, and an array in byte form carries
+    content as the bytes it holds, on the same test. A
+    mapping carries content only where one of its
+    values carries content, and any other iterable
+    form, a list, a tuple, a set, a deque, a range, a
+    generator, or an iterator among them, carries
+    content only where one of the items it yields
+    carries content. Any other value carries content
+    on its standing truthiness alone, so the empty
+    string, the empty list, and the integer 0 carry
+    none, as before. The test stands on the stated
+    ground the reason carries and not on the falsiness
+    or the form of its container.
     """
+    from array import array as _Array
+    from collections import UserString as _UserString
+    from collections.abc import Iterable as _Iterable
     from collections.abc import Mapping as _Mapping
 
     if reason is None:
         return False
+    if isinstance(reason, _UserString):
+        return bool(str(reason).strip())
     if isinstance(reason, str):
         return bool(reason.strip())
     if isinstance(reason, (bytes, bytearray, memoryview)):
         return bool(bytes(reason).strip())
+    if isinstance(reason, _Array) and reason.typecode in ("b", "B"):
+        return bool(reason.tobytes().strip())
     if isinstance(reason, _Mapping):
         return any(
             _reason_carries_content(value) for value in reason.values())
-    if isinstance(reason, (list, tuple, set, frozenset)):
+    if isinstance(reason, _Iterable):
         return any(_reason_carries_content(item) for item in reason)
     return bool(reason)
 
@@ -820,17 +835,40 @@ def provisional_record(with_comparison=True, comparable_displaced_period=True,
     list of values. A memoryview stands read as the
     byte content it views for the purposes of that
     refusal, in the same form as the byte forms it
-    views.
+    views. A value standing in array form or in
+    UserString form stands refused at each of the four
+    sites in the same governed form, an array standing
+    read as the content it holds and a UserString as
+    the text it wraps for the purposes of that refusal.
+    A value standing in no iterable form, and a value
+    carrying an unhashable item inside the list it
+    stands as, stand refused at each of the four sites
+    in the same governed ValueError form, with no other
+    exception.
     """
+    from array import array as _Array
+    from collections import UserString as _UserString
     from collections.abc import Mapping as _Mapping
 
     def _values_or_default(value, default):
         if value is None:
             return list(default)
-        if isinstance(value, (str, bytes, bytearray, memoryview, _Mapping)):
+        if isinstance(value, (str, bytes, bytearray, memoryview, _Mapping,
+                             _Array, _UserString)):
             raise ValueError(
                 "provisional values must stand as a list of values")
-        return list(value)
+        try:
+            values = list(value)
+        except TypeError:
+            raise ValueError(
+                "provisional values must stand as a list of values")
+        for item in values:
+            try:
+                hash(item)
+            except TypeError:
+                raise ValueError(
+                    "provisional values must stand as a list of values")
+        return values
 
     prov_out = _values_or_default(
         provisional_outcomes, ["pass", "pass", "fail"])
@@ -917,14 +955,27 @@ def confirm_provisional(record):
     form. A period carrying both figure positions with
     empty mixes stands as a period in full, and a
     record carrying a comparison mapping of that kind
-    stands confirmed in form.
+    stands confirmed in form. A period stands as a
+    period only where each of its figure positions
+    carries a figure in substance, a figure standing
+    as a mapping, the mix form the product builds, so
+    a figure standing as no value, as an empty string,
+    as a text string, as a list, or as a zero, in
+    either figure position of either period, stands
+    as no figure, and a comparison carrying such a
+    period stands barred in the same form. A figure
+    standing as an empty mapping stands as a figure
+    in full, in the empty mixes form above.
     """
+    from collections.abc import Mapping as _Mapping
 
     def _stands_as_period(value):
         return (
             isinstance(value, dict)
             and "outcome_mix" in value
             and "correction_position" in value
+            and isinstance(value["outcome_mix"], _Mapping)
+            and isinstance(value["correction_position"], _Mapping)
         )
 
     if not isinstance(record, dict):
