@@ -480,5 +480,55 @@ class TestEvalKeyCustody(unittest.TestCase):
             self.assertNotIn(name, module.__all__)
 
 
+class TestEvalFixR6(unittest.TestCase):
+    """Fix round 6, Region 3: eval scalar lookups, rulings 99 and 100.
+
+    Written test first for S15-R6-EVAL-1 and S15-R6-EVAL-2.
+    Each pin states the stated ValueError form of its surface,
+    beside the standing forms the cure preserves. No pin states
+    any table value.
+    """
+
+    # Ruling 99: margin_components meets an unhashable group
+    # count in its stated ValueError form.
+    def test_margin_components_unhashable_count_raises_value_error(self):
+        module = require(MODULE)
+        for count in ([8], {"count": 8}, {8}):
+            with self.assertRaises(ValueError, msg=repr(count)):
+                module.margin_components(groups=count)
+
+    def test_margin_components_standing_counts_still_return(self):
+        module = require(MODULE)
+        for count in (8, 10, 30):
+            result = module.margin_components(groups=count)
+            self.assertEqual(
+                set(result["components"]),
+                {"practical", "noise", "absolute floor"},
+            )
+        default = module.margin_components()
+        self.assertIn("components", default)
+        for count in (7, "8", (8,)):
+            with self.assertRaises(ValueError, msg=repr(count)):
+                module.margin_components(groups=count)
+
+    # Ruling 100: aggregate_example meets an unhashable example
+    # letter in its stated ValueError form.
+    def test_aggregate_example_unhashable_letter_raises_value_error(self):
+        module = require(MODULE)
+        for letter in (["B"], {"letter": "B"}):
+            with self.assertRaises(ValueError, msg=repr(letter)):
+                module.aggregate_example(letter)
+
+    def test_aggregate_example_standing_letters_still_return(self):
+        module = require(MODULE)
+        for letter in ("B", "D"):
+            result = module.aggregate_example(letter)
+            scores = result["per_group_scores"]
+            self.assertAlmostEqual(
+                result["aggregate"], sum(scores) / len(scores))
+        with self.assertRaises(ValueError):
+            module.aggregate_example("X")
+
+
 if __name__ == "__main__":
     unittest.main()

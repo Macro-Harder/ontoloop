@@ -593,5 +593,106 @@ class TestCoreFixR5(unittest.TestCase):
                 undisposed_failure=None, disposed=[disposed]))
 
 
+class TestCoreFixR6(unittest.TestCase):
+    """Fix round 6, Region 3: core scalar lookups, rulings 91 to 93.
+
+    Written test first for R6-CORE-1, R6-CAT-1, and R6-CAT-2.
+    Each pin states the governed form its ruling charges,
+    beside the standing forms the cure preserves.
+    """
+
+    # Ruling 91: state_transition meets an unhashable state or
+    # act value in its stated KeyError form.
+    def test_state_transition_unhashable_state_raises_key_error(self):
+        module = require(MODULE)
+        with self.assertRaises(KeyError):
+            module.state_transition(
+                ["Provisional, first period"], "confirmation")
+
+    def test_state_transition_unhashable_act_raises_key_error(self):
+        module = require(MODULE)
+        with self.assertRaises(KeyError):
+            module.state_transition(
+                "Provisional, first period", ["confirmation"])
+
+    def test_state_transition_unhashable_mapping_raises_key_error(self):
+        module = require(MODULE)
+        with self.assertRaises(KeyError):
+            module.state_transition(
+                {"state": 1}, "confirmation")
+
+    def test_state_transition_standing_forms_still_decide(self):
+        module = require(MODULE)
+        self.assertEqual(
+            module.state_transition(
+                "Provisional, first period", "confirmation"),
+            "Confirmed",
+        )
+        with self.assertRaises(KeyError):
+            module.state_transition("X", "confirmation")
+
+    # Ruling 92: check_owing_forms returns its governed failure
+    # form on a row in no mapping form, on an unhashable name,
+    # and on a named row carrying a malformed form value.
+    def _assert_governed_failure(self, result):
+        self.assertIs(result["passed"], False)
+        self.assertEqual(result["defect_home"], "catalogue")
+        self.assertIsNone(result["owing_statement"])
+
+    def test_check_owing_forms_non_mapping_rows_return_failure(self):
+        module = require(MODULE)
+        for row in (None, "sync failure", ["sync failure"], 5):
+            result = module.check_owing_forms(row)
+            self._assert_governed_failure(result)
+            self.assertEqual(result["defects"], [], repr(row))
+
+    def test_check_owing_forms_unhashable_name_returns_failure(self):
+        module = require(MODULE)
+        result = module.check_owing_forms({"name": ["sync failure"]})
+        self._assert_governed_failure(result)
+        self.assertEqual(result["defects"], [])
+
+    def test_check_owing_forms_malformed_form_value_returns_failure(self):
+        module = require(MODULE)
+        catalogue_row = module.error_catalogue()["sync failure"]
+        statement = module.check_owing_forms(
+            catalogue_row)["owing_statement"]
+        named = dict(statement)
+        named["simple_form"] = "a plain string, not a form mapping"
+        result = module.check_owing_forms(named)
+        self.assertIs(result["passed"], False)
+        self.assertEqual(result["defects"], ["sync failure"])
+        self.assertIsNotNone(result["owing_statement"])
+
+    def test_check_owing_forms_standing_rows_still_pass(self):
+        module = require(MODULE)
+        for name, row in module.error_catalogue().items():
+            result = module.check_owing_forms(dict(row))
+            self.assertIs(result["passed"], True, name)
+        empty = module.check_owing_forms({})
+        self.assertIs(empty["passed"], False)
+        unknown = module.check_owing_forms({"name": "no such row"})
+        self.assertIs(unknown["passed"], False)
+
+    # Ruling 93: catalogue_row_with_value returns its governed
+    # form, None, on an unhashable kind argument.
+    def test_catalogue_row_with_value_unhashable_kind_returns_none(self):
+        module = require(MODULE)
+        for kind in (["figure"], {"figure": 1}):
+            result = module.catalogue_row_with_value(
+                kind, "advanced_form")
+            self.assertIsNone(result, repr(kind))
+
+    def test_catalogue_row_with_value_standing_kinds_still_return(self):
+        module = require(MODULE)
+        row = module.catalogue_row_with_value("figure", "advanced_form")
+        self.assertIsNotNone(row)
+        self.assertIn("name", row)
+        self.assertIsNone(
+            module.catalogue_row_with_value("no such kind", "advanced_form"))
+        self.assertIsNone(
+            module.catalogue_row_with_value("figure", "no such form"))
+
+
 if __name__ == "__main__":
     unittest.main()

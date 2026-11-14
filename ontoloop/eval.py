@@ -190,7 +190,13 @@ def aggregate_example(example):
     above states. A letter outside B and D raises
     ValueError, in the proposed error form.
     """
-    if example not in _EXAMPLE_SCORES:
+    # Fix round 6, ruling 100: an unhashable example letter
+    # meets the stated ValueError form of this surface.
+    try:
+        example_unknown = example not in _EXAMPLE_SCORES
+    except TypeError:
+        example_unknown = True
+    if example_unknown:
         raise ValueError("unknown example: %r" % (example,))
     scores = list(_EXAMPLE_SCORES[example])
     return {
@@ -283,7 +289,13 @@ def _student_t_multiplier(groups):
     three grounded counts raises ValueError, under
     the disposition of DG-9.
     """
-    if groups not in _STUDENT_T_MULTIPLIERS:
+    # Fix round 6, ruling 99: an unhashable group count
+    # meets the stated ValueError form of this surface.
+    try:
+        count_unknown = groups not in _STUDENT_T_MULTIPLIERS
+    except TypeError:
+        count_unknown = True
+    if count_unknown:
         raise ValueError("unknown group count: %r" % (groups,))
     return _STUDENT_T_MULTIPLIERS[groups]
 

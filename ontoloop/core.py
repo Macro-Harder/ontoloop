@@ -1056,11 +1056,22 @@ def section_4_4_core_rows():
 
 
 def catalogue_row_with_value(kind, form):
+    # Fix round 6, ruling 93: an unhashable kind argument
+    # returns the governed form of this surface for an
+    # unjudged kind, None, with no exception.
     for name in _CATALOGUE_ORDER:
         row = _OWING_PRESENTATION[name]
-        form_value = row.get(form)
-        if isinstance(form_value, dict) and kind in form_value:
-            return _fresh_owing_row(row)
+        try:
+            form_value = row.get(form)
+        except TypeError:
+            return None
+        if isinstance(form_value, dict):
+            try:
+                matched = kind in form_value
+            except TypeError:
+                return None
+            if matched:
+                return _fresh_owing_row(row)
     return None
 
 
@@ -1725,9 +1736,25 @@ def check_owing_forms(row):
     None where identification fails.
     """
     stored_rows = _stored_owing_rows()
+    # Fix round 6, ruling 92: a row standing in no mapping
+    # form returns the governed failure form of this
+    # surface, with no exception.
+    if not hasattr(row, "get"):
+        return {
+            "passed": False,
+            "defect_home": "catalogue",
+            "defects": [],
+            "owing_statement": None,
+        }
     if "name" in row:
         name = row["name"]
-        if name not in stored_rows:
+        # Fix round 6, ruling 92: an unhashable name stands
+        # as an unidentified name, in the same failure form.
+        try:
+            name_unknown = name not in stored_rows
+        except TypeError:
+            name_unknown = True
+        if name_unknown:
             return {
                 "passed": False,
                 "defect_home": "catalogue",
@@ -1744,6 +1771,12 @@ def check_owing_forms(row):
                 continue
             given_form = row.get(form)
             if not given_form:
+                failed = True
+                continue
+            # Fix round 6, ruling 92: a named row carrying a
+            # form value in no mapping form stands failed on
+            # that form, in the governed failure form.
+            if not hasattr(given_form, "get"):
                 failed = True
                 continue
             for kind in ("figure", "bound", "refusal_reason"):
@@ -2418,8 +2451,14 @@ def state_transition(state, act):
     governing state table transition the shape act names
     for the Example D fixture case. A state and act pair
     the table does not state raises KeyError.
+    Fix round 6, ruling 91: an unhashable state or act
+    value meets the act in that same KeyError form, as
+    an unstated pair, with no other exception.
     """
-    return _STATE_TRANSITIONS[(state, act)]
+    try:
+        return _STATE_TRANSITIONS[(state, act)]
+    except TypeError:
+        raise KeyError((state, act)) from None
 
 
 def __getattr__(name):
