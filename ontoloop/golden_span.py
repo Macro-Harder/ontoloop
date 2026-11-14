@@ -31,6 +31,8 @@ AttributeError in the ordinary form. The golden records
 of this module are fixtures and carry no actor claim.
 """
 
+from collections.abc import Mapping
+
 MODULE_NAME = "ontoloop.golden_span"
 NOT_BUILT_PREFIX = "NOT BUILT (Step 14): "
 
@@ -216,7 +218,7 @@ def re_read(record):
             "refusal": {"case": case},
         }
 
-    if not isinstance(record, dict):
+    if not isinstance(record, Mapping):
         return refusal("not a record mapping")
     for key in ("record_identity", "record_type",
                 "schema_version", "payload"):
@@ -230,7 +232,7 @@ def re_read(record):
     if version not in _schema_versions():
         return refusal("schema version outside the reader window")
     payload = record["payload"]
-    if not isinstance(payload, dict):
+    if not isinstance(payload, Mapping):
         return refusal("payload keys not the fields of the record type")
     if sorted(payload.keys()) != sorted(_field_names(record["record_type"])):
         return refusal("payload keys not the fields of the record type")
@@ -558,7 +560,7 @@ def discharge_state(entry=None, affected_classes=None):
     change_passed_as_no_change standing False in every
     return of this act.
     """
-    if not isinstance(entry, dict):
+    if not isinstance(entry, Mapping):
         return {
             "discharged": False,
             "bar_stands": True,
@@ -576,7 +578,7 @@ def discharge_state(entry=None, affected_classes=None):
     if not (
         isinstance(covered, (list, tuple))
         and isinstance(checks, (list, tuple))
-        and isinstance(results, dict)
+        and isinstance(results, Mapping)
     ):
         return {
             "discharged": False,

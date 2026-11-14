@@ -687,6 +687,47 @@ _CLAIM_CONCEPT_ROOTS = (
     "overwrit",
     "updat",
     "replac",
+    "duplicat",
+    "intercept",
+    "transmitt",
+    "forward",
+    "shar",
+    "print",
+    "photograph",
+    "transcrib",
+    "download",
+    "mov",
+    "renam",
+    "spoof",
+    "replay",
+    "sniff",
+    "replicat",
+    "extract",
+    "fireproof",
+    "bombproof",
+    "waterproof",
+    "weatherproof",
+    "shatterproof",
+    "rustproof",
+    "soundproof",
+    "childproof",
+    "fault",
+    "flaw",
+    "froz",
+    "guard",
+    "death",
+    "timeless",
+    "scrutin",
+    "ratif",
+    "accredit",
+    "irrevoc",
+    "irrevers",
+    "ironclad",
+    "indomit",
+    "unshak",
+    "invinc",
+    "initiall",
+    "frank",
 )
 
 # The exact assertion words, beside the assertion roots
@@ -795,6 +836,30 @@ _ASSERTION_ROOTS = (
     "realiz",
     "represent",
     "bring",
+    "cement",
+    "entrench",
+    "enshrin",
+    "show",
+    "display",
+    "manifest",
+    "exemplif",
+    "typif",
+    "buttress",
+    "champion",
+    "advanc",
+    "boost",
+    "elevat",
+    "enhanc",
+    "augment",
+    "undergird",
+    "pledg",
+    "promis",
+    "commit",
+    "convey",
+    "assert",
+    "declar",
+    "proclaim",
+    "affirm",
 )
 
 # The wordings that mark a claim statement as standing
@@ -829,7 +894,11 @@ _UNCONDITIONAL_MARKERS = (
 _GOVERNING_CONDITION_PHRASES = (
     "conditional on",
     "conditioned on",
+    "conditional upon",
+    "depending on",
+    "contingent on",
     "conditional",
+    "only at signed strength",
     "subject to",
     "provided",
     "at signed strength only",
@@ -948,12 +1017,18 @@ def _clause_claim(clause):
         "self", "auto", "counter",
         "inter", "post", "multi", "semi", "non", "un",
         "hyper", "micro", "macro", "pseudo", "quasi", "ultra",
+        "tri", "dual", "twice", "well", "fully",
+        "super", "anti", "extra", "trans", "intra", "neo",
+        "omni", "poly",
     )
     verification_roots = ("check", "verif", "validat", "confirm", "certif")
     for word in words:
         for root in verification_roots:
             position = word.find(root)
-            if position > 0 and word[:position] in prefixes:
+            if position > 0 and (
+                word[:position] in prefixes
+                or len(word[:position]) == 1
+            ):
                 return True
     if "keeps" in words and "out" in words:
         return True
@@ -1047,6 +1122,40 @@ _SUBORDINATE_INTRODUCERS = (
     "forgetting",
     "witnessing",
     "accepting",
+    "noticing",
+    "perceiving",
+    "discovering",
+    "overlooking",
+    "disregarding",
+    "declaring",
+    "stating",
+    "asserting",
+    "via",
+    "through",
+    "without",
+    "whereupon",
+    "inasmuch",
+    "touching",
+    "respecting",
+    "mentioning",
+    "relating",
+    "pertaining",
+    "involving",
+    "allowing",
+    "requiring",
+    "having",
+    "being",
+    "leaving",
+    "keeping",
+    "taking",
+    "expecting",
+    "hoping",
+    "doubting",
+    "turning",
+    "looking",
+    "speaking",
+    "thinking",
+    "feeling",
 )
 
 
@@ -1062,6 +1171,37 @@ def _main_segment(clause):
     words = _clause_words(clause)
     for index, word in enumerate(words):
         if word in _SUBORDINATE_INTRODUCERS:
+            return " ".join(words[:index])
+        if (
+            word == "in"
+            and index + 2 < len(words)
+            and words[index + 1] == "spite"
+            and words[index + 2] == "of"
+        ):
+            return " ".join(words[:index])
+        if (
+            word == "apart"
+            and index + 1 < len(words)
+            and words[index + 1] == "from"
+        ):
+            return " ".join(words[:index])
+        if (
+            word == "due"
+            and index + 1 < len(words)
+            and words[index + 1] == "to"
+        ):
+            return " ".join(words[:index])
+        if (
+            word == "instead"
+            and index + 1 < len(words)
+            and words[index + 1] == "of"
+        ):
+            return " ".join(words[:index])
+        if (
+            word == "rather"
+            and index + 1 < len(words)
+            and words[index + 1] == "than"
+        ):
             return " ".join(words[:index])
         if (
             word == "in"
@@ -1107,6 +1247,23 @@ def _main_segment(clause):
             and _clause_asserted(" ".join(words[:index - 1]))
         ):
             return " ".join(words[:index - 1])
+    for index, word in enumerate(words):
+        if word not in ("not", "never", "cannot") or index < 4:
+            continue
+        for start in range(3, index):
+            between = words[start:index]
+            trimmed = between
+            if trimmed and trimmed[-1] in (
+                "is", "are", "was", "were", "has", "have", "had",
+                "need", "needs",
+            ):
+                trimmed = trimmed[:-1]
+            if not trimmed or len(trimmed) > 5:
+                continue
+            if any(item in _FINITE_VERB_WORDS for item in trimmed):
+                continue
+            if _clause_claim(" ".join(words[:start])):
+                return " ".join(words[:start])
     return clause
 
 
@@ -1211,6 +1368,10 @@ def _clause_inability_form(clause):
         "edit", "updat", "overwrit", "replac",
         "read", "copi", "access", "view", "open", "list",
         "leak", "disclos", "export", "verif",
+        "duplicat", "intercept", "transmitt", "forward", "shar",
+        "print", "photograph", "transcrib", "download", "mov",
+        "renam", "spoof", "replay", "sniff", "replicat", "extract",
+        "substitut", "hidd",
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -1220,10 +1381,12 @@ def _clause_inability_form(clause):
         "by", "means", "all", "conceivable", "circumstance",
         "condition", "case", "reason", "respect", "whatsoever",
         "to", "for",
+        "absolutely", "manner", "fashion", "method", "guise",
+        "point", "purpose",
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
-        "should", "would", "ought",
+        "should", "would", "ought", "need", "dare",
     )
     for index, word in enumerate(words):
         if word == "cannot":
@@ -1259,7 +1422,7 @@ def _clause_inability_form(clause):
         steps = 0
         while (
             cursor < len(words)
-            and steps < 12
+            and steps < 64
             and words[cursor] in fillers
         ):
             cursor += 1
@@ -1307,10 +1470,16 @@ def _seal_claim_scan(assembly_text):
             "\u2013|\u2014"
             r"|\||\{|\}|~|&"
             r"|\*|\^|=|#|@|\\|>|\+|--|%"
+            r"|<|`|\$|_|'|\""
+            "\u2022|\u00b7|\u00a7|\u2026|\u20ac|\u00ab|\u00bb"
             r"|\band\b|\bbut\b|\byet\b|\bor\b|\bnor\b|\bplus\b"
             r"|\bhowever\b|\bmeanwhile\b|\bnevertheless\b"
             r"|\bnonetheless\b|\bfurthermore\b"
-            r"|\bmoreover\b|\btherefore\b",
+            r"|\bmoreover\b|\btherefore\b"
+            r"|\bconsequently\b|\baccordingly\b|\bhence\b|\bthus\b"
+            r"|\bsubsequently\b|\bafterwards\b|\binstead\b"
+            r"|\botherwise\b|\blikewise\b|\bsimilarly\b"
+            r"|\bfinally\b|\bthen\b|\bbesides\b|\bsimultaneously\b",
             statement)
         governed_by_fragment = any(
             _fragment_governs(clause) for clause in clauses
@@ -1333,6 +1502,28 @@ def _seal_claim_scan(assembly_text):
                 and main_words[-1] == "only"
                 and clause_words[len(main_words)]
                 in ("if", "when", "where")
+            ):
+                complement = " ".join(clause_words[len(main_words) + 1:])
+                if _governing_condition_holds(
+                    "conditional on " + complement
+                ):
+                    continue
+            if (
+                main_words
+                and len(main_words) < len(clause_words)
+                and main_words[-1] == "conditional"
+                and clause_words[len(main_words)] == "upon"
+            ):
+                complement = " ".join(clause_words[len(main_words) + 1:])
+                if _governing_condition_holds(
+                    "conditional on " + complement
+                ):
+                    continue
+            if (
+                main_words
+                and len(main_words) < len(clause_words)
+                and clause_words[len(main_words)]
+                in ("provided", "given")
             ):
                 complement = " ".join(clause_words[len(main_words) + 1:])
                 if _governing_condition_holds(
@@ -1708,7 +1899,7 @@ def production_report_form(produced_pairs=None, produced_records=None):
             if shape is not None:
                 try:
                     hash(shape)
-                except TypeError:
+                except (TypeError, ValueError):
                     pass
                 else:
                     per_shape[shape] = per_shape.get(shape, 0) + 1
@@ -1716,7 +1907,7 @@ def production_report_form(produced_pairs=None, produced_records=None):
             if family is not None:
                 try:
                     hash(family)
-                except TypeError:
+                except (TypeError, ValueError):
                     pass
                 else:
                     per_family[family] = per_family.get(family, 0) + 1
