@@ -15,8 +15,16 @@ carrying candidate_items and holdout_items, each item
 a mapping of that same shape, with an optional split
 field naming its side. A single item presented to the
 audit stands as the flagged material in the bundle:
-the refusal follows from its presentation, and the
-relation detail is derived from its own fields. A
+its refusal states presentation as its ground, and it
+carries no firing pair and no comparison count,
+because no comparison over holdout material runs on
+that form. The instruction item act,
+audit_instruction_item, takes one instruction text
+and the holdout material and decides verbatim and
+near verbatim firing over the instruction text field
+only, by the near verbatim relation form of this
+module, and on firing returns the refusal form of
+this module at the occasion named. A
 bundle is audited in fact: candidate and holdout items
 are compared over an index keyed on the group and
 signature relations, pairs sharing neither relation
@@ -54,6 +62,7 @@ __all__ = [
     "audit_at_build",
     "audit_at_evaluation",
     "audit_at_promotion",
+    "audit_instruction_item",
     "indexed_comparisons",
     "relations",
 ]
@@ -65,6 +74,16 @@ _TYPED_REASON = (
     "spanning pair over a tested relation between the "
     "candidate bundle and the sealed holdout"
 )
+_PRESENTATION_REASON = (
+    "refused on its presentation as flagged material"
+)
+_INSTRUCTION_TEST_RESULT = (
+    "holdout content found in instruction item"
+)
+_CHARGING_FORM_AFTER_PARTIAL_SCORING = (
+    "standing charging form for a refusal after partial scoring"
+)
+_AUDIT_RECORD_HOME = "cross split audit record for the candidate"
 _COST_WEIGHT_PER_PAIR = 5
 _REVISIT_VOLUME_RUNS = 20000
 _NEAR_VERBATIM_OVERLAP = 0.75
@@ -232,6 +251,7 @@ def _audit_bundle(material):
         "cost_units": len(selected) * _COST_WEIGHT_PER_PAIR,
         "firing_pairs": firing,
         "flagged": bool(firing),
+        "typed_reason": _TYPED_REASON,
     }
 
 
@@ -269,24 +289,11 @@ def _audit(material, scored_before_refusal):
         return False, {"comparisons": 0, "cost_units": 0, "firing_pairs": []}
     if isinstance(material, (list, tuple)) and not material:
         return False, {"comparisons": 0, "cost_units": 0, "firing_pairs": []}
-    fields = _item_fields(material)
-    fired = [
-        relation
-        for relation in ("group", "signature")
-        if fields[relation] is not None
-    ]
-    if fields["text"]:
-        fired.append("near verbatim cluster")
     return True, {
-        "comparisons": 1,
-        "cost_units": _COST_WEIGHT_PER_PAIR,
-        "firing_pairs": [
-            {
-                "candidate_position": 0,
-                "holdout_position": 0,
-                "relations": fired or ["near verbatim cluster"],
-            }
-        ],
+        "comparisons": 0,
+        "cost_units": 0,
+        "firing_pairs": [],
+        "typed_reason": _PRESENTATION_REASON,
     }
 
 
@@ -301,7 +308,7 @@ def _refusal(record_home, scored_before_refusal, bundle):
         "candidate_bundle_refused": True,
         "promotion_proceeded": False,
         "evaluation_state": "not scored",
-        "typed_reason": _TYPED_REASON,
+        "typed_reason": bundle.get("typed_reason", _TYPED_REASON),
         "record_home": record_home,
         "completed_evaluations_charged": _charged(scored_before_refusal),
         "relations": list(RELATIONS),
@@ -326,6 +333,185 @@ def _clearance(record_home, scored_before_refusal, bundle):
         "comparison_cost_units": bundle["cost_units"],
         "firing_pairs": bundle["firing_pairs"],
     }
+
+
+def _instruction_text_of(instruction_text):
+    if isinstance(instruction_text, dict):
+        for key in ("instruction_text", "text", "content"):
+            value = instruction_text.get(key)
+            if value is not None:
+                return value
+        return None
+    return instruction_text
+
+
+def _holdout_items_of(holdout_material):
+    if holdout_material is None:
+        return []
+    if isinstance(holdout_material, str):
+        return [holdout_material]
+    if isinstance(holdout_material, dict):
+        if _is_bundle(holdout_material):
+            candidate, holdout = _split_items(holdout_material)
+            return holdout
+        return [holdout_material]
+    if isinstance(holdout_material, (list, tuple)):
+        return list(holdout_material)
+    return [holdout_material]
+
+
+def audit_instruction_item(
+    instruction_text,
+    holdout_material,
+    occasion="candidate construction",
+    after_partial_scoring=False,
+):
+    """Return the instruction item firing outcome, plan 19.86.
+
+    This act is the one firing decision home for the
+    instruction item content test. It takes one
+    instruction text, as a string or as a mapping
+    carrying its instruction text field, and the
+    holdout material, as a single holdout text, as one
+    holdout item, as a list of holdout items, or as a
+    bundle mapping carrying holdout_items. It compares
+    the instruction text field only, and the text field
+    of each holdout item only: no group, no signature,
+    and no wider field of either side takes part. A
+    pair fires where the texts stand equal (the
+    verbatim case, also recorded on the verbatim key)
+    or where the module _text_overlap form, dividing
+    by the smaller of the two word counts, stands at
+    or above the near verbatim threshold.
+
+    The return carries, on every case: fired, the
+    firing decision; fired_item, the instruction text
+    where fired and None where not; instruction_text;
+    verbatim; field_scope; wider_material_compared,
+    standing False; comparisons, the count of holdout
+    texts compared; firing_pairs, one entry per firing
+    holdout item, each carrying candidate_position 0,
+    its holdout_position, and relations standing at
+    the near verbatim cluster relation only;
+    cross_split_audit_result, the refusal form of this
+    module where fired and its clearance form where
+    not, at the record home of the occasion named;
+    audit_record, carrying the audit record home, the
+    fired item, and the test result recording
+    position; and the charging positions
+    completed_evaluations_charged, charging_form, and
+    charged_under_the_standing_charging_rules. On
+    firing it also carries test_result, standing at
+    the holdout content found wording, and
+    refusal_form, standing at cross split audit
+    refusal; where not fired, test_result and
+    refusal_form stand at None. The occasion stands at
+    candidate construction or promotion; an occasion
+    outside those two raises ValueError. Where
+    after_partial_scoring stands True on a firing
+    case, completed_evaluations_charged stands at 1
+    and charging_form stands at the standing charging
+    form for a refusal after partial scoring; on every
+    other case the charge stands at 0 and
+    charging_form stands at None.
+    """
+    if occasion not in ("candidate construction", "promotion"):
+        raise ValueError(
+            "unknown instruction test occasion: %r" % (occasion,)
+        )
+    text = _instruction_text_of(instruction_text)
+    holdout_items = _holdout_items_of(holdout_material)
+    firing_pairs = []
+    verbatim = False
+    comparisons = 0
+    for hold_pos, holdout_item in enumerate(holdout_items):
+        hold_text = _item_fields(holdout_item)["text"]
+        if not text or not hold_text:
+            continue
+        comparisons += 1
+        if str(text) == str(hold_text):
+            verbatim = True
+            firing_pairs.append(
+                {
+                    "candidate_position": 0,
+                    "holdout_position": hold_pos,
+                    "relations": ["near verbatim cluster"],
+                }
+            )
+        elif _text_overlap(text, hold_text) >= _NEAR_VERBATIM_OVERLAP:
+            firing_pairs.append(
+                {
+                    "candidate_position": 0,
+                    "holdout_position": hold_pos,
+                    "relations": ["near verbatim cluster"],
+                }
+            )
+    bundle = {
+        "comparisons": comparisons,
+        "cost_units": comparisons * _COST_WEIGHT_PER_PAIR,
+        "firing_pairs": firing_pairs,
+    }
+    record_home = (
+        "Promotion Record"
+        if occasion == "promotion"
+        else "evaluation record"
+    )
+    base = {
+        "instruction_text": text,
+        "verbatim": verbatim,
+        "field_scope": "instruction text field",
+        "wider_material_compared": False,
+        "comparisons": comparisons,
+        "firing_pairs": firing_pairs,
+    }
+    if not firing_pairs:
+        result = dict(base)
+        result.update(
+            {
+                "fired": False,
+                "fired_item": None,
+                "test_result": None,
+                "refusal_form": None,
+                "cross_split_audit_result": _clearance(
+                    record_home, False, bundle
+                ),
+                "audit_record": {
+                    "home": _AUDIT_RECORD_HOME,
+                    "fired_item": None,
+                    "test_result_recorded": False,
+                    "test_result": None,
+                },
+                "completed_evaluations_charged": 0,
+                "charging_form": None,
+                "charged_under_the_standing_charging_rules": False,
+            }
+        )
+        return result
+    scored = bool(after_partial_scoring)
+    result = dict(base)
+    result.update(
+        {
+            "fired": True,
+            "fired_item": text,
+            "test_result": _INSTRUCTION_TEST_RESULT,
+            "refusal_form": "cross split audit refusal",
+            "cross_split_audit_result": _refusal(
+                record_home, scored, bundle
+            ),
+            "audit_record": {
+                "home": _AUDIT_RECORD_HOME,
+                "fired_item": text,
+                "test_result_recorded": True,
+                "test_result": _INSTRUCTION_TEST_RESULT,
+            },
+            "completed_evaluations_charged": _charged(scored),
+            "charging_form": (
+                _CHARGING_FORM_AFTER_PARTIAL_SCORING if scored else None
+            ),
+            "charged_under_the_standing_charging_rules": scored,
+        }
+    )
+    return result
 
 
 def audit_at_build(material, scored_before_refusal=None):
