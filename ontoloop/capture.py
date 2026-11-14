@@ -279,7 +279,11 @@ def computation_inputs(name):
     section carrying either name as an input.
     A name outside the three raises ValueError.
     """
-    if name not in _COMPUTATION_INPUTS:
+    try:
+        known = name in _COMPUTATION_INPUTS
+    except TypeError:
+        known = False
+    if not known:
         raise ValueError("unknown computation: %r" % (name,))
     return tuple(_COMPUTATION_INPUTS[name])
 

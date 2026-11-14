@@ -146,6 +146,114 @@ _OUTPUT_PATHS = ("error", "log", "progress", "support", "telemetry")
 _FLOWS = ("grading", "ingest", "confirmation")
 
 
+def _tagged_digest_form(value):
+    """Return the tagged canonical encoding of one value.
+
+    Every value carries a tag naming its type beside
+    its content, so a scalar, a sequence, a tuple, and
+    a mapping each encode apart from any string and
+    from each other. A mapping encodes its entries
+    sorted by the encoded form of their keys, with the
+    keys themselves encoded in this same tagged form,
+    so a mapping whose keys stand mixed in type, or
+    stand as tuples, encodes in this governed form
+    with no exception, and two mappings holding the
+    same entries in different order encode alike. A
+    set or frozenset encodes its members sorted by
+    their encoded forms, an order fixed by the
+    encoding and not by the process, so the same set
+    bearing material encodes alike in every process.
+    The encoding act walks its containers on an
+    explicit stack, so deep finite nesting encodes to
+    its full depth, and a container standing on its
+    own encoding path raises ValueError naming the
+    cyclic value, in the canonical family form.
+    """
+    results = []
+    path = set()
+    stack = [(value, False, 0)]
+    while stack:
+        current, expanded, child_count = stack.pop()
+        if isinstance(current, dict):
+            kind = "dict"
+        elif isinstance(current, list):
+            kind = "list"
+        elif isinstance(current, tuple):
+            kind = "tuple"
+        elif isinstance(current, frozenset):
+            kind = "frozenset"
+        elif isinstance(current, set):
+            kind = "set"
+        else:
+            kind = None
+        if kind is None:
+            if current is None:
+                results.append(b"none;")
+            elif isinstance(current, bool):
+                results.append(b"bool:true;" if current else b"bool:false;")
+            elif isinstance(current, int):
+                results.append(b"int:" + str(current).encode("ascii") + b";")
+            elif isinstance(current, float):
+                results.append(
+                    b"float:" + repr(current).encode("ascii") + b";"
+                )
+            elif isinstance(current, str):
+                raw = current.encode("utf-8")
+                results.append(
+                    b"str:" + str(len(raw)).encode("ascii") + b":" + raw + b";"
+                )
+            elif isinstance(current, (bytes, bytearray, memoryview)):
+                raw = bytes(current)
+                results.append(
+                    b"bytes:" + str(len(raw)).encode("ascii") + b":" + raw + b";"
+                )
+            else:
+                raw = str(current).encode("utf-8")
+                results.append(
+                    b"other:" + type(current).__name__.encode("utf-8")
+                    + b":" + str(len(raw)).encode("ascii") + b":" + raw + b";"
+                )
+            continue
+        if not expanded:
+            marker = id(current)
+            if marker in path:
+                raise ValueError("cyclic value in canonical form")
+            path.add(marker)
+            if kind == "dict":
+                children = []
+                for key in current:
+                    children.append(key)
+                    children.append(current[key])
+            else:
+                children = list(current)
+            stack.append((current, True, len(children)))
+            for child in reversed(children):
+                stack.append((child, False, 0))
+            continue
+        path.discard(id(current))
+        if child_count:
+            parts = results[len(results) - child_count:]
+            del results[len(results) - child_count:]
+        else:
+            parts = []
+        if kind == "dict":
+            entries = []
+            for index in range(0, len(parts), 2):
+                entries.append(parts[index] + b"=" + parts[index + 1])
+            entries.sort()
+            results.append(b"dict:{" + b",".join(entries) + b"}")
+        elif kind in ("set", "frozenset"):
+            parts.sort()
+            results.append(
+                kind.encode("ascii") + b":[" + b",".join(parts) + b"]"
+            )
+        else:
+            results.append(
+                kind.encode("ascii") + b":[" + b",".join(parts) + b"]"
+            )
+    return results[0]
+
+
 def _ingest_material_digest(material):
     """Return the SHA-256 hex digest over the material passed.
 
@@ -155,25 +263,32 @@ def _ingest_material_digest(material):
     digest helper governs for such encodings in this
     scope: byte material over its bytes, string
     material over its UTF-8 encoding, and any other
-    material over a key sorted encoding of it, so two
-    mappings holding the same entries in different key
-    order return one digest. String material therefore
-    digests exactly as it did under the string form
-    this act replaces, while byte material and its
-    string spelling, and no material and the string
-    None, return differing digests.
+    material over the tagged canonical encoding
+    _tagged_digest_form states, carried behind a
+    marker no string or byte limb carries, so a
+    scalar, a sequence, a tuple, a set, and a mapping
+    each digest apart from any string and from each
+    other, set bearing material digests alike in
+    every process, and a mapping with mixed or tuple
+    keys digests in that governed form with no
+    exception. Two mappings holding the same entries
+    in different key order return one digest. String
+    material therefore digests exactly as it did under
+    the string form this act replaces, while byte
+    material and its string spelling, and no material
+    and the string None, return differing digests.
     """
     import hashlib
-    import json
 
     if isinstance(material, bytes):
         payload = material
     elif isinstance(material, str):
         payload = material.encode("utf-8")
     else:
-        payload = json.dumps(
-            material, sort_keys=True, default=str
-        ).encode("utf-8")
+        payload = (
+            b"\x00ontoloop canonical digest\x00"
+            + _tagged_digest_form(material)
+        )
     return hashlib.sha256(payload).hexdigest()
 
 

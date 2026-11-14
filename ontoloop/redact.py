@@ -70,6 +70,7 @@ import base64
 import binascii
 import math
 import re
+import types
 import urllib.parse
 
 
@@ -1119,7 +1120,11 @@ def shared_rule(layer):
     the landed fragments use for an unknown argument to
     a present function.
     """
-    if layer not in _RULE_TEXTS:
+    try:
+        known = layer in _RULE_TEXTS
+    except TypeError:
+        known = False
+    if not known:
         raise ValueError("unknown layer: %r" % (layer,))
     return _RULE_TEXTS[layer]
 
@@ -1592,11 +1597,18 @@ def _assembly_content(assembly, _path=None, _top=True,
     its full depth. Mapping keys stand gathered beside
     these values by _assembly_key_content, in the form
     that act states, and exit_scan scans the two
-    gatherings together.
+    gatherings together. A value standing as a
+    memoryview stands gathered as the byte content it
+    views, and a value standing as a mapping proxy
+    stands gathered as the mapping it views, in the
+    same content forms as their underlying byte and
+    mapping values.
     """
     if isinstance(assembly, (str, bytes, bytearray)):
         return [assembly]
-    if isinstance(assembly, dict):
+    if isinstance(assembly, memoryview):
+        return [assembly.tobytes()]
+    if isinstance(assembly, (dict, types.MappingProxyType)):
         if _path is None:
             _path = set()
         marker = id(assembly)
@@ -1665,9 +1677,11 @@ def _assembly_key_content(assembly, _path=None, _top=True):
     state value alone, stands in its standing form: a
     field name alone is not scannable content, and an
     assembly carrying no such value content still
-    fails closed.
+    fails closed. A mapping proxy value stands walked
+    as the mapping it views, its keys and the keys
+    inside its values gathering in the same form.
     """
-    if isinstance(assembly, dict):
+    if isinstance(assembly, (dict, types.MappingProxyType)):
         if _path is None:
             _path = set()
         marker = id(assembly)
