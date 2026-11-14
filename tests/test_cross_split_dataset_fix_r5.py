@@ -229,36 +229,40 @@ class SharedModuleSideCollectionTests(unittest.TestCase):
         self.assertEqual(result["comparisons"], 1)
 
     def test_holdout_side_as_single_mapping_refuses(self):
-        self.check_refused_at_promotion(
+        result = self.check_refused_at_promotion(
             {
                 "candidate_items": [self.CANDIDATE],
                 "holdout_items": self.HOLDOUT,
             }
         )
+        self.assertEqual(result["comparisons"], 0)
 
     def test_candidate_side_as_single_mapping_refuses(self):
-        self.check_refused_at_promotion(
+        result = self.check_refused_at_promotion(
             {
                 "candidate_items": self.CANDIDATE,
                 "holdout_items": [self.HOLDOUT],
             }
         )
+        self.assertEqual(result["comparisons"], 0)
 
     def test_candidate_side_as_bare_string_refuses(self):
-        self.check_refused_at_promotion(
+        result = self.check_refused_at_promotion(
             {
                 "candidate_items": "shared bundle text alpha",
                 "holdout_items": [self.HOLDOUT],
             }
         )
+        self.assertEqual(result["comparisons"], 0)
 
     def test_holdout_side_as_bare_string_refuses(self):
-        self.check_refused_at_promotion(
+        result = self.check_refused_at_promotion(
             {
                 "candidate_items": [self.CANDIDATE],
                 "holdout_items": "shared bundle text alpha",
             }
         )
+        self.assertEqual(result["comparisons"], 0)
 
     def test_single_mapping_side_refuses_at_build_and_evaluation(self):
         module = harness.require("ontoloop.cross_split_audit")
@@ -271,6 +275,7 @@ class SharedModuleSideCollectionTests(unittest.TestCase):
                 result = act(material)
                 self.assertTrue(result["candidate_bundle_refused"])
                 self.assertFalse(result["promotion_proceeded"])
+                self.assertEqual(result["comparisons"], 0)
 
     def test_clean_list_bundle_still_clears(self):
         module = harness.require("ontoloop.cross_split_audit")
@@ -336,22 +341,31 @@ class CandidateKindFormTests(unittest.TestCase):
 
     def test_list_kind_raises_value_error(self):
         module = harness.require("ontoloop.dataset")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.candidate_with_instruction_item(
                 kind=["clean instruction"]
             )
+        self.assertEqual(
+            str(caught.exception),
+            "unknown instruction item kind: ['clean instruction']")
 
     def test_mapping_kind_raises_value_error(self):
         module = harness.require("ontoloop.dataset")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.candidate_with_instruction_item(kind={"k": 1})
+        self.assertEqual(
+            str(caught.exception),
+            "unknown instruction item kind: {'k': 1}")
 
     def test_hashable_outside_kinds_still_raise_value_error(self):
         module = harness.require("ontoloop.dataset")
         for kind in (None, ("clean instruction",), "no such kind"):
             with self.subTest(kind=kind):
-                with self.assertRaises(ValueError):
+                with self.assertRaises(ValueError) as caught:
                     module.candidate_with_instruction_item(kind=kind)
+                self.assertEqual(
+                    str(caught.exception),
+                    "unknown instruction item kind: %r" % (kind,))
 
     def test_governed_kinds_still_return_their_bundles(self):
         module = harness.require("ontoloop.dataset")
@@ -423,10 +437,13 @@ class NextBuildPoolFormTests(unittest.TestCase):
 
     def test_string_pool_raises_value_error(self):
         module = harness.require("ontoloop.dataset")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.next_build(
                 {"pool_run_ids": "abc", "appended_run": "x"}
             )
+        self.assertEqual(
+            str(caught.exception),
+            "pool_run_ids stands in no pool form: 'abc'")
 
     def test_list_pool_still_returns_the_following_pool(self):
         module = harness.require("ontoloop.dataset")

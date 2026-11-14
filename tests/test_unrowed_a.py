@@ -74,6 +74,11 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertEqual(tuple(record["answers"].keys()),
                          self.QUESTIONS_IN_ORDER)
         self.assertEqual(len(record["answers"]), 3)
+        self.assertEqual(record["answers"], {
+            "sealed or secret material involved": "no",
+            "store suspect": "no",
+            "bundle wrongly loadable": "no",
+        })
 
     def test_all_three_recorded_even_where_an_earlier_answer_is_yes(self):
         module = require("ontoloop.ops")
@@ -82,6 +87,40 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
                          self.QUESTIONS_IN_ORDER)
         self.assertEqual(record["answers"]["sealed or secret material involved"],
                          "yes")
+        self.assertEqual(record["answers"]["store suspect"], "no")
+        self.assertEqual(record["answers"]["bundle wrongly loadable"], "no")
+        self.assertEqual(record["answers"], {
+            "sealed or secret material involved": "yes",
+            "store suspect": "no",
+            "bundle wrongly loadable": "no",
+        })
+
+    def test_answers_presented_as_a_mapping_stand_recorded_in_question_order(self):
+        module = require("ontoloop.ops")
+        record = module.incident_entry(answers={
+            "sealed or secret material involved": "yes",
+            "store suspect": "no",
+            "bundle wrongly loadable": "no",
+        })
+        self.assertEqual(tuple(record["answers"].keys()),
+                         self.QUESTIONS_IN_ORDER)
+        self.assertEqual(record["answers"], {
+            "sealed or secret material involved": "yes",
+            "store suspect": "no",
+            "bundle wrongly loadable": "no",
+        })
+        self.assertIn(
+            "sealed or secret material involved", record["consequences"])
+
+    def test_undisputed_form_stands_in_its_governed_form(self):
+        module = require("ontoloop.ops")
+        result = module.resolve_dispute(disputed=False)
+        self.assertIsNone(result["first_act"])
+        self.assertIs(result["recollection_relied_on"], False)
+        self.assertIs(result["journal_reconstructed"], False)
+        self.assertIs(result["journal_read"], False)
+        self.assertEqual(result["reconstructed_material"], [])
+        self.assertEqual(result["material_read"], [])
 
     def test_consequence_of_a_yes_at_each_question(self):
         module = require("ontoloop.ops")
@@ -215,6 +254,13 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIs(landed["journal_record_landed"], True)
         self.assertEqual(landed["stop"], stop)
 
+    def test_loading_stop_journal_landing_with_a_store_passed(self):
+        module = require("ontoloop.ops")
+        stop = module.take_loading_stop(bundle="named bundle")
+        landed = module.journal_record_after_append(stop, store={})
+        self.assertIs(landed["journal_record_landed"], False)
+        self.assertEqual(landed["stop"], stop)
+
 
 # ------------------------------------------------------------------
 # Transcription decision, subsection 19.6
@@ -259,6 +305,7 @@ class _FreshnessCheckPoint:
 
     def test_stale_flag_stands_on_the_lifecycle_record(self):
         check = self._fresh()
+        self.assertEqual(check["check_point"], self.CHECK_POINT)
         record = check["lifecycle_record"]
         self.assertIn("stale_flag", record)
         self.assertIn("stale_flag_cleared", record)
@@ -279,6 +326,7 @@ class _FreshnessCheckPoint:
         formerly_stale = set(before["stale_material"])
         self.assertTrue(formerly_stale)
         result = module.reaffirm(self.CHECK_POINT)
+        self.assertEqual(result["check_point"], self.CHECK_POINT)
         self.assertIn("reaffirmation", result["dataset_record"])
         self.assertTrue(result["dataset_record"]["reaffirmation"])
         self.assertEqual(
@@ -312,11 +360,19 @@ class _FreshnessCheckPoint:
             self.assertTrue(
                 result["lifecycle_record"]["unspent_sealed_material"]
             )
+            self.assertEqual(
+                result["lifecycle_record"]["record_home"],
+                "holdout lifecycle record")
+            self.assertEqual(result["occasion"], occasion)
 
     def test_retirement_only_after_a_replacement_has_sealed(self):
         module = require(self.MODULE)
         refused = module.retire(self.CHECK_POINT, replacement_sealed=False)
         self.assertIs(refused["accepted"], False)
+        self.assertIsNone(refused["lifecycle_record"]["transition"])
+        self.assertEqual(
+            refused["lifecycle_record"]["record_home"],
+            "holdout lifecycle record")
         with_material = module.retire(
             self.CHECK_POINT,
             replacement_sealed=True,
@@ -332,10 +388,14 @@ class _FreshnessCheckPoint:
         self.assertEqual(
             allowed["lifecycle_record"]["transition"], "Retired"
         )
+        self.assertEqual(
+            allowed["lifecycle_record"]["record_home"],
+            "holdout lifecycle record")
 
     def test_promotion_from_a_superseded_version_is_refused(self):
         module = require(self.MODULE)
         result = module.supersession_refusal(self.CHECK_POINT)
+        self.assertEqual(result["check_point"], self.CHECK_POINT)
         self.assertIs(result["accepted"], False)
         self.assertEqual(result["error"], "superseded version")
         self.assertIn("superseded", result["error"])

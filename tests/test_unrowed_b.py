@@ -833,6 +833,18 @@ class TestUnrowed1938ExpectedMaximumFigure(unittest.TestCase):
         record = module.closing_evaluation_record()
         self.assertNotIn(self.FIGURE, record["verdict_components"])
 
+    def test_the_figure_value_counts_from_inputs_passed_in(self):
+        from statistics import NormalDist
+        module = require("ontoloop.eval")
+        record = module.closing_evaluation_record(
+            attempt_count=5, standard_error=2.0)
+        figure = record["figures"][self.FIGURE]
+        expected_maximum = NormalDist().inv_cdf((5 - 0.375) / (5 + 0.25))
+        self.assertEqual(figure["attempt_count_charged"], 5)
+        self.assertEqual(figure["standard_error"], 2.0)
+        self.assertEqual(figure["expected_maximum"], expected_maximum)
+        self.assertEqual(figure["value"], expected_maximum * 2.0)
+
     def test_the_figure_enters_no_comparison_in_the_evaluation(self):
         module = require("ontoloop.eval")
         record = module.closing_evaluation_record()

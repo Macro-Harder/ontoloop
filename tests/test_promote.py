@@ -264,30 +264,42 @@ class PromoteFixR5Tests(unittest.TestCase):
     def test_act1_provisional_outcomes_non_list_containers_refused(self):
         mod = harness.require("ontoloop.promote")
         for value in ("pass", b"pass", {"pass": 2, "fail": 1}):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as caught:
                 mod.provisional_record(**self._provisional_kwargs(
                     provisional_outcomes=value))
+            self.assertEqual(
+                str(caught.exception),
+                "provisional values must stand as a list of values")
 
     def test_act1_displaced_outcomes_non_list_containers_refused(self):
         mod = harness.require("ontoloop.promote")
         for value in ("pass", b"pass", {"pass": 2, "fail": 1}):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as caught:
                 mod.provisional_record(**self._provisional_kwargs(
                     displaced_outcomes=value))
+            self.assertEqual(
+                str(caught.exception),
+                "provisional values must stand as a list of values")
 
     def test_act1_provisional_corrections_non_list_containers_refused(self):
         mod = harness.require("ontoloop.promote")
         for value in ("corrected", b"corrected", {"corrected": 1}):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as caught:
                 mod.provisional_record(**self._provisional_kwargs(
                     provisional_corrections=value))
+            self.assertEqual(
+                str(caught.exception),
+                "provisional values must stand as a list of values")
 
     def test_act1_displaced_corrections_non_list_containers_refused(self):
         mod = harness.require("ontoloop.promote")
         for value in ("corrected", b"corrected", {"corrected": 1}):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as caught:
                 mod.provisional_record(**self._provisional_kwargs(
                     displaced_corrections=value))
+            self.assertEqual(
+                str(caught.exception),
+                "provisional values must stand as a list of values")
 
     def test_act1_standing_list_forms_still_compute(self):
         mod = harness.require("ontoloop.promote")

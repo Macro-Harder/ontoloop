@@ -147,6 +147,9 @@ class Unrowed1986Tests(unittest.TestCase):
         claim = mod.clearance_claim_covering_instruction_items(
             promotion_record="Promotion Record")
         self.assertFalse(claim["claim_stands"])
+        claim = mod.clearance_claim_covering_instruction_items(
+            promotion_record=("Promotion Record",))
+        self.assertFalse(claim["claim_stands"])
         record = mod.promotion_record_carrying_instruction_test_result()
         claim = mod.clearance_claim_covering_instruction_items(promotion_record=record)
         self.assertTrue(claim["claim_stands"])
@@ -272,7 +275,9 @@ class Unrowed1987Tests(unittest.TestCase):
     def test_non_mapping_confirm_record_bars_confirmation(self):
         mod = harness.require("ontoloop.promote")
         for record in (None, "Provisional Record", 123,
-                       ["Provisional Record"]):
+                       ["Provisional Record"],
+                       ("Provisional Record",), b"Provisional Record",
+                       True):
             result = mod.confirm_provisional(record)
             self.assertEqual(result["outcome"], "barred", repr(record))
             self.assertEqual(
@@ -297,6 +302,9 @@ class Unrowed1987Tests(unittest.TestCase):
             "operator named baseline period stands as the basis")
         self.assertNotEqual(record["comparison_basis_reason"], "")
         self.assertIsNone(record["comparison"])
+        self.assertIs(
+            record["comparison_in_same_view_as_run_count_and_coverage"],
+            False)
 
 
 # ---------------------------------------------------------------------
