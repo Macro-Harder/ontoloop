@@ -720,6 +720,32 @@ class _CycleDetected(Exception):
 _MATERIAL_CONTAINER_DEPTH = 64
 
 
+def _material_gathered_form(value):
+    """Return True where a value stands in a gathered container form.
+
+    Beside the concrete container forms the gathering
+    act names in its own limbs, the gathering walks a
+    value in substance where the value stands in the
+    abstract sequence form or the abstract set form,
+    where it stands in a mapping view form, and where
+    it stands as an array in a byte typecode, the
+    signed byte form or the unsigned byte form. String
+    and byte values stand decided in their own limbs
+    before this test, and this test also returns False for
+    them in the same ways.
+    """
+    if isinstance(value, (str, bytes, bytearray, collections.UserString)):
+        return False
+    if isinstance(value, array.array):
+        return value.typecode in ("b", "B")
+    return (
+        isinstance(
+            value, (collections.abc.Sequence, collections.abc.Set)
+        )
+        or _is_view_form(value)
+    )
+
+
 def _material_items(material, _path=None, _depth=0):
     """Normalise material into a list of text items.
 
@@ -764,6 +790,14 @@ def _material_items(material, _path=None, _depth=0):
             {"field": None, "text": bytes(material).decode(
                 "utf-8", "replace")}
         ]
+    if isinstance(material, array.array) and material.typecode in (
+        "b",
+        "B",
+    ):
+        return [
+            {"field": None, "text": material.tobytes().decode(
+                "utf-8", "replace")}
+        ]
     if isinstance(material, str):
         return [{"field": None, "text": material}]
     if isinstance(material, collections.abc.Mapping):
@@ -772,11 +806,18 @@ def _material_items(material, _path=None, _depth=0):
             value = material[key]
             if isinstance(key, (bytes, bytearray, memoryview)):
                 field = bytes(key).decode("utf-8", "replace")
+            elif isinstance(
+                key, array.array
+            ) and key.typecode in ("b", "B"):
+                field = key.tobytes().decode("utf-8", "replace")
             elif isinstance(key, str):
                 field = key
-            elif isinstance(
-                key,
-                (collections.abc.Mapping, list, tuple, set, frozenset),
+            elif (
+                isinstance(
+                    key,
+                    (collections.abc.Mapping, list, tuple, set, frozenset),
+                )
+                or _material_gathered_form(key)
             ) and _depth < _MATERIAL_CONTAINER_DEPTH:
                 items.extend(_material_items(key, _path, _depth + 1))
                 field = None
@@ -785,19 +826,27 @@ def _material_items(material, _path=None, _depth=0):
             if isinstance(value, (bytes, bytearray, memoryview)):
                 text = bytes(value).decode("utf-8", "replace")
                 items.append({"field": field, "text": text})
+            elif isinstance(
+                value, array.array
+            ) and value.typecode in ("b", "B"):
+                text = value.tobytes().decode("utf-8", "replace")
+                items.append({"field": field, "text": text})
             elif isinstance(value, str):
                 items.append({"field": field, "text": value})
-            elif isinstance(
-                value,
-                (
-                    collections.abc.Mapping,
-                    list,
-                    tuple,
-                    set,
-                    frozenset,
-                    collections.deque,
-                    collections.UserList,
-                ),
+            elif (
+                isinstance(
+                    value,
+                    (
+                        collections.abc.Mapping,
+                        list,
+                        tuple,
+                        set,
+                        frozenset,
+                        collections.deque,
+                        collections.UserList,
+                    ),
+                )
+                or _material_gathered_form(value)
             ) and _depth < _MATERIAL_CONTAINER_DEPTH:
                 nested = _material_items(value, _path, _depth + 1)
                 if not nested:
@@ -813,7 +862,7 @@ def _material_items(material, _path=None, _depth=0):
         material,
         (list, tuple, set, frozenset, collections.deque,
          collections.UserList),
-    ):
+    ) or _material_gathered_form(material):
         if _path is None:
             _path = set()
         marker = id(material)
@@ -1181,7 +1230,7 @@ def shared_rule(layer):
     """
     try:
         known = layer in _RULE_TEXTS
-    except TypeError:
+    except (TypeError, ValueError):
         known = False
     if not known:
         raise ValueError("unknown layer: %r" % (layer,))
@@ -1680,6 +1729,25 @@ def _is_sequence_form(value):
     return isinstance(value, collections.abc.Sequence)
 
 
+def _is_set_form(value):
+    """Return True where a value stands in a walked set form.
+
+    The walked set forms stand as the concrete set and
+    frozenset forms and, beside them, any value standing
+    in the abstract set form, a subclass of
+    collections.abc.Set standing in none of the concrete
+    forms, walked as the set it stands as. String and
+    byte values stand already decided before this limb
+    at every gathering act, and this test returns False
+    for them in the same way.
+    """
+    if isinstance(value, (set, frozenset)):
+        return True
+    if isinstance(value, (str, bytes, bytearray, collections.UserString)):
+        return False
+    return isinstance(value, collections.abc.Set)
+
+
 def _is_view_form(value):
     """Return True where a value stands in a walked view form.
 
@@ -1750,6 +1818,20 @@ def _assembly_state_value(assembly):
             for key, value in assembly:
                 if key == "assembly_state":
                     return value
+        return None
+    if _is_sequence_form(assembly) or _is_set_form(assembly):
+        for element in assembly:
+            if _is_mapping_form(element):
+                if "assembly_state" in element:
+                    return element.get("assembly_state")
+                continue
+            if isinstance(
+                element, (list, tuple, collections.UserList)
+            ):
+                if len(element) >= 1 and element[0] == "assembly_state":
+                    if len(element) >= 2:
+                        return element[1]
+                    return None
         return None
     return None
 
@@ -1860,7 +1942,7 @@ def _assembly_content(assembly, _path=None, _top=True,
             return content
         finally:
             _path.discard(marker)
-    if _is_sequence_form(assembly):
+    if _is_sequence_form(assembly) or _is_set_form(assembly):
         if _path is None:
             _path = set()
         marker = id(assembly)
@@ -1982,7 +2064,7 @@ def _assembly_key_content(assembly, _path=None, _top=True):
             return content
         finally:
             _path.discard(marker)
-    if _is_sequence_form(assembly):
+    if _is_sequence_form(assembly) or _is_set_form(assembly):
         if _path is None:
             _path = set()
         marker = id(assembly)

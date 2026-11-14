@@ -281,7 +281,7 @@ def computation_inputs(name):
     """
     try:
         known = name in _COMPUTATION_INPUTS
-    except TypeError:
+    except (TypeError, ValueError):
         known = False
     if not known:
         raise ValueError("unknown computation: %r" % (name,))
@@ -592,26 +592,66 @@ _JOURNAL_LINE_CAP_BYTES = 64 * 1024
 _TEXT_FIELD_CAP_BYTES = 32 * 1024
 
 
+def _value_byte_form(value, _path=None):
+    """Return the byte form of one payload value, in substance.
+
+    Bytes, a bytearray, and a memoryview stand as the
+    byte content they carry or view, so a memoryview
+    stands measured by the bytes it views and not by
+    the string form of the view, which states no part
+    of that content. A string stands in its UTF-8 byte
+    form. A container value stands as the joined byte
+    forms of the content it carries at any position
+    inside it, so a memoryview nested inside a list
+    standing as a mapping value stands measured in
+    substance in the same way. Any other value
+    stands in the UTF-8 byte form of its string form.
+    It reads recursively.
+    """
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return bytes(value)
+    if isinstance(value, str):
+        return value.encode("utf-8")
+    if isinstance(value, (dict, list, tuple, set, frozenset)):
+        if _path is None:
+            _path = set()
+        marker = id(value)
+        if marker in _path:
+            return b""
+        _path.add(marker)
+        try:
+            if isinstance(value, dict):
+                parts = []
+                for key in value:
+                    parts.append(_value_byte_form(key, _path))
+                    parts.append(_value_byte_form(value[key], _path))
+                return b"".join(parts)
+            return b"".join(
+                _value_byte_form(element, _path) for element in value
+            )
+        finally:
+            _path.discard(marker)
+    return str(value).encode("utf-8")
+
+
 def _payload_fields(payload):
     """Return the text fields of a payload, as byte strings.
 
     A mapping payload contributes one field per value,
-    in key order, each value in its byte form: bytes
-    stand as they stand, and any other value stands in
-    the UTF-8 byte form of its string form. A string or
-    bytes payload stands as a single text field in its
-    byte form. Any other payload form raises ValueError.
+    in key order, each value read through
+    _value_byte_form, in the substance form that act
+    states. A string or bytes payload stands as a
+    single text field in its byte form, and a
+    memoryview payload stands as that single field in
+    the byte content it views. Any other payload form
+    raises ValueError.
     """
     if isinstance(payload, dict):
         fields = []
         for key in payload:
-            value = payload[key]
-            if isinstance(value, (bytes, bytearray)):
-                fields.append(bytes(value))
-            else:
-                fields.append(str(value).encode("utf-8"))
+            fields.append(_value_byte_form(payload[key]))
         return fields
-    if isinstance(payload, (bytes, bytearray)):
+    if isinstance(payload, (bytes, bytearray, memoryview)):
         return [bytes(payload)]
     if isinstance(payload, str):
         return [payload.encode("utf-8")]
@@ -624,16 +664,28 @@ def _measure_payload(payload):
     The journal line size stands as the total of the
     field byte sizes plus one separator byte between
     fields. The text field size stands as the largest
-    single field byte size. The return carries both
-    measured sizes and the refusal standing: refused
-    where either size passes its cap, a payload at a
-    cap standing accepted whole.
+    single field byte size. Each mapping key stands
+    counted in its byte form toward the measured
+    sizes beside the value fields: a key stands
+    measured as a field of the journal line its entry
+    writes, so a key whose byte form passes a cap
+    refuses the payload in the same standing. The
+    return carries both measured sizes and the
+    refusal standing: refused where either size
+    passes its cap, a payload at a cap standing
+    accepted whole.
     """
     fields = _payload_fields(payload)
     line_size = sum(len(field) for field in fields)
     if len(fields) > 1:
         line_size += len(fields) - 1
     field_size = max([len(field) for field in fields], default=0)
+    if isinstance(payload, dict):
+        key_size = max(
+            [len(_value_byte_form(key)) for key in payload],
+            default=0,
+        )
+        field_size = max(field_size, key_size)
     refused = (
         line_size > _JOURNAL_LINE_CAP_BYTES
         or field_size > _TEXT_FIELD_CAP_BYTES
