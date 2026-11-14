@@ -100,7 +100,10 @@ from collections import UserString as _UserString
 from collections.abc import ItemsView as _ItemsView
 from collections.abc import KeysView as _KeysView
 from collections.abc import Mapping as _Mapping
+from collections.abc import Sequence as _Sequence
+from collections.abc import Set as _Set
 from collections.abc import ValuesView as _ValuesView
+from weakref import WeakSet as _WeakSet
 
 
 def _byte_content(value):
@@ -121,7 +124,12 @@ def _byte_content(value):
         if isinstance(
             viewed, _array_module.array
         ) and viewed.typecode == "u":
-            return viewed.tounicode().encode("utf-8")
+            raw = value.tobytes()
+            unit = viewed.itemsize
+            trimmed = raw[: len(raw) - len(raw) % unit]
+            sliced = _array_module.array("u")
+            sliced.frombytes(trimmed)
+            return sliced.tounicode().encode("utf-8")
         return value.tobytes()
     if isinstance(value, _array_module.array):
         if value.typecode == "u":
@@ -134,6 +142,62 @@ def _byte_content(value):
 
 def _is_byte_like(value):
     return _byte_content(value) is not None
+
+
+def _materialise_kind(value):
+    """Name the container form a value stands in.
+
+    A text or byte form stands as a leaf in full: a
+    string, a UserString, a byte string, a bytearray,
+    a memoryview, an array, and a range each keep the
+    reading the neighbouring acts give them, and a
+    value carrying no iteration act stands as a leaf
+    in the same way. A mapping, a dictionary view, the
+    standing collection forms, an iterator, the
+    abstract Set form with a WeakSet among the set
+    forms, the abstract Sequence form, and any other
+    value carrying an iteration act each stand named
+    for the rebuilding the materialisation act gives
+    that form.
+    """
+    if isinstance(
+        value,
+        (
+            str,
+            _UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+        ),
+    ):
+        return "leaf"
+    if isinstance(value, _Mapping):
+        return "mapping"
+    if isinstance(value, (_ItemsView, _KeysView, _ValuesView)):
+        return "dictionary view"
+    if isinstance(
+        value,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ):
+        return "collection"
+    if hasattr(value, "__next__") and hasattr(value, "__iter__"):
+        return "iterator"
+    if isinstance(value, (_WeakSet, _Set)):
+        return "set"
+    if isinstance(value, _Sequence):
+        return "sequence"
+    if hasattr(value, "__iter__"):
+        return "iterable"
+    return "leaf"
 
 
 def _materialise_iterators(value, depth=0):
@@ -149,46 +213,79 @@ def _materialise_iterators(value, depth=0):
     dictionary view stand rebuilt in that same form,
     an items view holding its pairs as tuples, so an
     iterator inside any of them stands listed once in
-    the same way. Any other value stands as it stands.
+    the same way. A value standing in any other
+    re-iterable container form the caller presents,
+    the abstract Sequence form, the abstract Set form
+    with a WeakSet among the set forms, and a general
+    iterable container among them, stands rebuilt in
+    that same form, with every iterator in any position
+    inside it standing replaced once by the list of
+    its items. Any other value stands as it stands.
+
+    The act walks its containers with an explicit
+    stack and no depth cutoff of its own, so an
+    iterator stands reached at any nesting depth the
+    interpreter itself can present. The depth argument
+    stands accepted for the standing call form and
+    stands read by no limb. A container standing
+    inside itself stands as it stands at the cyclic
+    position, so the reading acts downstream meet that
+    form in their standing governed forms.
     """
-    if depth > 100:
+    kind = _materialise_kind(value)
+    if kind == "leaf":
         return value
-    if isinstance(value, _Mapping):
-        return {
-            key: _materialise_iterators(inner, depth + 1)
-            for key, inner in value.items()
-        }
-    if isinstance(value, _ItemsView):
-        return [
-            (
-                key,
-                _materialise_iterators(inner, depth + 1),
+    results = []
+    stack = [(value, kind, False, frozenset(), 0, None)]
+    while stack:
+        current, current_kind, expanded, ancestors, count, keys = (
+            stack.pop()
+        )
+        if expanded:
+            if count:
+                collected = results[len(results) - count:]
+                del results[len(results) - count:]
+            else:
+                collected = []
+            if current_kind == "mapping":
+                results.append(dict(zip(keys, collected)))
+            elif current_kind == "dictionary view" and isinstance(
+                current, _ItemsView
+            ):
+                results.append(list(zip(keys, collected)))
+            else:
+                results.append(collected)
+            continue
+        if current_kind == "leaf" or id(current) in ancestors:
+            results.append(current)
+            continue
+        child_ancestors = ancestors | {id(current)}
+        if current_kind == "mapping":
+            keys = list(current.keys())
+            children = [inner for _key, inner in current.items()]
+        elif current_kind == "dictionary view" and isinstance(
+            current, _ItemsView
+        ):
+            keys = [key for key, _inner in current]
+            children = [inner for _key, inner in current]
+        else:
+            keys = None
+            children = list(current)
+        stack.append(
+            (current, current_kind, True, ancestors, len(children), keys)
+        )
+        for child in reversed(children):
+            stack.append(
+                (
+                    child,
+                    _materialise_kind(child),
+                    False,
+                    child_ancestors,
+                    0,
+                    None,
+                )
             )
-            for key, inner in value
-        ]
-    if isinstance(
-        value,
-        (
-            list,
-            tuple,
-            set,
-            frozenset,
-            _collections_module.deque,
-            _collections_module.UserList,
-            _KeysView,
-            _ValuesView,
-        ),
-    ):
-        return [
-            _materialise_iterators(element, depth + 1)
-            for element in value
-        ]
-    if hasattr(value, "__next__") and hasattr(value, "__iter__"):
-        return [
-            _materialise_iterators(element, depth + 1)
-            for element in list(value)
-        ]
-    return value
+    return results[0]
 
 
 def _resolve_text(value):
@@ -278,29 +375,64 @@ def _item_fields(item):
     return {"group": None, "signature": None, "text": None}
 
 
+def _unwrapped_items(element):
+    """Yield the items a bundle position element carries.
+
+    An element standing in a container form, a list, a
+    tuple, a set, a frozenset, a deque, or a UserList,
+    stands unwrapped for the items it carries, in that
+    same form at any wrap depth, and any other element
+    stands yielded as it stands.
+    """
+    if isinstance(
+        element,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ):
+        for inner in element:
+            yield from _unwrapped_items(inner)
+    else:
+        yield element
+
+
 def _split_items(material):
-    """Partition bundle material into candidate and holdout items."""
+    """Partition bundle material into candidate and holdout items.
+
+    An item standing in a container form inside the
+    bundle positions stands read for the item it
+    carries, split side included, in the form the
+    unwrapping act gives.
+    """
     candidate = []
     holdout = []
     if isinstance(material, _Mapping):
         for key in ("candidate_items", "candidate"):
             value = material.get(key)
             if isinstance(value, (list, tuple)):
-                candidate.extend(value)
+                for element in value:
+                    candidate.extend(_unwrapped_items(element))
         for key in ("holdout_items", "holdout"):
             value = material.get(key)
             if isinstance(value, (list, tuple)):
-                holdout.extend(value)
+                for element in value:
+                    holdout.extend(_unwrapped_items(element))
         items = material.get("items")
         if isinstance(items, (list, tuple)):
-            for item in items:
-                side = None
-                if isinstance(item, _Mapping):
-                    side = item.get("split") or item.get("side")
-                if side in ("holdout", "sealed holdout"):
-                    holdout.append(item)
-                else:
-                    candidate.append(item)
+            for element in items:
+                for item in _unwrapped_items(element):
+                    side = None
+                    if isinstance(item, _Mapping):
+                        side = item.get("split") or item.get("side")
+                    if side in ("holdout", "sealed holdout"):
+                        holdout.append(item)
+                    else:
+                        candidate.append(item)
         pairs = material.get("pairs")
         if isinstance(pairs, (list, tuple)):
             for pair in pairs:
@@ -318,21 +450,22 @@ def _split_items(material):
                         candidate.append(cand)
                         holdout.append(hold)
     elif isinstance(material, (list, tuple)):
-        for item in material:
-            side = None
-            if isinstance(item, _Mapping):
-                side = item.get("split") or item.get("side")
-            if side in ("holdout", "sealed holdout"):
-                holdout.append(item)
-            else:
-                candidate.append(item)
+        for element in material:
+            for item in _unwrapped_items(element):
+                side = None
+                if isinstance(item, _Mapping):
+                    side = item.get("split") or item.get("side")
+                if side in ("holdout", "sealed holdout"):
+                    holdout.append(item)
+                else:
+                    candidate.append(item)
     return candidate, holdout
 
 
 def _is_bundle(material):
     if isinstance(material, (list, tuple)):
         return True
-    if isinstance(material, dict):
+    if isinstance(material, _Mapping):
         return any(
             key in material
             for key in (
@@ -496,7 +629,7 @@ def _ungoverned_side(material):
     of that act, so its material never reaches a
     comparison.
     """
-    if not isinstance(material, dict):
+    if not isinstance(material, _Mapping):
         return False
     for key in _POSITION_KEYS:
         if key in material:
@@ -621,7 +754,7 @@ def _holdout_items_of(holdout_material):
         ):
             values = list(holdout_material.values())
             if all(
-                isinstance(value, (str, _Mapping))
+                isinstance(value, (str, _UserString, _Mapping))
                 or _is_byte_like(value)
                 for value in values
             ):
@@ -629,7 +762,9 @@ def _holdout_items_of(holdout_material):
             collected = []
             recognised = False
             for value in values:
-                if isinstance(value, (str, _Mapping)) or _is_byte_like(
+                if isinstance(
+                    value, (str, _UserString, _Mapping)
+                ) or _is_byte_like(
                     value
                 ):
                     collected.append(value)

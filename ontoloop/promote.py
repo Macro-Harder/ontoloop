@@ -1161,7 +1161,9 @@ def test_instruction_items_against_holdout(bundle, occasion=None,
     """
     if occasion not in ("candidate construction", "promotion"):
         raise ValueError("unknown instruction test occasion: %r" % (occasion,))
-    if not isinstance(bundle, dict):
+    from collections.abc import Mapping as _Mapping
+
+    if not isinstance(bundle, _Mapping):
         refusal = {
             "fired": True,
             "refusal_form": "cross split audit refusal",

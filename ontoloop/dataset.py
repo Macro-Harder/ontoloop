@@ -64,6 +64,8 @@ __all__ = [
     "three_verbatim_texts",
 ]
 
+from collections.abc import Mapping as _Mapping
+
 from ontoloop.core import error_catalogue as _core_error_catalogue
 from ontoloop.sealing import VERIFY_HOLES as _VERIFY_HOLES
 from ontoloop.sealing import VERIFY_SENTENCE as _VERIFY_SENTENCE
@@ -707,7 +709,7 @@ def check_dataset_record(record):
                     isinstance(advanced_figures, dict)
                     and name in advanced_figures
                 )
-            except TypeError:
+            except (TypeError, ValueError):
                 add_defect()
                 continue
             if not name_present:
@@ -983,7 +985,7 @@ def meaning_check(check_id, affected_class, fixture, direction):
         }
     try:
         result_of_each_check = {check_id: "meaning check result recorded"}
-    except TypeError:
+    except (TypeError, ValueError):
         held_entry = {
             "classification": "no meaning change shown",
             "affected_classes": [affected_class],
@@ -1417,7 +1419,7 @@ def test_instruction_items_against_holdout(
     """
     if occasion not in ("candidate construction", "promotion"):
         raise ValueError("unknown instruction test occasion: %r" % (occasion,))
-    if not isinstance(bundle, dict):
+    if not isinstance(bundle, _Mapping):
         refusal = {
             "fired": True,
             "refusal_form": "cross split audit refusal",
