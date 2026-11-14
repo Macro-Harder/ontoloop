@@ -278,53 +278,74 @@ class TestCaptureFixR3(unittest.TestCase):
 
     def test_validate_chain_integer_chain_raises_value_error(self):
         module = require(MODULE)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.validate_chain(123)
-        with self.assertRaises(ValueError):
+        self.assertEqual(str(caught.exception), "unknown chain form: 123")
+        with self.assertRaises(ValueError) as caught:
             module.validate_chain([1, 2, 3])
+        self.assertEqual(
+            str(caught.exception), "unknown chain form: [1, 2, 3]")
         chain = module.example_a_chain()
         chain["steps"] = [1, 2]
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.validate_chain(chain)
+        self.assertEqual(
+            str(caught.exception), "unknown chain step form: 1")
 
     def test_validate_chain_missing_kind_entry_raises_value_error(self):
         module = require(MODULE)
         chain = module.example_a_chain()
         chain["steps"] = [{}]
         chain["order"] = [chain["order"][0]]
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.validate_chain(chain)
+        self.assertEqual(
+            str(caught.exception), "unknown chain step form: {}")
         chain = module.example_a_chain()
         del chain["steps"][0]["predecessor"]
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.validate_chain(chain)
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "unknown chain step form: %r" % (chain["steps"][0],))
+        with self.assertRaises(ValueError) as caught:
             module.validate_chain({})
+        self.assertEqual(str(caught.exception), "unknown chain form: {}")
 
     def test_validate_chain_none_entry_raises_value_error(self):
         module = require(MODULE)
         chain = module.example_a_chain()
         chain["steps"] = [None, None]
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.validate_chain(chain)
+        self.assertEqual(
+            str(caught.exception), "unknown chain step form: None")
 
     def test_validate_chain_none_chain_raises_value_error(self):
         module = require(MODULE)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.validate_chain(None)
+        self.assertEqual(str(caught.exception), "unknown chain form: None")
 
     def test_validate_chain_string_forms_raise_value_error(self):
         module = require(MODULE)
         chain = module.example_a_chain()
         chain["steps"] = "a string steps value"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.validate_chain(chain)
+        self.assertEqual(
+            str(caught.exception), "unknown chain form: %r" % (chain,))
         chain = module.example_a_chain()
         chain["steps"] = ["a string step", "another string step"]
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.validate_chain(chain)
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "unknown chain step form: 'a string step'")
+        with self.assertRaises(ValueError) as caught:
             module.validate_chain("a string chain")
+        self.assertEqual(
+            str(caught.exception), "unknown chain form: 'a string chain'")
 
     def test_validate_chain_well_formed_cases_stand(self):
         module = require(MODULE)

@@ -715,8 +715,10 @@ class TestPromoteR2Pro1(unittest.TestCase):
 
     def test_bound_below_one_stands_refused(self):
         module = require("ontoloop.promote")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.reuse_warning_at_count(0, bound=-2)
+        self.assertEqual(
+            str(caught.exception), "unknown reuse warning bound: -2")
 
     def test_governed_bounds_behave_as_round_2_probed_them(self):
         module = require("ontoloop.promote")

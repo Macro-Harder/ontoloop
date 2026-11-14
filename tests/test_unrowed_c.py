@@ -151,7 +151,9 @@ class Unrowed1986Tests(unittest.TestCase):
             promotion_record=("Promotion Record",))
         self.assertFalse(claim["claim_stands"])
         for non_record in (b"Promotion Record", ["Promotion Record"],
-                           {"Promotion Record"}):
+                           {"Promotion Record"},
+                           bytearray(b"Promotion Record"),
+                           frozenset({"Promotion Record"})):
             claim = mod.clearance_claim_covering_instruction_items(
                 promotion_record=non_record)
             self.assertFalse(claim["claim_stands"], repr(non_record))
@@ -343,7 +345,8 @@ class Unrowed1987Tests(unittest.TestCase):
                        ["Provisional Record"],
                        ("Provisional Record",), b"Provisional Record",
                        True, 1.5, {"Provisional Record"},
-                       bytearray(b"Provisional Record")):
+                       bytearray(b"Provisional Record"),
+                       frozenset({"Provisional Record"})):
             result = mod.confirm_provisional(record)
             self.assertEqual(result["outcome"], "barred", repr(record))
             self.assertEqual(

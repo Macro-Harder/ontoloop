@@ -121,6 +121,11 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIs(result["journal_read"], False)
         self.assertEqual(result["reconstructed_material"], [])
         self.assertEqual(result["material_read"], [])
+        with_records = module.resolve_dispute(
+            disputed=False,
+            journal_records=["journal record one", "journal record two"])
+        self.assertEqual(with_records["reconstructed_material"], [])
+        self.assertEqual(with_records["material_read"], [])
 
     def test_consequence_of_a_yes_at_each_question(self):
         module = require("ontoloop.ops")
@@ -160,14 +165,34 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
     def test_refused_answer_forms_raise_value_error(self):
         module = require("ontoloop.ops")
         refused_forms = (
-            ("maybe", "no", "no"),
-            ("yes", "no"),
-            ("yes", "no", "no", "no"),
-            {"sealed or secret material involved": "yes"},
+            (("maybe", "no", "no"), "each answer must be yes or no"),
+            (("yes", "no"), "answers must hold three answers"),
+            (("yes", "no", "no", "no"), "answers must hold three answers"),
+            ({"sealed or secret material involved": "yes"},
+             "answers lacks the question: 'store suspect'"),
         )
-        for answers in refused_forms:
-            with self.assertRaises(ValueError, msg=repr(answers)):
+        for answers, message in refused_forms:
+            with self.assertRaises(ValueError, msg=repr(answers)) as caught:
                 module.incident_entry(answers=answers)
+            self.assertEqual(str(caught.exception), message)
+
+    def test_answers_presented_as_a_list_stand_recorded_in_question_order(self):
+        module = require("ontoloop.ops")
+        record = module.incident_entry(answers=["yes", "no", "no"])
+        self.assertEqual(tuple(record["questions"]),
+                         self.QUESTIONS_IN_ORDER)
+        self.assertEqual(tuple(record["answers"].keys()),
+                         self.QUESTIONS_IN_ORDER)
+        self.assertEqual(record["answers"], {
+            "sealed or secret material involved": "yes",
+            "store suspect": "no",
+            "bundle wrongly loadable": "no",
+        })
+
+    def test_answers_value_in_no_governed_form_raises_value_error(self):
+        module = require("ontoloop.ops")
+        with self.assertRaises(ValueError):
+            module.incident_entry(answers="yes")
 
     def test_entry_point_record_stands_in_the_incident_record(self):
         module = require("ontoloop.ops")
@@ -190,6 +215,22 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             read_result["reconstructed_material"], records)
         self.assertEqual(read_result["material_read"], records)
         self.assertIs(read_result["journal_read"], True)
+        self.assertIsNot(
+            read_result["reconstructed_material"],
+            read_result["material_read"])
+
+    def test_recorder_first_rule_with_journal_records_as_a_tuple(self):
+        module = require("ontoloop.ops")
+        records = ("journal record one", "journal record two")
+        result = module.resolve_dispute(
+            disputed=True, journal_records=records)
+        self.assertEqual(result["first_act"], "journal reconstruction")
+        self.assertEqual(
+            result["reconstructed_material"],
+            ["journal record one", "journal record two"])
+        self.assertEqual(
+            result["material_read"],
+            ["journal record one", "journal record two"])
 
     def test_loading_stop_stands_as_a_named_act(self):
         module = require("ontoloop.ops")
@@ -252,6 +293,25 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             reordered.index("stop append"),
         )
 
+    def test_incident_append_order_unknown_act_raises_value_error(self):
+        module = require("ontoloop.ops")
+        with self.assertRaises(ValueError):
+            module.incident_append_order(acts=("bogus act",))
+
+    def test_incident_append_order_acts_presented_as_a_list(self):
+        module = require("ontoloop.ops")
+        order = list(module.incident_append_order(
+            acts=["stop append", "purge append", "repair verification"]))
+        self.assertEqual(
+            set(order),
+            {"repair verification", "purge append", "stop append"})
+        self.assertLess(
+            order.index("repair verification"),
+            order.index("purge append"))
+        self.assertLess(
+            order.index("repair verification"),
+            order.index("stop append"))
+
     def test_loading_stop_takes_effect_before_its_journal_record(self):
         module = require("ontoloop.ops")
         bundle = "named wrongly loadable bundle"
@@ -297,6 +357,24 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             stop, store=store_module.golden_record_store())
         self.assertIs(landed["journal_record_landed"], True)
         self.assertEqual(landed["stop"], stop)
+
+    def test_loading_stop_journal_landing_records_the_append_content(self):
+        module = require("ontoloop.ops")
+        store_module = require("ontoloop.store")
+        store = store_module.golden_record_store()
+        stop = module.take_loading_stop(bundle="named bundle")
+        landed = module.journal_record_after_append(stop, store=store)
+        self.assertIs(landed["journal_record_landed"], True)
+        self.assertEqual(landed["stop"], stop)
+        content = store["records"][-1]["content"]
+        self.assertEqual(content["act"], stop["act"])
+        self.assertEqual(content["act"], "incident loading stop")
+        self.assertEqual(content["recorded_on"], stop["recorded_on"])
+        self.assertEqual(content["recorded_on"], "operator surface")
+        self.assertEqual(content["effective_at"], stop["effective_at"])
+        self.assertEqual(content["effective_at"], "next run boundary")
+        self.assertEqual(content["bundle"], stop["bundle"])
+        self.assertEqual(content["bundle"], "named bundle")
 
 
 # ------------------------------------------------------------------
@@ -456,8 +534,17 @@ class TestUnrowed196UnknownCheckPoint(unittest.TestCase):
             lambda: module.supersession_refusal("unknown point"),
         )
         for call in calls:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as caught:
                 call()
+            self.assertEqual(
+                str(caught.exception),
+                "unknown freshness check point: 'unknown point'")
+
+    def test_unknown_retirement_occasion_raises_value_error(self):
+        module = require("ontoloop.dataset")
+        with self.assertRaises(ValueError):
+            module.retire_unspent_sealed(
+                "dataset build", occasion="bogus")
 
 
 class TestUnrowed196DatasetBuild(_FreshnessCheckPoint, unittest.TestCase):

@@ -188,10 +188,13 @@ class InstructionItemFiringActTests(unittest.TestCase):
 
     def test_an_unknown_occasion_raises_value_error(self):
         module = self.module()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.audit_instruction_item(
                 HOLDOUT_TEXT, HOLDOUT_TEXT, occasion="somewhere else"
             )
+        self.assertEqual(
+            str(caught.exception),
+            "unknown instruction test occasion: 'somewhere else'")
 
 
 class SingleItemPresentationFormTests(unittest.TestCase):
