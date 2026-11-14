@@ -321,8 +321,13 @@ def _resolve_text(value):
     generator among them, stands read for the texts of
     the items it yields, and any other iterable value
     stands read for the texts of its elements in the
-    same joined form. Any other value stands as it
-    stands.
+    same joined form. A value standing in a container
+    form that iterates by indexed access alone, carrying
+    no iteration act of its own, stands read for the
+    texts of the elements its indexed access yields, in
+    the same joined form, where its elements stand
+    readable by that access. Any other value stands as
+    it stands.
     """
     if isinstance(value, str):
         return value
@@ -349,6 +354,19 @@ def _resolve_text(value):
     if hasattr(value, "__iter__"):
         parts = []
         for element in value:
+            resolved = _resolve_text(element)
+            if resolved:
+                parts.append(str(resolved))
+        if parts:
+            return " ".join(parts)
+        return None
+    if hasattr(value, "__getitem__"):
+        try:
+            children = list(value)
+        except Exception:
+            return value
+        parts = []
+        for element in children:
             resolved = _resolve_text(element)
             if resolved:
                 parts.append(str(resolved))
@@ -473,29 +491,170 @@ def _unwrapped_items(element):
     yield element
 
 
+def _is_partitionable_form(value):
+    """Whether a bundle position value stands in a read form.
+
+    A list, a tuple, a deque, a UserList, an abstract
+    Sequence, a general iterable container, and an
+    iterator each stand read for the items they carry.
+    A text form, a byte form, an array, a range, a
+    mapping, a set form, a dictionary view, and a value
+    standing in a container form that iterates by
+    indexed access alone stand in no read form here, in
+    their standing forms.
+    """
+    if isinstance(
+        value,
+        (
+            str,
+            _UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+            _Mapping,
+            set,
+            frozenset,
+            _WeakSet,
+            _Set,
+            _ItemsView,
+            _KeysView,
+            _ValuesView,
+        ),
+    ):
+        return False
+    if isinstance(
+        value, (list, tuple, _collections_module.deque,
+                _collections_module.UserList)
+    ):
+        return True
+    if isinstance(value, _Sequence):
+        return True
+    if hasattr(value, "__next__") and hasattr(value, "__iter__"):
+        return True
+    if hasattr(value, "__iter__"):
+        return True
+    return False
+
+
+def _position_elements(value):
+    """List a bundle position value once, or return None.
+
+    A value standing in a partitionable form stands
+    listed once in this reading, so an iterator in a
+    bundle position stands consumed by no earlier read
+    and its items stand held in the list this act
+    builds. A value standing in no such form returns
+    None, and its material stands unpartitioned.
+    """
+    if not _is_partitionable_form(value):
+        return None
+    return list(value)
+
+
+def _pair_elements(pair):
+    """Return the two sides a pair presents, or None.
+
+    A pair stands in its two element form, as a list, a
+    tuple, a deque, a UserList, an abstract Sequence, a
+    general iterable container, or an iterator listed
+    once, or in its mapping form, holding its candidate
+    and holdout entries by name. Any other form returns
+    None, in its standing form.
+    """
+    if isinstance(pair, _Mapping):
+        cand = pair.get("candidate")
+        if cand is None:
+            cand = pair.get("candidate_item")
+        hold = pair.get("holdout")
+        if hold is None:
+            hold = pair.get("holdout_item")
+        if cand is not None and hold is not None:
+            return cand, hold
+        return None
+    elements = _position_elements(pair)
+    if elements is not None and len(elements) == 2:
+        return elements[0], elements[1]
+    return None
+
+
+def _is_bare_bundle_form(material):
+    """Whether a bare bundle stands in a read form.
+
+    A list, a tuple, a deque, and a general iterable
+    container each stand read as a bare bundle for the
+    items they carry. An iterator standing alone, a
+    text form, a byte form, a mapping, and a set form
+    stand in no bare bundle form here, in their
+    standing forms.
+    """
+    if isinstance(material, (list, tuple)):
+        return True
+    if isinstance(material, _collections_module.deque):
+        return True
+    if isinstance(
+        material,
+        (
+            str,
+            _UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+            _Mapping,
+            set,
+            frozenset,
+            _WeakSet,
+            _Set,
+            _ItemsView,
+            _KeysView,
+            _ValuesView,
+        ),
+    ):
+        return False
+    if hasattr(material, "__next__"):
+        return False
+    if hasattr(material, "__iter__"):
+        return True
+    return False
+
+
 def _split_items(material):
     """Partition bundle material into candidate and holdout items.
 
     An item standing in a container form inside the
     bundle positions stands read for the item it
     carries, split side included, in the form the
-    unwrapping act gives.
+    unwrapping act gives. A position value standing in
+    a deque form, a UserList form, an abstract Sequence
+    form, or a general iterable container form, with
+    iterators listed once in that reading, stands read
+    for the items it carries in the same form, and a
+    bare bundle standing as a deque or as a general
+    iterable container stands read in the same form.
+    Each side of a pair, in both pair forms, stands
+    read through the same unwrapping act the other
+    bundle positions use, split side as the pair states
+    it, so a wrapped side reaches the comparison index
+    as the item it carries.
     """
     candidate = []
     holdout = []
     if isinstance(material, _Mapping):
         for key in ("candidate_items", "candidate"):
-            value = material.get(key)
-            if isinstance(value, (list, tuple)):
-                for element in value:
+            elements = _position_elements(material.get(key))
+            if elements is not None:
+                for element in elements:
                     candidate.extend(_unwrapped_items(element))
         for key in ("holdout_items", "holdout"):
-            value = material.get(key)
-            if isinstance(value, (list, tuple)):
-                for element in value:
+            elements = _position_elements(material.get(key))
+            if elements is not None:
+                for element in elements:
                     holdout.extend(_unwrapped_items(element))
-        items = material.get("items")
-        if isinstance(items, (list, tuple)):
+        items = _position_elements(material.get("items"))
+        if items is not None:
             for element in items:
                 for item in _unwrapped_items(element):
                     side = None
@@ -505,24 +664,15 @@ def _split_items(material):
                         holdout.append(item)
                     else:
                         candidate.append(item)
-        pairs = material.get("pairs")
-        if isinstance(pairs, (list, tuple)):
+        pairs = _position_elements(material.get("pairs"))
+        if pairs is not None:
             for pair in pairs:
-                if isinstance(pair, (list, tuple)) and len(pair) == 2:
-                    candidate.append(pair[0])
-                    holdout.append(pair[1])
-                elif isinstance(pair, _Mapping):
-                    cand = pair.get("candidate")
-                    if cand is None:
-                        cand = pair.get("candidate_item")
-                    hold = pair.get("holdout")
-                    if hold is None:
-                        hold = pair.get("holdout_item")
-                    if cand is not None and hold is not None:
-                        candidate.append(cand)
-                        holdout.append(hold)
-    elif isinstance(material, (list, tuple)):
-        for element in material:
+                sides = _pair_elements(pair)
+                if sides is not None:
+                    candidate.extend(_unwrapped_items(sides[0]))
+                    holdout.extend(_unwrapped_items(sides[1]))
+    elif _is_bare_bundle_form(material):
+        for element in list(material):
             for item in _unwrapped_items(element):
                 side = None
                 if isinstance(item, _Mapping):
@@ -535,7 +685,7 @@ def _split_items(material):
 
 
 def _is_bundle(material):
-    if isinstance(material, (list, tuple)):
+    if _is_bare_bundle_form(material):
         return True
     if isinstance(material, _Mapping):
         return any(
@@ -692,36 +842,39 @@ _POSITION_KEYS = _SIDE_KEYS + ("items", "pairs")
 def _ungoverned_side(material):
     """Whether a bundle position stands in no partitioned form.
 
-    A candidate or holdout side standing as a list or a
-    tuple stands read for its items by the partitioning
-    act, and the items and pairs positions stand read by
-    that act in the same list and tuple forms alone. A
-    position present in any other form, a single mapping
-    or a bare string among them, stands read by no limb
-    of that act, so its material never reaches a
-    comparison.
+    A candidate or holdout side standing in a
+    partitionable form stands read for its items by the
+    partitioning act: a list, a tuple, a deque, a
+    UserList, an abstract Sequence, a general iterable
+    container, or an iterator listed once by that act,
+    and the items and pairs positions stand read by
+    that act in the same forms. A position present in
+    any other form, a single mapping or a bare string
+    among them, stands read by no limb of that act, so
+    its material never reaches a comparison. This
+    reading tests forms alone and lists no iterator: a
+    pairs position standing as an iterator, and a pair
+    standing as an iterator inside it, stand governed
+    on their forms and stand listed once by the
+    partitioning act alone.
     """
     if not isinstance(material, _Mapping):
         return False
     for key in _POSITION_KEYS:
         if key in material:
             value = material[key]
-            if value is not None and not isinstance(
-                value, (list, tuple)
+            if value is not None and not _is_partitionable_form(
+                value
             ):
                 return True
     pairs = material.get("pairs")
-    if isinstance(pairs, (list, tuple)):
-        for pair in pairs:
-            if isinstance(pair, (list, tuple)) and len(pair) == 2:
+    if _is_partitionable_form(pairs) and not hasattr(
+        pairs, "__next__"
+    ):
+        for pair in list(pairs):
+            if hasattr(pair, "__next__"):
                 continue
-            if isinstance(pair, _Mapping) and (
-                pair.get("candidate") is not None
-                or pair.get("candidate_item") is not None
-            ) and (
-                pair.get("holdout") is not None
-                or pair.get("holdout_item") is not None
-            ):
+            if _pair_elements(pair) is not None:
                 continue
             return True
     return False
@@ -846,6 +999,14 @@ def _holdout_items_of(holdout_material):
                     if elements:
                         collected.extend(elements)
                         recognised = True
+                elif hasattr(value, "__getitem__"):
+                    try:
+                        elements = list(value)
+                    except Exception:
+                        elements = []
+                    if elements:
+                        collected.extend(elements)
+                        recognised = True
             if recognised and collected:
                 return collected
         return [holdout_material]
@@ -857,6 +1018,11 @@ def _holdout_items_of(holdout_material):
         return list(holdout_material)
     if hasattr(holdout_material, "__iter__"):
         return list(holdout_material)
+    if hasattr(holdout_material, "__getitem__"):
+        try:
+            return list(holdout_material)
+        except Exception:
+            return [holdout_material]
     return [holdout_material]
 
 
@@ -896,7 +1062,12 @@ def _audit_instruction_item_impl(
     verbatim case, also recorded on the verbatim key)
     or where the module _text_overlap form, dividing
     by the smaller of the two word counts, stands at
-    or above the near verbatim threshold.
+    or above the near verbatim threshold. Holdout
+    material, and an instruction text, standing in a
+    container form that iterates by indexed access
+    alone stand read for the material they carry, in
+    parity with the materialisation reading the call
+    points give that form.
 
     The return carries, on every case: fired, the
     firing decision; fired_item, the instruction text
