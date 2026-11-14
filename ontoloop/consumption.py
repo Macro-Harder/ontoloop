@@ -370,7 +370,8 @@ def _bundle_copy(bundle):
     part keeps the bound it was recorded with. A value
     standing in none of these forms copies through
     the standard deep copy act, and an enum member
-    standing anywhere inside such a value stands
+    standing anywhere inside such a value, including
+    inside a WeakSet, stands
     under the same refusal as a member standing in a
     walked position. An enum member stands
     as a governed form of its own: a member carrying
@@ -380,10 +381,15 @@ def _bundle_copy(bundle):
     value. An attribute value carries no mutable
     state where it stands as an exact atom, as None,
     as a decimal, a fraction, a date, a time, a
-    timedelta, or a range value, as an enum member
+    timedelta, or a range value, as a UUID, a
+    timezone, or a pure path value, as an enum member
     carrying no mutable instance state, or as a tuple
     or frozenset whose elements all carry no mutable
-    state under this same reading. A container or wrapper part carrying
+    state under this same reading. An accepted shape
+    carrying a non empty instance attribute mapping
+    carries no mutable state only where every value
+    in that mapping itself carries no mutable state
+    under this same reading. A container or wrapper part carrying
     instance attribute state copies that state apart
     in both directions, its attribute mapping copied
     by this same act, with its type and its entries,
@@ -403,7 +409,10 @@ def _bundle_copy(bundle):
     import decimal as _decimal_module
     import enum as _enum_module
     import fractions as _fractions_module
+    import pathlib as _pathlib_module
     import types as _types_module
+    import uuid as _uuid_module
+    import weakref as _weakref_module
 
     def _is_atom(value):
         return value is None or type(value) in (
@@ -447,6 +456,15 @@ def _bundle_copy(bundle):
             return built
         return tuple(parts)
 
+    def _instance_state_immutable(value, seen):
+        mapping = getattr(value, "__dict__", None)
+        if not mapping:
+            return True
+        return all(
+            _state_immutable(item, seen)
+            for item in mapping.values()
+        )
+
     def _state_immutable(value, seen=None):
         if _is_atom(value):
             return True
@@ -460,7 +478,7 @@ def _bundle_copy(bundle):
         if isinstance(value, (tuple, frozenset)):
             return all(
                 _state_immutable(item, seen) for item in value
-            )
+            ) and _instance_state_immutable(value, seen)
         if isinstance(
             value,
             (
@@ -470,9 +488,15 @@ def _bundle_copy(bundle):
                 _datetime_module.time,
                 _datetime_module.timedelta,
                 range,
+                _uuid_module.UUID,
+                _datetime_module.timezone,
             ),
         ):
-            return True
+            return _instance_state_immutable(value, seen)
+        if isinstance(value, _pathlib_module.PurePath) and not isinstance(
+            value, _pathlib_module.Path
+        ):
+            return _instance_state_immutable(value, seen)
         return False
 
     def _enum_carries_mutable(member, seen=None):
@@ -509,6 +533,8 @@ def _bundle_copy(bundle):
                     pending.extend(item.maps)
                 elif isinstance(item, _collections.UserDict):
                     pending.append(item.data)
+                elif isinstance(item, _weakref_module.WeakSet):
+                    pending.extend(list(item))
                 elif isinstance(
                     item,
                     (
