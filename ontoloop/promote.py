@@ -852,8 +852,13 @@ def reuse_warning_at_count(count, bound=3):
     nearest to 75 percent of the bound, which for a bound
     of 3 is a count of 2. Firing names the decision it
     informs on the surface that prints it, changes no
-    bound, and blocks no act.
+    bound, and blocks no act. A bound below 1 stands
+    outside the governed domain of this surface, and a
+    call carrying one stands refused, raising ValueError
+    naming the bound.
     """
+    if bound < 1:
+        raise ValueError("unknown reuse warning bound: %r" % (bound,))
     threshold = int(0.75 * bound)
     if threshold < 1:
         threshold = 1

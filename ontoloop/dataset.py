@@ -353,7 +353,9 @@ def cross_split_audit_at_build(
     refused = bool(shared["candidate_bundle_refused"])
     return {
         "spanning_pairs_dropped": refused,
-        "spanning_pairs_recorded": bool(shared["record_home"]),
+        "spanning_pairs_recorded": bool(
+            refused or shared["firing_pairs"]
+        ),
         "relations": ["group", "signature", "near verbatim cluster"],
         "paraphrase_pair": {
             "flagged_on_paraphrase_grounds": False,

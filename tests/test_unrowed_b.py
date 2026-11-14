@@ -645,6 +645,41 @@ class TestUnrowed1937CountForm(unittest.TestCase):
         self.assertFalse(outcome["act_blocked"])
 
 
+class TestPromoteR2Pro1(unittest.TestCase):
+    """R2-PRO-1: a reuse warning bound below 1 stands refused."""
+
+    def test_bound_zero_stands_refused_naming_the_bound(self):
+        module = require("ontoloop.promote")
+        with self.assertRaises(ValueError) as caught:
+            module.reuse_warning_at_count(0, bound=0)
+        self.assertIn("bound", str(caught.exception))
+        self.assertIn("0", str(caught.exception))
+
+    def test_bound_below_one_stands_refused(self):
+        module = require("ontoloop.promote")
+        with self.assertRaises(ValueError):
+            module.reuse_warning_at_count(0, bound=-2)
+
+    def test_governed_bounds_behave_as_round_2_probed_them(self):
+        module = require("ontoloop.promote")
+        cases = [
+            (3, 2, 1, 2),
+            (4, 3, 2, 3),
+            (8, 6, 5, 6),
+        ]
+        for bound, point, below, at in cases:
+            under = module.reuse_warning_at_count(below, bound=bound)
+            self.assertFalse(under["fired"])
+            self.assertEqual(under["firing_point_count"], point)
+            self.assertEqual(under["bound_after"], bound)
+            self.assertFalse(under["act_blocked"])
+            over = module.reuse_warning_at_count(at, bound=bound)
+            self.assertTrue(over["fired"])
+            self.assertEqual(over["firing_point_count"], point)
+            self.assertEqual(over["bound_after"], bound)
+            self.assertFalse(over["act_blocked"])
+
+
 # ------------------------------------------------------------------
 # Subsection 19.37, the warning act: age form.
 # Obligation as stated: as the count form above, for the age form:

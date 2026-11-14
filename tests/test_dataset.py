@@ -147,6 +147,60 @@ class TestDatasetT05(unittest.TestCase):
         )
 
 
+class TestDatasetR2Dat1(unittest.TestCase):
+    """R2-DAT-1: spanning_pairs_recorded follows refusal or firing."""
+
+    def test_clean_bundle_records_no_spanning_pair(self):
+        module = require(MODULE)
+        bundle = {
+            "candidate_items": [
+                {
+                    "group": "g1",
+                    "signature": "s1",
+                    "text": "alpha beta gamma",
+                }
+            ],
+            "holdout_items": [
+                {
+                    "group": "g2",
+                    "signature": "s2",
+                    "text": "delta epsilon zeta",
+                }
+            ],
+        }
+        audit = module.cross_split_audit_at_build(bundle)
+        self.assertFalse(audit["spanning_pairs_dropped"])
+        self.assertFalse(audit["spanning_pairs_recorded"])
+        shared = audit["cross_split_audit_result"]
+        self.assertFalse(shared["candidate_bundle_refused"])
+        self.assertEqual(shared["firing_pairs"], [])
+
+    def test_firing_bundle_records_the_spanning_pair(self):
+        module = require(MODULE)
+        bundle = {
+            "candidate_items": [
+                {
+                    "group": "g1",
+                    "signature": "s1",
+                    "text": "alpha beta gamma",
+                }
+            ],
+            "holdout_items": [
+                {
+                    "group": "g1",
+                    "signature": "s9",
+                    "text": "delta epsilon zeta",
+                }
+            ],
+        }
+        audit = module.cross_split_audit_at_build(bundle)
+        self.assertTrue(audit["spanning_pairs_dropped"])
+        self.assertTrue(audit["spanning_pairs_recorded"])
+        shared = audit["cross_split_audit_result"]
+        self.assertTrue(shared["candidate_bundle_refused"])
+        self.assertTrue(shared["firing_pairs"])
+
+
 class TestDatasetT06(unittest.TestCase):
     """DATASET-T06: pinned versions, attestation, shortfall state."""
 
