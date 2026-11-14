@@ -729,20 +729,38 @@ def _material_gathered_form(value):
     abstract sequence form or the abstract set form,
     where it stands in a mapping view form, and where
     it stands as an array in a byte typecode, the
-    signed byte form or the unsigned byte form. String
+    signed byte form or the unsigned byte form. The
+    gathering also walks a value standing in a general
+    iterable form, a container carrying an iteration
+    act alone and standing in none of the forms above,
+    as the elements it stands as. A value standing as
+    an iterator, a generator among them, stands in no
+    gathered form here: such a value can be read once
+    only, and this test returns False for it, so the
+    gathering leaves it in its standing leaf form and
+    reads none of it. A mapping value stands decided
+    in its own limb at the gathering act, and this test
+    returns False for it in the same way. String
     and byte values stand decided in their own limbs
     before this test, and this test also returns False for
     them in the same ways.
     """
     if isinstance(value, (str, bytes, bytearray, collections.UserString)):
         return False
+    if isinstance(value, collections.abc.Mapping):
+        return False
     if isinstance(value, array.array):
         return value.typecode in ("b", "B")
+    if isinstance(value, collections.abc.Iterator) or hasattr(
+        value, "__next__"
+    ):
+        return False
     return (
         isinstance(
             value, (collections.abc.Sequence, collections.abc.Set)
         )
         or _is_view_form(value)
+        or isinstance(value, collections.abc.Iterable)
     )
 
 
@@ -767,7 +785,13 @@ def _material_items(material, _path=None, _depth=0):
     its entries in entry order, keyed by its field
     name, a nested mapping entry keeping its own field
     name where it states one. A sequence contributes
-    one item per element, in order. Container values
+    one item per element, in order. A value standing
+    in a general iterable form, a container carrying
+    an iteration act alone, contributes one item per
+    element it stands as, in iteration order, under
+    the same cycle guard discipline as the walked
+    forms, at the top level and at the mapping value
+    and mapping key positions. Container values
     standing as mapping values or mapping keys stand
     expanded through this same gathering up to the
     stated container depth bound; beyond that bound a
@@ -1803,8 +1827,14 @@ def _assembly_state_value(assembly):
     standing in a mapping view form answers the read
     through the mapping the view views, and an items view
     answers it through the entry it carries for that key.
-    An assembly in no walked form carries no state value
-    for this read.
+    An assembly standing in a sequence of pairs form
+    answers the read through the pair element that names
+    assembly_state, wherever that element stands in a
+    walked sequence form: a plain list pair, a tuple
+    pair, a UserList pair, a deque pair, and a pair
+    standing in the abstract sequence form each answer
+    in the same form. An assembly in no walked form
+    carries no state value for this read.
     """
     if _is_mapping_form(assembly):
         return assembly.get("assembly_state")
@@ -1825,9 +1855,7 @@ def _assembly_state_value(assembly):
                 if "assembly_state" in element:
                     return element.get("assembly_state")
                 continue
-            if isinstance(
-                element, (list, tuple, collections.UserList)
-            ):
+            if _is_sequence_form(element):
                 if len(element) >= 1 and element[0] == "assembly_state":
                     if len(element) >= 2:
                         return element[1]
