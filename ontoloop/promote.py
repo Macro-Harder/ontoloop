@@ -515,7 +515,11 @@ def allowed_values(field):
     raises ValueError, in the proposal form at shape
     section 8.
     """
-    if field not in _ALLOWED_VALUES:
+    try:
+        present = field in _ALLOWED_VALUES
+    except (TypeError, ValueError):
+        raise ValueError("unknown confirmation field: %r" % (field,))
+    if not present:
         raise ValueError("unknown confirmation field: %r" % (field,))
     return list(_ALLOWED_VALUES[field])
 
@@ -895,7 +899,7 @@ def provisional_record(with_comparison=True, comparable_displaced_period=True,
         for item in values:
             try:
                 hash(item)
-            except TypeError:
+            except (TypeError, ValueError):
                 raise ValueError(
                     "provisional values must stand as a list of values")
         return values
@@ -1023,21 +1027,21 @@ def confirm_provisional(record):
 
     def _stands_as_period(value):
         return (
-            isinstance(value, dict)
+            isinstance(value, _Mapping)
             and "outcome_mix" in value
             and "correction_position" in value
             and _figure_carries_substance(value["outcome_mix"])
             and _figure_carries_substance(value["correction_position"])
         )
 
-    if not isinstance(record, dict):
+    if not isinstance(record, _Mapping):
         return {
             "outcome": "barred",
             "bar_reason": "no comparison in the provisional record",
         }
     comparison = record.get("comparison")
     if (
-        not isinstance(comparison, dict)
+        not isinstance(comparison, _Mapping)
         or not _stands_as_period(comparison.get("provisional_period"))
         or not _stands_as_period(comparison.get("displaced_period"))
     ):
@@ -1096,7 +1100,11 @@ def candidate_with_instruction_item(kind=None):
     same way, and carries the holdout material under
     holdout_items.
     """
-    if kind not in _INSTRUCTION_TEXT_BY_KIND:
+    try:
+        present = kind in _INSTRUCTION_TEXT_BY_KIND
+    except (TypeError, ValueError):
+        raise ValueError("unknown instruction item kind: %r" % (kind,))
+    if not present:
         raise ValueError("unknown instruction item kind: %r" % (kind,))
     return {
         "instruction_items": [
@@ -1277,8 +1285,10 @@ def clearance_claim_covering_instruction_items(promotion_record=None):
     instruction test result. A record carrying that result
     supports the claim.
     """
+    from collections.abc import Mapping as _Mapping
+
     stands = bool(
-        isinstance(promotion_record, dict)
+        isinstance(promotion_record, _Mapping)
         and promotion_record.get("instruction_test_result_carried")
     )
     return {"claim_stands": stands}

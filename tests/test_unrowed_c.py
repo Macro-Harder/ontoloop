@@ -12,6 +12,8 @@ obligation as stated, and the transcription choice for that obligation.
 import ast
 import inspect
 import unittest
+from collections import UserDict
+from types import MappingProxyType
 
 from tests import harness
 
@@ -160,6 +162,34 @@ class Unrowed1986Tests(unittest.TestCase):
         record = mod.promotion_record_carrying_instruction_test_result()
         claim = mod.clearance_claim_covering_instruction_items(promotion_record=record)
         self.assertTrue(claim["claim_stands"])
+
+    # Fix round 9, Region 4, ruling 272 (UC-R9-2): the clearance
+    # claim reads the promotion record by the abstract mapping
+    # form, so a carrying record standing as a UserDict or as a
+    # MappingProxyType supports the claim in substance, beside
+    # the plain dict control still standing and the standing
+    # non carrying and non mapping forms still refused.
+    def test_clearance_claim_reads_promotion_record_as_mapping(self):
+        mod = harness.require("ontoloop.promote")
+        record = mod.promotion_record_carrying_instruction_test_result()
+        self.assertTrue(mod.clearance_claim_covering_instruction_items(
+            promotion_record=record)["claim_stands"])
+        for carrying in (UserDict(record), MappingProxyType(dict(record))):
+            claim = mod.clearance_claim_covering_instruction_items(
+                promotion_record=carrying)
+            self.assertTrue(claim["claim_stands"], type(carrying).__name__)
+        for not_carrying in (
+                UserDict({"record_home": "Promotion Record"}),
+                MappingProxyType({"record_home": "Promotion Record"}),
+                UserDict({"instruction_test_result_carried": False})):
+            claim = mod.clearance_claim_covering_instruction_items(
+                promotion_record=not_carrying)
+            self.assertFalse(claim["claim_stands"], repr(not_carrying))
+        for non_record in (b"Promotion Record", ["Promotion Record"],
+                           {"Promotion Record"}, None):
+            claim = mod.clearance_claim_covering_instruction_items(
+                promotion_record=non_record)
+            self.assertFalse(claim["claim_stands"], repr(non_record))
 
 
 # ---------------------------------------------------------------------
@@ -353,6 +383,51 @@ class Unrowed1987Tests(unittest.TestCase):
                 result["bar_reason"],
                 "no comparison in the provisional record",
                 repr(record))
+
+    # Fix round 9, Region 4, ruling 271 (UC-R9-1 and Lead
+    # Engineer line E-10): confirm_provisional reads its
+    # record, its comparison, and each period by the abstract
+    # mapping form, so the product built record confirms in
+    # substance where any of those positions stands as a
+    # UserDict or as a MappingProxyType, beside the standing
+    # form still confirming and a record carrying no
+    # comparison still barred.
+    def test_confirm_provisional_reads_record_comparison_and_period_as_mappings(self):
+        mod = harness.require("ontoloop.promote")
+        base = mod.provisional_record()
+        self.assertEqual(
+            mod.confirm_provisional(base)["outcome"], "confirmed")
+
+        def wrap(value):
+            return (UserDict(value), MappingProxyType(dict(value)))
+
+        for record_form in wrap(base):
+            result = mod.confirm_provisional(record_form)
+            self.assertEqual(result["outcome"], "confirmed",
+                             type(record_form).__name__)
+        for comparison_form in wrap(base["comparison"]):
+            record = dict(base)
+            record["comparison"] = comparison_form
+            result = mod.confirm_provisional(record)
+            self.assertEqual(result["outcome"], "confirmed",
+                             type(comparison_form).__name__)
+        for position in ("provisional_period", "displaced_period"):
+            for period_form in wrap(base["comparison"][position]):
+                comparison = dict(base["comparison"])
+                comparison[position] = period_form
+                record = dict(base)
+                record["comparison"] = comparison
+                result = mod.confirm_provisional(record)
+                self.assertEqual(result["outcome"], "confirmed",
+                                 (position, type(period_form).__name__))
+        no_comparison = mod.provisional_record(with_comparison=False)
+        for record_form in wrap(no_comparison):
+            result = mod.confirm_provisional(record_form)
+            self.assertEqual(result["outcome"], "barred",
+                             type(record_form).__name__)
+            self.assertEqual(
+                result["bar_reason"],
+                "no comparison in the provisional record")
 
     def test_comparison_basis_stated_by_name_with_its_reason(self):
         mod = harness.require("ontoloop.promote")
