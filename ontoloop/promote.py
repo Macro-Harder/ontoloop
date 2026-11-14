@@ -635,10 +635,16 @@ def raise_demotion_flag(bundle):
     replacing event, at shape disagreement DG-9. This
     surface builds no signal accumulation, no threshold
     check, and no automatic effect. No Promotion Record
-    file stands written by this surface.
+    file stands written by this surface. The identity
+    reading distinguishes a missing key from a present
+    value: a present value, a falsy value among it,
+    stands carried as passed, and the fixture identity
+    stands only where no identity value stands present.
     """
     if isinstance(bundle, dict):
-        identity = bundle.get("bundle_identity") or _BUNDLE_IDENTITY
+        identity = bundle.get("bundle_identity")
+        if identity is None:
+            identity = _BUNDLE_IDENTITY
     else:
         identity = _BUNDLE_IDENTITY
     return {
@@ -689,7 +695,8 @@ def dispose_demotion_flag(decision, reason=None):
 
     A flag has no automatic effect, at plan subsection
     19.23 point four, and no return of this surface
-    carries one. A retain call carrying no reason raises
+    carries one. A retain call carrying no reason, or a
+    reason carrying no content, raises
     ValueError, and a decision string outside the three
     pinned strings raises ValueError, both in the
     proposal form at shape section 8.
@@ -700,7 +707,7 @@ def dispose_demotion_flag(decision, reason=None):
             "bundle_position": "demoted",
         }
     if decision == "retain":
-        if reason is None:
+        if not reason:
             raise ValueError("retain requires a reason")
         return {
             "record_form": "retain",
@@ -768,19 +775,32 @@ def provisional_record(with_comparison=True, comparable_displaced_period=True,
     A record with no comparable displaced period names
     its comparison basis and records the reason it was
     chosen.
+
+    Each of the four value parameters stands as a list
+    of values. A value standing as a string, as bytes,
+    or as a mapping stands refused at each of the four
+    sites, raising ValueError, so no record carries a
+    comparison built from a container the caller did
+    not present as a list of values.
     """
-    prov_out = list(
-        ["pass", "pass", "fail"]
-        if provisional_outcomes is None else provisional_outcomes)
-    disp_out = list(
-        ["pass", "fail", "fail"]
-        if displaced_outcomes is None else displaced_outcomes)
-    prov_cor = list(
-        ["corrected", "open"]
-        if provisional_corrections is None else provisional_corrections)
-    disp_cor = list(
-        ["corrected", "open"]
-        if displaced_corrections is None else displaced_corrections)
+    from collections.abc import Mapping as _Mapping
+
+    def _values_or_default(value, default):
+        if value is None:
+            return list(default)
+        if isinstance(value, (str, bytes, bytearray, _Mapping)):
+            raise ValueError(
+                "provisional values must stand as a list of values")
+        return list(value)
+
+    prov_out = _values_or_default(
+        provisional_outcomes, ["pass", "pass", "fail"])
+    disp_out = _values_or_default(
+        displaced_outcomes, ["pass", "fail", "fail"])
+    prov_cor = _values_or_default(
+        provisional_corrections, ["corrected", "open"])
+    disp_cor = _values_or_default(
+        displaced_corrections, ["corrected", "open"])
 
     def mix(values):
         result = {}
@@ -843,9 +863,22 @@ def confirm_provisional(record):
     A record with no comparison stands barred, with the
     bar reason standing at no comparison in the
     provisional record, under subsection 19.87. A record
-    carrying a comparison stands confirmed in form.
+    whose comparison value is not a comparison mapping,
+    a mapping carrying both period positions, stands
+    barred in the same form. A record carrying a
+    comparison mapping stands confirmed in form.
     """
-    if not isinstance(record, dict) or record.get("comparison") is None:
+    if not isinstance(record, dict):
+        return {
+            "outcome": "barred",
+            "bar_reason": "no comparison in the provisional record",
+        }
+    comparison = record.get("comparison")
+    if (
+        not isinstance(comparison, dict)
+        or "provisional_period" not in comparison
+        or "displaced_period" not in comparison
+    ):
         return {
             "outcome": "barred",
             "bar_reason": "no comparison in the provisional record",

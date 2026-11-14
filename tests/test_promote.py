@@ -246,5 +246,127 @@ class PromoteT09Tests(unittest.TestCase):
             self.assertEqual(result["failed_text"], text_name)
 
 
+class PromoteFixR5Tests(unittest.TestCase):
+    """Fix round 5 pins: rulings 57, 58, 59, and 74."""
+
+    # Act 1, ruling 57, N-20: non list containers at the four sites.
+
+    def _provisional_kwargs(self, **override):
+        kwargs = {
+            "provisional_outcomes": ["pass", "fail"],
+            "displaced_outcomes": ["pass"],
+            "provisional_corrections": ["open"],
+            "displaced_corrections": ["corrected"],
+        }
+        kwargs.update(override)
+        return kwargs
+
+    def test_act1_provisional_outcomes_non_list_containers_refused(self):
+        mod = harness.require("ontoloop.promote")
+        for value in ("pass", b"pass", {"pass": 2, "fail": 1}):
+            with self.assertRaises(ValueError):
+                mod.provisional_record(**self._provisional_kwargs(
+                    provisional_outcomes=value))
+
+    def test_act1_displaced_outcomes_non_list_containers_refused(self):
+        mod = harness.require("ontoloop.promote")
+        for value in ("pass", b"pass", {"pass": 2, "fail": 1}):
+            with self.assertRaises(ValueError):
+                mod.provisional_record(**self._provisional_kwargs(
+                    displaced_outcomes=value))
+
+    def test_act1_provisional_corrections_non_list_containers_refused(self):
+        mod = harness.require("ontoloop.promote")
+        for value in ("corrected", b"corrected", {"corrected": 1}):
+            with self.assertRaises(ValueError):
+                mod.provisional_record(**self._provisional_kwargs(
+                    provisional_corrections=value))
+
+    def test_act1_displaced_corrections_non_list_containers_refused(self):
+        mod = harness.require("ontoloop.promote")
+        for value in ("corrected", b"corrected", {"corrected": 1}):
+            with self.assertRaises(ValueError):
+                mod.provisional_record(**self._provisional_kwargs(
+                    displaced_corrections=value))
+
+    def test_act1_standing_list_forms_still_compute(self):
+        mod = harness.require("ontoloop.promote")
+        record = mod.provisional_record(**self._provisional_kwargs())
+        comparison = record["comparison"]
+        self.assertEqual(
+            comparison["provisional_period"]["outcome_mix"],
+            {"pass": 1, "fail": 1})
+        self.assertEqual(
+            comparison["displaced_period"]["outcome_mix"], {"pass": 1})
+        self.assertEqual(
+            comparison["provisional_period"]["correction_position"],
+            {"open": 1})
+        empty = mod.provisional_record(**self._provisional_kwargs(
+            provisional_outcomes=[]))
+        self.assertEqual(
+            empty["comparison"]["provisional_period"]["outcome_mix"], {})
+
+    # Act 2, ruling 58, N-21: a retain reason carrying no content.
+
+    def test_act2_retain_empty_reason_forms_refused(self):
+        mod = harness.require("ontoloop.promote")
+        for reason in ("", [], 0):
+            with self.assertRaises(ValueError) as caught:
+                mod.dispose_demotion_flag("retain", reason=reason)
+            self.assertEqual(str(caught.exception), "retain requires a reason")
+
+    def test_act2_retain_no_reason_and_standing_reason_forms(self):
+        mod = harness.require("ontoloop.promote")
+        with self.assertRaises(ValueError) as caught:
+            mod.dispose_demotion_flag("retain")
+        self.assertEqual(str(caught.exception), "retain requires a reason")
+        result = mod.dispose_demotion_flag(
+            "retain", reason="evidence reviewed")
+        self.assertTrue(result["reason_recorded"])
+        self.assertTrue(result["flag_closed"])
+        self.assertTrue(result["age_stopped"])
+
+    # Act 3, ruling 59, N-22: a present falsy bundle identity.
+
+    def test_act3_demotion_flag_falsy_identity_carried(self):
+        mod = harness.require("ontoloop.promote")
+        for identity in ("", 0, False):
+            flag = mod.raise_demotion_flag({"bundle_identity": identity})
+            self.assertEqual(flag["bundle_identity"], identity)
+            self.assertEqual(
+                type(flag["bundle_identity"]), type(identity))
+
+    def test_act3_demotion_flag_missing_key_still_fixture(self):
+        mod = harness.require("ontoloop.promote")
+        flag = mod.raise_demotion_flag({})
+        self.assertEqual(flag["bundle_identity"], "confirmed bundle 1")
+        flag = mod.raise_demotion_flag("not a mapping")
+        self.assertEqual(flag["bundle_identity"], "confirmed bundle 1")
+
+    # Act 4, ruling 74, N-37: a comparison that is no comparison mapping.
+
+    def test_act4_confirm_provisional_non_mapping_comparison_barred(self):
+        mod = harness.require("ontoloop.promote")
+        for value in ({}, False, 0, "", "plain text", []):
+            result = mod.confirm_provisional({"comparison": value})
+            self.assertEqual(result["outcome"], "barred", repr(value))
+            self.assertEqual(
+                result["bar_reason"],
+                "no comparison in the provisional record")
+
+    def test_act4_confirm_provisional_full_comparison_still_confirms(self):
+        mod = harness.require("ontoloop.promote")
+        self.assertEqual(
+            mod.confirm_provisional(mod.provisional_record())["outcome"],
+            "confirmed")
+        empty_mixes = mod.provisional_record(
+            provisional_outcomes=[],
+            displaced_outcomes=[],
+            provisional_corrections=[],
+            displaced_corrections=[])
+        self.assertEqual(
+            mod.confirm_provisional(empty_mixes)["outcome"], "confirmed")
+
+
 if __name__ == "__main__":
     unittest.main()
