@@ -94,6 +94,38 @@ def relations():
     return list(RELATIONS)
 
 
+def _resolve_text(value):
+    """Read the text a value carries, in its stated forms.
+
+    A string stands as its own text. A mapping stands
+    read for the text under its instruction_text, text,
+    or content key, in that order, and that value may
+    itself stand in any of these forms. A list, tuple,
+    set, or frozenset stands read for the texts of its
+    elements, joined in presentation order where the
+    form carries one and in element order otherwise.
+    Any other value stands as it stands.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for key in ("instruction_text", "text", "content"):
+            inner = value.get(key)
+            if inner is not None:
+                return _resolve_text(inner)
+        return None
+    if isinstance(value, (list, tuple, set, frozenset)):
+        parts = []
+        for element in value:
+            resolved = _resolve_text(element)
+            if resolved:
+                parts.append(str(resolved))
+        if parts:
+            return " ".join(parts)
+        return None
+    return value
+
+
 def _item_fields(item):
     if isinstance(item, str):
         return {"group": None, "signature": None, "text": item}
@@ -106,7 +138,7 @@ def _item_fields(item):
         return {
             "group": item.get("group"),
             "signature": item.get("signature"),
-            "text": text,
+            "text": _resolve_text(text),
         }
     return {"group": None, "signature": None, "text": None}
 
@@ -279,7 +311,39 @@ def indexed_comparisons(material):
     }
 
 
+_SIDE_KEYS = ("candidate_items", "candidate", "holdout_items", "holdout")
+
+
+def _ungoverned_side(material):
+    """Whether a bundle side stands in no partitioned form.
+
+    A candidate or holdout side standing as a list or a
+    tuple stands read for its items by the partitioning
+    act. A side present in any other form, a single
+    mapping or a bare string among them, stands read by
+    no limb of that act, so its items never reach a
+    comparison.
+    """
+    if not isinstance(material, dict):
+        return False
+    for key in _SIDE_KEYS:
+        if key in material:
+            value = material[key]
+            if value is not None and not isinstance(
+                value, (list, tuple)
+            ):
+                return True
+    return False
+
+
 def _audit(material, scored_before_refusal):
+    if _ungoverned_side(material):
+        return True, {
+            "comparisons": 0,
+            "cost_units": 0,
+            "firing_pairs": [],
+            "typed_reason": _PRESENTATION_REASON,
+        }
     if _is_bundle(material):
         bundle = _audit_bundle(material)
         return bundle["flagged"], bundle
@@ -336,13 +400,10 @@ def _clearance(record_home, scored_before_refusal, bundle):
 
 
 def _instruction_text_of(instruction_text):
-    if isinstance(instruction_text, dict):
-        for key in ("instruction_text", "text", "content"):
-            value = instruction_text.get(key)
-            if value is not None:
-                return value
-        return None
-    return instruction_text
+    return _resolve_text(instruction_text)
+
+
+_ITEM_FIELD_KEYS = ("text", "instruction_text", "content", "group", "signature")
 
 
 def _holdout_items_of(holdout_material):
@@ -354,8 +415,20 @@ def _holdout_items_of(holdout_material):
         if _is_bundle(holdout_material):
             candidate, holdout = _split_items(holdout_material)
             return holdout
+        if holdout_material and not any(
+            key in holdout_material for key in _ITEM_FIELD_KEYS
+        ):
+            values = list(holdout_material.values())
+            if all(
+                isinstance(value, (str, dict)) for value in values
+            ):
+                return values
         return [holdout_material]
-    if isinstance(holdout_material, (list, tuple)):
+    if isinstance(holdout_material, (list, tuple, set, frozenset)):
+        return list(holdout_material)
+    if hasattr(holdout_material, "__next__") and hasattr(
+        holdout_material, "__iter__"
+    ):
         return list(holdout_material)
     return [holdout_material]
 
@@ -374,7 +447,13 @@ def audit_instruction_item(
     carrying its instruction text field, and the
     holdout material, as a single holdout text, as one
     holdout item, as a list of holdout items, or as a
-    bundle mapping carrying holdout_items. It compares
+    bundle mapping carrying holdout_items. Holdout
+    material standing as a set, a frozenset, a generator,
+    or a mapping of items stands unpacked into its items
+    and compared in the same way. An instruction text
+    value standing as a list or a mapping, and an item
+    itself standing as a list, stand read for the text
+    they carry. It compares
     the instruction text field only, and the text field
     of each holdout item only: no group, no signature,
     and no wider field of either side takes part. A
@@ -550,7 +629,11 @@ def audit_at_promotion(material, scored_before_refusal=None):
     refused, no promotion proceeds on it, and the
     refusal stands recorded on the Promotion Record.
     The charging form stands as at the other call
-    points.
+    points. A candidate or holdout side standing in a
+    form the partitioning act does not read, a single
+    mapping or a bare string among them, returns this
+    same refusal form at every bundle call point, with
+    no comparisons counted for items never partitioned.
     """
     flagged, bundle = _audit(material, scored_before_refusal)
     if flagged:

@@ -215,8 +215,18 @@ def next_build(build):
     whose pool run identities hold the snapshot pool runs
     and, after them, the appended run of the passed build.
     No further key stands returned, at shape item G-2.
+    The pool stands checked as a list of run identities
+    before any reading: a pool value standing in any other
+    form, a plain string among them, raises ValueError,
+    so a string pool never stands read as single character
+    run identities.
     """
-    pool = list(build["pool_run_ids"])
+    pool_value = build["pool_run_ids"]
+    if not isinstance(pool_value, (list, tuple)):
+        raise ValueError(
+            "pool_run_ids stands in no pool form: %r" % (pool_value,)
+        )
+    pool = list(pool_value)
     appended = build["appended_run"]
     if appended not in pool:
         pool.append(appended)
@@ -620,6 +630,12 @@ def check_dataset_record(record):
     No defect key beyond artifact, no defect
     wording, and no defect count stands pinned, at
     shape item G-9, and none stands built here.
+    A present intake account standing in no mapping
+    form stands as one defect in that same form, and
+    a figures value standing in no governed form,
+    neither a mapping nor a name collection, stands
+    as one defect in that form, with no exception on
+    either malformed position.
 
     The limbs judged, each only where its form
     stands present in the record, so the check
@@ -657,7 +673,10 @@ def check_dataset_record(record):
         add_defect()
         return defects
     account = record.get("intake_account")
+    if account is None:
+        return defects
     if not isinstance(account, dict):
+        add_defect()
         return defects
     if "acknowledgement_wording" in account:
         if account["acknowledgement_wording"] != _ACKNOWLEDGEMENT_WORDING:
@@ -674,8 +693,11 @@ def check_dataset_record(record):
             advanced_figures = advanced.get("figures")
         if isinstance(figures, dict):
             simple_items = list(figures.items())
-        else:
+        elif isinstance(figures, (list, tuple, set, frozenset, str)):
             simple_items = [(name, None) for name in figures]
+        else:
+            add_defect()
+            simple_items = []
         for name, simple_value in simple_items:
             if not isinstance(advanced_figures, dict) or (
                 name not in advanced_figures
@@ -1295,7 +1317,7 @@ def candidate_with_instruction_item(kind=None):
     holdout material under holdout_items. A kind
     outside the three cases raises ValueError.
     """
-    if kind not in _INSTRUCTION_TEXT_BY_KIND:
+    if kind not in list(_INSTRUCTION_TEXT_BY_KIND):
         raise ValueError("unknown instruction item kind: %r" % (kind,))
     return {
         "instruction_items": [
@@ -1351,9 +1373,24 @@ def test_instruction_items_against_holdout(
     solely from a shared act outcome and no act ran.
     A genuine list, the empty list among it, keeps
     the standing behaviour above exactly.
+    A bundle standing in no mapping form returns that
+    same governed refusal form at this call point, with
+    no exception, before any read of the bundle.
     """
     if occasion not in ("candidate construction", "promotion"):
         raise ValueError("unknown instruction test occasion: %r" % (occasion,))
+    if not isinstance(bundle, dict):
+        refusal = {
+            "fired": True,
+            "refusal_form": "cross split audit refusal",
+            "field_scope": "instruction text field",
+            "wider_material_compared": False,
+        }
+        if occasion == "promotion":
+            refusal["promotion_proceeds"] = False
+        else:
+            refusal["bundle_proceeds"] = False
+        return refusal
     collection = bundle.get("instruction_items")
     if not isinstance(collection, list):
         refusal = {
