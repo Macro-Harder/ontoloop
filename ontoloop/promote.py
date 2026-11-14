@@ -885,7 +885,8 @@ def candidate_with_instruction_item(kind=None):
     field stated beside it, under subsection 19.86 point
     one, in the same form as the candidate construction
     home so a bundle built at either occasion reads the
-    same way.
+    same way, and carries the holdout material under
+    holdout_items.
     """
     if kind not in _INSTRUCTION_TEXT_BY_KIND:
         raise ValueError("unknown instruction item kind: %r" % (kind,))
@@ -897,43 +898,50 @@ def candidate_with_instruction_item(kind=None):
             }
         ],
         "instruction_item_count": 1,
+        "holdout_items": [{"text": _HOLDOUT_INSTRUCTION_TEXT}],
         "kind": kind,
     }
-
-
-def _instruction_item_fires(instruction_text):
-    if instruction_text == _HOLDOUT_INSTRUCTION_TEXT:
-        return True
-    holdout_words = set(_HOLDOUT_INSTRUCTION_TEXT.split())
-    item_words = set(instruction_text.split())
-    if not holdout_words:
-        return False
-    return len(holdout_words & item_words) / len(holdout_words) >= 0.75
 
 
 def test_instruction_items_against_holdout(bundle, occasion=None,
                                            after_partial_scoring=False):
     """Return the instruction item test outcome at promotion.
 
-    The test runs over the instruction text field of every
-    instruction item in the bundle and over no wider
-    material. On a firing case the bundle stands refused
-    in the cross split audit refusal form, the refusal act
-    standing performed through the one shared module
-    ontoloop.cross_split_audit at its promotion call
-    point. No local relation implementation stands here:
-    the shared module supplies the refusal form. On a
-    clean case at promotion the test result stands carried
-    on the Promotion Record position the return names.
+    The test presents the instruction text field of every
+    instruction item in the bundle, with the holdout
+    material the bundle carries in its holdout_items, to
+    the one shared module act
+    ontoloop.cross_split_audit.audit_instruction_item,
+    and over no wider material. On a firing case the
+    bundle stands refused in the cross split audit
+    refusal form, and the result carries the fired item,
+    the test result, the audit record, and the charging
+    form solely from the act outcome. No firing condition
+    stands computed in this file. On a clean case at
+    promotion the test result stands carried on the
+    Promotion Record position the return names.
     """
     if occasion not in ("candidate construction", "promotion"):
         raise ValueError("unknown instruction test occasion: %r" % (occasion,))
     items = list(bundle["instruction_items"])
     count = len(items)
-    fired_item = None
+    holdout_material = bundle.get("holdout_items")
+    if holdout_material is None:
+        holdout_material = bundle.get("holdout")
+    if holdout_material is None:
+        holdout_material = []
+    from ontoloop import cross_split_audit as _shared_module
+
+    outcome = None
     for item in items:
-        if _instruction_item_fires(item["instruction_text"]):
-            fired_item = item["instruction_text"]
+        presented = _shared_module.audit_instruction_item(
+            item["instruction_text"],
+            holdout_material,
+            occasion=occasion,
+            after_partial_scoring=after_partial_scoring,
+        )
+        if presented["fired"]:
+            outcome = presented
             break
     base = {
         "items_tested": count,
@@ -941,7 +949,7 @@ def test_instruction_items_against_holdout(bundle, occasion=None,
         "field_scope": "instruction text field",
         "wider_material_compared": False,
     }
-    if fired_item is None:
+    if outcome is None:
         result = dict(base)
         result["fired"] = False
         if occasion == "promotion":
@@ -949,33 +957,26 @@ def test_instruction_items_against_holdout(bundle, occasion=None,
         else:
             result["bundle_proceeds"] = True
         return result
-    from ontoloop import cross_split_audit as _shared_module
-
-    shared = _shared_module.audit_at_promotion(fired_item)
-    test_result = "holdout content found in instruction item"
     result = dict(base)
     result.update({
         "fired": True,
-        "refusal_form": "cross split audit refusal",
-        "fired_item": fired_item,
-        "test_result": test_result,
-        "cross_split_audit_result": dict(shared),
-        "audit_record": {
-            "home": "cross split audit record for the candidate",
-            "fired_item": fired_item,
-            "test_result_recorded": True,
-            "test_result": test_result,
-        },
+        "refusal_form": outcome["refusal_form"],
+        "fired_item": outcome["fired_item"],
+        "test_result": outcome["test_result"],
+        "cross_split_audit_result": dict(
+            outcome["cross_split_audit_result"]
+        ),
+        "audit_record": dict(outcome["audit_record"]),
     })
     if occasion == "promotion":
         result["promotion_proceeds"] = False
     else:
         result["bundle_proceeds"] = False
     if after_partial_scoring:
-        result["charging_form"] = (
-            "standing charging form for a refusal after partial scoring"
-        )
-        result["charged_under_the_standing_charging_rules"] = True
+        result["charging_form"] = outcome["charging_form"]
+        result["charged_under_the_standing_charging_rules"] = outcome[
+            "charged_under_the_standing_charging_rules"
+        ]
     return result
 
 

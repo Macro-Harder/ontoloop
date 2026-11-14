@@ -1259,22 +1259,18 @@ def stale_warning_at_age(days, bound_days=90):
 # subsections 19.86 and 19.36, candidate construction
 # occasion. The bundle this section builds carries one
 # instruction item, its instruction text field stated
-# beside the item in the bundle value. The holdout
-# text the content test compares against stands as
-# authored fixture text in the form this module uses.
-# The content test compares the instruction text field
-# and no wider material: an item whose text stands
-# equal to the holdout text is the verbatim case, and
-# an item whose text carries at least three quarters
-# of the holdout text words is the near verbatim case,
-# that fraction standing as an authored reading of the
-# near verbatim form, no governing figure standing
-# stated for it. Where the test fires, the refusal
-# stands performed through the one shared module,
-# ontoloop.cross_split_audit, at its build call point,
-# and the fired item and the test result stand
-# recorded in the cross split audit record for the
-# candidate.
+# beside the item in the bundle value, and the holdout
+# material the content test presents, in the bundle
+# holdout_items. The firing decision stands in one
+# home only, the shared module
+# ontoloop.cross_split_audit, at its instruction item
+# act audit_instruction_item. This call point presents
+# every instruction item text, with the holdout
+# material the bundle carries, to that act and takes
+# the firing decision, the fired item, the test
+# result, the audit record, and the charging form
+# solely from the act outcome. No firing condition
+# stands computed in this file.
 _HOLDOUT_INSTRUCTION_TEXT = "sealed holdout instruction text"
 _INSTRUCTION_TEXT_BY_KIND = {
     "verbatim holdout content": _HOLDOUT_INSTRUCTION_TEXT,
@@ -1293,8 +1289,9 @@ def candidate_with_instruction_item(kind=None):
     content, near verbatim holdout content, or clean
     instruction. The bundle carries the item with its
     instruction text field stated beside it, under
-    subsection 19.86 clause one. A kind outside the
-    three cases raises ValueError.
+    subsection 19.86 clause one, and carries the
+    holdout material under holdout_items. A kind
+    outside the three cases raises ValueError.
     """
     if kind not in _INSTRUCTION_TEXT_BY_KIND:
         raise ValueError("unknown instruction item kind: %r" % (kind,))
@@ -1306,18 +1303,9 @@ def candidate_with_instruction_item(kind=None):
             }
         ],
         "instruction_item_count": 1,
+        "holdout_items": [{"text": _HOLDOUT_INSTRUCTION_TEXT}],
         "kind": kind,
     }
-
-
-def _instruction_item_fires(instruction_text):
-    if instruction_text == _HOLDOUT_INSTRUCTION_TEXT:
-        return True
-    holdout_words = set(_HOLDOUT_INSTRUCTION_TEXT.split())
-    item_words = set(instruction_text.split())
-    if not holdout_words:
-        return False
-    return len(holdout_words & item_words) / len(holdout_words) >= 0.75
 
 
 def test_instruction_items_against_holdout(
@@ -1325,30 +1313,45 @@ def test_instruction_items_against_holdout(
 ):
     """Return the instruction item content test outcome.
 
-    The test runs over the instruction text field of
-    every instruction item in the bundle, and over no
-    wider material. On a firing case the bundle stands
-    refused in the cross split audit refusal form, the
-    refusal act standing performed through the shared
-    module at its build call point, and the result
-    carries the fired item, the test result, and the
-    audit record in the form the rows pin, its home
-    the cross split audit record for the candidate.
-    On a clean case the result carries fired standing
-    False with the items tested count. The occasion
-    stands at candidate construction for this call
-    point; the promotion occasion stands on the
-    promotion surface. An occasion outside the two
-    named occasions raises ValueError.
+    The test presents the instruction text field of
+    every instruction item in the bundle, with the
+    holdout material the bundle carries in its
+    holdout_items, to the one shared module act
+    ontoloop.cross_split_audit.audit_instruction_item,
+    and over no wider material. On a firing case the
+    bundle stands refused in the cross split audit
+    refusal form, and the result carries the fired
+    item, the test result, and the audit record solely
+    from the act outcome, its home the cross split
+    audit record for the candidate. On a clean case
+    the result carries fired standing False with the
+    items tested count. The occasion stands at
+    candidate construction for this call point; the
+    promotion occasion stands on the promotion
+    surface. An occasion outside the two named
+    occasions raises ValueError.
     """
     if occasion not in ("candidate construction", "promotion"):
         raise ValueError("unknown instruction test occasion: %r" % (occasion,))
     items = list(bundle["instruction_items"])
     count = len(items)
-    fired_item = None
+    holdout_material = bundle.get("holdout_items")
+    if holdout_material is None:
+        holdout_material = bundle.get("holdout")
+    if holdout_material is None:
+        holdout_material = []
+    from ontoloop import cross_split_audit as _shared_module
+
+    outcome = None
     for item in items:
-        if _instruction_item_fires(item["instruction_text"]):
-            fired_item = item["instruction_text"]
+        presented = _shared_module.audit_instruction_item(
+            item["instruction_text"],
+            holdout_material,
+            occasion=occasion,
+            after_partial_scoring=after_partial_scoring,
+        )
+        if presented["fired"]:
+            outcome = presented
             break
     base = {
         "items_tested": count,
@@ -1356,28 +1359,21 @@ def test_instruction_items_against_holdout(
         "field_scope": "instruction text field",
         "wider_material_compared": False,
     }
-    if fired_item is None:
+    if outcome is None:
         result = dict(base)
         result["fired"] = False
         return result
-    from ontoloop import cross_split_audit as _shared_module
-
-    shared = _shared_module.audit_at_build(fired_item)
-    test_result = "holdout content found in instruction item"
     result = dict(base)
     result.update(
         {
             "fired": True,
-            "refusal_form": "cross split audit refusal",
-            "fired_item": fired_item,
-            "test_result": test_result,
-            "cross_split_audit_result": dict(shared),
-            "audit_record": {
-                "home": "cross split audit record for the candidate",
-                "fired_item": fired_item,
-                "test_result_recorded": True,
-                "test_result": test_result,
-            },
+            "refusal_form": outcome["refusal_form"],
+            "fired_item": outcome["fired_item"],
+            "test_result": outcome["test_result"],
+            "cross_split_audit_result": dict(
+                outcome["cross_split_audit_result"]
+            ),
+            "audit_record": dict(outcome["audit_record"]),
         }
     )
     if occasion == "candidate construction":
@@ -1385,10 +1381,10 @@ def test_instruction_items_against_holdout(
     else:
         result["promotion_proceeds"] = False
     if after_partial_scoring:
-        result["charging_form"] = (
-            "standing charging form for a refusal after partial scoring"
-        )
-        result["charged_under_the_standing_charging_rules"] = True
+        result["charging_form"] = outcome["charging_form"]
+        result["charged_under_the_standing_charging_rules"] = outcome[
+            "charged_under_the_standing_charging_rules"
+        ]
     return result
 
 
