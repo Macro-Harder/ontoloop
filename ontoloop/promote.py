@@ -693,29 +693,59 @@ def _reason_carries_content(reason):
     string, the empty list, and the integer 0 carry
     none, as before. The test stands on the stated
     ground the reason carries and not on the falsiness
-    or the form of its container.
+    or the form of its container. The reading walks
+    container forms with an explicit stack and a set
+    of the containers it has already walked, so a
+    container standing on its own path stands walked
+    once and a container nested at any depth stands
+    walked without recursion: a cyclic or deeply
+    nested reason carrying no other content carries
+    no content and stands refused by the retain limb
+    in its governed form, and one carrying stated
+    content carries that content.
     """
     from array import array as _Array
     from collections import UserString as _UserString
     from collections.abc import Iterable as _Iterable
     from collections.abc import Mapping as _Mapping
 
-    if reason is None:
-        return False
-    if isinstance(reason, _UserString):
-        return bool(str(reason).strip())
-    if isinstance(reason, str):
-        return bool(reason.strip())
-    if isinstance(reason, (bytes, bytearray, memoryview)):
-        return bool(bytes(reason).strip())
-    if isinstance(reason, _Array) and reason.typecode in ("b", "B"):
-        return bool(reason.tobytes().strip())
-    if isinstance(reason, _Mapping):
-        return any(
-            _reason_carries_content(value) for value in reason.values())
-    if isinstance(reason, _Iterable):
-        return any(_reason_carries_content(item) for item in reason)
-    return bool(reason)
+    stack = [reason]
+    walked = set()
+    while stack:
+        value = stack.pop()
+        if value is None:
+            continue
+        if isinstance(value, _UserString):
+            if str(value).strip():
+                return True
+            continue
+        if isinstance(value, str):
+            if value.strip():
+                return True
+            continue
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            if bytes(value).strip():
+                return True
+            continue
+        if isinstance(value, _Array) and value.typecode in ("b", "B"):
+            if value.tobytes().strip():
+                return True
+            continue
+        if isinstance(value, _Mapping):
+            if id(value) in walked:
+                continue
+            walked.add(id(value))
+            stack.extend(value.values())
+            continue
+        if isinstance(value, _Iterable):
+            if id(value) in walked:
+                continue
+            walked.add(id(value))
+            stack.extend(value)
+            continue
+        if value:
+            return True
+    return False
 
 
 def dispose_demotion_flag(decision, reason=None):
@@ -965,17 +995,39 @@ def confirm_provisional(record):
     as no figure, and a comparison carrying such a
     period stands barred in the same form. A figure
     standing as an empty mapping stands as a figure
-    in full, in the empty mixes form above.
+    in full, in the empty mixes form above. A figure
+    standing as a mapping carrying entries stands as
+    a figure only where one of its entries carries a
+    count in substance, a positive whole number, so
+    a figure whose counts stand as no value, as a
+    text string, or at zero throughout stands as no
+    figure, and a comparison carrying such a figure
+    in either figure position of either period
+    stands barred in the same form, while a figure
+    carrying one count in substance beside entries
+    carrying none stands as a figure.
     """
     from collections.abc import Mapping as _Mapping
+
+    def _figure_carries_substance(value):
+        if not isinstance(value, _Mapping):
+            return False
+        if not value:
+            return True
+        return any(
+            isinstance(count, int)
+            and not isinstance(count, bool)
+            and count > 0
+            for count in value.values()
+        )
 
     def _stands_as_period(value):
         return (
             isinstance(value, dict)
             and "outcome_mix" in value
             and "correction_position" in value
-            and isinstance(value["outcome_mix"], _Mapping)
-            and isinstance(value["correction_position"], _Mapping)
+            and _figure_carries_substance(value["outcome_mix"])
+            and _figure_carries_substance(value["correction_position"])
         )
 
     if not isinstance(record, dict):
