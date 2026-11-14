@@ -546,7 +546,14 @@ def discharge_state(entry=None, affected_classes=None):
     tuple, and where the entry checks run stand non empty
     with a result standing for each check run, the result
     collection length equal to the checks run length and
-    every result truthy. In every other case the bar
+    every result truthy. The three collections stand
+    checked as the collections they stand stated to be,
+    a list of class names, a list of checks run, and a
+    mapping of results: a string form of the first two
+    stands read in no part as coverage, class coverage
+    standing as whole class name membership only and no
+    character count standing as a check count, and a
+    string form of the results stands as no mapping. In every other case the bar
     stands in the same three key form, with
     change_passed_as_no_change standing False in every
     return of this act.
@@ -559,20 +566,28 @@ def discharge_state(entry=None, affected_classes=None):
         }
     if affected_classes is None:
         required = list(_AFFECTED_CLASSES)
-    else:
+    elif isinstance(affected_classes, (list, tuple)):
         required = list(affected_classes)
-    covered = entry.get("affected_classes") or []
-    checks = entry.get("checks_run") or []
-    results = entry.get("result_of_each_check") or []
-    try:
-        result_values = list(results.values())
-    except AttributeError:
-        result_values = list(results)
+    else:
+        required = [affected_classes]
+    covered = entry.get("affected_classes")
+    checks = entry.get("checks_run")
+    results = entry.get("result_of_each_check")
+    if not (
+        isinstance(covered, (list, tuple))
+        and isinstance(checks, (list, tuple))
+        and isinstance(results, dict)
+    ):
+        return {
+            "discharged": False,
+            "bar_stands": True,
+            "change_passed_as_no_change": False,
+        }
     discharged = (
         all(name in covered for name in required)
         and len(checks) > 0
         and len(results) == len(checks)
-        and all(result_values)
+        and all(results.values())
     )
     return {
         "discharged": discharged,

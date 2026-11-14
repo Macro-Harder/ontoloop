@@ -592,6 +592,30 @@ _CLAIM_CONCEPT_ROOTS = (
     "egress",
     "leak",
     "segregat",
+    "chang",
+    "modif",
+    "rewrit",
+    "unchange",
+    "immutab",
+    "unbreach",
+    "secur",
+    "lock",
+    "impossib",
+    "airtight",
+    "hermet",
+    "leav",
+    "escap",
+    "outgoing",
+    "confirm",
+    "check",
+    "countersign",
+    "reseal",
+    "endors",
+    "inviolab",
+    "penetrat",
+    "immun",
+    "notaris",
+    "notariz",
 )
 
 # The exact assertion words, beside the assertion roots
@@ -656,6 +680,11 @@ _ASSERTION_ROOTS = (
     "provid",
     "attest",
     "certif",
+    "leav",
+    "escap",
+    "offer",
+    "afford",
+    "grant",
 )
 
 # The wordings that mark a claim statement as standing
@@ -770,7 +799,8 @@ _FINITE_VERB_WORDS = (
 def _clause_words(clause):
     import re
 
-    return re.findall(r"[a-z]+", clause)
+    joined = re.sub(r"([a-z])-([a-z])", r"\1\2", clause)
+    return re.findall(r"[a-z]+", joined)
 
 
 def _clause_asserted(clause):
@@ -823,6 +853,18 @@ _SUBORDINATE_INTRODUCERS = (
     "who",
     "whom",
     "whose",
+    "if",
+    "unless",
+    "until",
+    "once",
+    "whether",
+    "as",
+    "before",
+    "after",
+    "whenever",
+    "wherever",
+    "provided",
+    "alongside",
 )
 
 
@@ -839,6 +881,12 @@ def _main_segment(clause):
     for index, word in enumerate(words):
         if word in _SUBORDINATE_INTRODUCERS:
             return " ".join(words[:index])
+        if (
+            word == "in"
+            and index + 1 < len(words)
+            and words[index + 1] == "case"
+        ):
+            return " ".join(words[:index])
     return clause
 
 
@@ -849,18 +897,28 @@ def _fragment_governs(clause):
     where the fragment itself stands as the condition:
     it carries no finite verb of its own and it opens
     with a governing condition phrase, so its whole
-    substance is the condition and its complement. A
-    noun phrase fragment that happens to carry a
-    governing phrase inside it, naming a thing and
-    conditioning nothing, governs nothing.
+    substance is the condition and its complement, and
+    the condition it names stands as a governed
+    condition, the deployment confinement fact or the
+    signed strength form. A noun phrase fragment that
+    happens to carry a governing phrase inside it,
+    naming a thing and conditioning nothing, governs
+    nothing, and a fragment conditioning the claim on
+    an unrelated subject, the weather or a person,
+    governs nothing.
     """
     words = _clause_words(clause)
     if any(word in _FINITE_VERB_WORDS for word in words):
         return False
     text = " ".join(words)
-    return any(
+    if not any(
         text.startswith(phrase)
         for phrase in _GOVERNING_CONDITION_PHRASES
+    ):
+        return False
+    return (
+        "deployment confinement fact" in text
+        or "signed strength" in text
     )
 
 
@@ -871,7 +929,12 @@ def _clause_inability_form(clause):
     denial of a claim: a record that cannot be altered,
     and a store standing unalterable, impenetrable,
     impregnable, or watertight, each state the sealing
-    or confinement position in substance. Such a clause
+    or confinement position in substance. The reading
+    covers a cannot claim in substance, beside the
+    altered and shielded forms the tampered and broken
+    forms, and the ever and never wordings of the same
+    assertion, a record that cannot ever be altered and
+    a record that can never be altered. Such a clause
     stands judged as a claim clause on its substance,
     and its cannot wording excuses nothing.
     """
@@ -880,13 +943,27 @@ def _clause_inability_form(clause):
         if word.startswith(
                 ("unalter", "impenetrab", "impregnab", "watertight")):
             return True
+    targets = (
+        "alter", "tamper", "break", "brok", "shield",
+        "chang", "modif", "rewrit",
+    )
     for index, word in enumerate(words):
-        if word != "cannot":
-            continue
-        following = words[index + 1:index + 3]
-        if any(
-            item.startswith(("alter", "shield")) for item in following
+        if word == "cannot":
+            start = index + 1
+        elif (
+            word == "can"
+            and index + 1 < len(words)
+            and words[index + 1] in ("never", "ever")
         ):
+            start = index + 2
+        else:
+            continue
+        cursor = start
+        while cursor < len(words) and words[cursor] in ("ever", "never"):
+            cursor += 1
+        if cursor < len(words) and words[cursor] in ("be", "been"):
+            cursor += 1
+        if cursor < len(words) and words[cursor].startswith(targets):
             return True
     return False
 
@@ -923,9 +1000,12 @@ def _seal_claim_scan(assembly_text):
     for phrase in _SEAL_CLAIM_PHRASES:
         if phrase in lowered:
             return False
-    for statement in re.split(r"[.;\n]+", lowered):
+    for statement in re.split(r"[.;!?\n]+", lowered):
         clauses = re.split(
-            r",|\(|\)|:|\band\b|\bbut\b|\byet\b", statement)
+            r",|\(|\)|\[|\]|:|/|\s-\s|"
+            "\u2013|\u2014"
+            r"|\band\b|\bbut\b|\byet\b|\bor\b|\bnor\b",
+            statement)
         governed_by_fragment = any(
             _fragment_governs(clause) for clause in clauses
         )
@@ -1278,7 +1358,12 @@ def production_report_form(produced_pairs=None, produced_records=None):
     produced pairs material passed in, and per shape
     and per family from the produced records material
     passed in, each count computed from that material
-    at call time. Where no produced material stands
+    at call time. A pairs value stands counted only
+    where it stands as a list of pairs: a value in any
+    other form, a string, an integer, a float, or any
+    other non list form, states no count for its kind,
+    the governed form of this surface for a malformed
+    pairs value, with no exception. Where no produced material stands
     passed, the count mappings stand empty and the
     counts present position stands False: the form
     stands, and no production count stands claimed.
@@ -1291,7 +1376,8 @@ def production_report_form(produced_pairs=None, produced_records=None):
     per_kind = {}
     if isinstance(produced_pairs, dict):
         for kind, pairs in produced_pairs.items():
-            per_kind[kind] = len(list(pairs))
+            if isinstance(pairs, list):
+                per_kind[kind] = len(pairs)
     per_shape = {}
     per_family = {}
     if isinstance(produced_records, (list, tuple)):

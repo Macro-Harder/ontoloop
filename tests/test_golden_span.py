@@ -243,5 +243,81 @@ class TestGoldenSealClaimScanFixR4(unittest.TestCase):
         self.assertTrue(result["passed"])
 
 
+class TestGoldenDischargeCollectionsFixR5(unittest.TestCase):
+    """Fix round 5, N-46, ruling 83: the discharge collections.
+
+    discharge_state checks its collections as the collections
+    they stand stated to be, a list of class names, a list of
+    checks run, and a mapping of results: string forms no
+    longer discharge, class coverage standing as whole class
+    name membership only and no character count standing as a
+    check count, beside the same entry in list forms still
+    discharging and the part class name list form still
+    returning discharged False. The GOLDEN-T04 segment above
+    stands untouched in its exact form.
+    """
+
+    def _entry(self, **overrides):
+        module = require(MODULE)
+        entry = dict(module.latest_meaning_change_entry())
+        entry.update(overrides)
+        return module, entry
+
+    def test_single_class_string_form_does_not_discharge(self):
+        module, entry = self._entry()
+        first_class = entry["affected_classes"][0]
+        string_entry = {
+            "affected_classes": first_class,
+            "checks_run": "x",
+            "result_of_each_check": {
+                "x": "meaning check result recorded"},
+        }
+        state = module.discharge_state(
+            entry=string_entry, affected_classes=[first_class])
+        self.assertFalse(state["discharged"])
+        self.assertTrue(state["bar_stands"])
+        self.assertFalse(state["change_passed_as_no_change"])
+
+    def test_joined_classes_string_form_does_not_discharge(self):
+        module, entry = self._entry()
+        checks = list(entry["checks_run"])
+        string_entry = {
+            "affected_classes": " ".join(entry["affected_classes"]),
+            "checks_run": "x" * len(checks),
+            "result_of_each_check": {
+                check: "meaning check result recorded"
+                for check in checks},
+        }
+        state = module.discharge_state(entry=string_entry)
+        self.assertFalse(state["discharged"])
+        self.assertTrue(state["bar_stands"])
+
+    def test_string_checks_and_string_results_do_not_discharge(self):
+        module, entry = self._entry()
+        checks = list(entry["checks_run"])
+        checks_string_entry = dict(entry)
+        checks_string_entry["checks_run"] = "x" * len(checks)
+        state = module.discharge_state(entry=checks_string_entry)
+        self.assertFalse(state["discharged"])
+        results_string_entry = dict(entry)
+        results_string_entry["result_of_each_check"] = (
+            "y" * len(checks))
+        state = module.discharge_state(entry=results_string_entry)
+        self.assertFalse(state["discharged"])
+
+    def test_list_forms_still_discharge_and_part_name_still_fails(self):
+        module, entry = self._entry()
+        state = module.discharge_state(entry=entry)
+        self.assertTrue(state["discharged"])
+        self.assertFalse(state["bar_stands"])
+        first_class = entry["affected_classes"][0]
+        part_entry = dict(entry)
+        part_entry["affected_classes"] = [first_class[:4]]
+        state = module.discharge_state(
+            entry=part_entry, affected_classes=[first_class])
+        self.assertFalse(state["discharged"])
+        self.assertTrue(state["bar_stands"])
+
+
 if __name__ == "__main__":
     unittest.main()
