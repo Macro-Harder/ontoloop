@@ -1978,7 +1978,15 @@ def _assembly_content(assembly, _path=None, _top=True,
     view entry standing as the value that key answers
     in the mapping the view views, so the top level
     state entry itself stands counted as no content
-    on any assembly form. An assembly in string or
+    on any assembly form. A top level element standing
+    as the keys view or the values view of a mapping
+    stands read under that same flag through the view
+    branch, in the same form as a view standing at the
+    top level itself, so the state entry the view
+    carries stands passed over as the state entry
+    itself for the floor decision, and content the
+    view carries beside that entry still stands
+    counted in the same way. An assembly in string or
     byte form carries itself as its content. A value in
     no such form carries no scannable content. A mapping
     or sequence that stands on its own gathering path
@@ -2113,6 +2121,20 @@ def _assembly_content(assembly, _path=None, _top=True,
                     and _skip_top_state
                     and _is_top_state_entry(element)
                 ):
+                    continue
+                if (
+                    _top
+                    and _skip_top_state
+                    and _is_view_form(element)
+                ):
+                    content.extend(
+                        _assembly_content(
+                            element,
+                            _path,
+                            True,
+                            _skip_top_state=True,
+                        )
+                    )
                     continue
                 content.extend(
                     _assembly_content(element, _path, False)

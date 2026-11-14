@@ -629,6 +629,14 @@ def _byte_form_container(value):
     no iteration act, read through the presence of those
     two acts, in parity with the cross split readings of
     the same system, which read that form in substance.
+    Beside that form, the walked forms stand as the
+    container form that iterates by indexed access
+    without a length act, a container carrying an
+    indexed access act alone and no length act and no
+    iteration act, read through the presence of the
+    indexed access act, in parity with the cross split
+    readings of the same system, which read that form
+    in substance as well, listing it by indexed access.
     String and byte
     values stand decided in their own limbs before
     this test, and this test returns False for them.
@@ -664,7 +672,7 @@ def _byte_form_container(value):
         ),
     ) or isinstance(value, _BYTE_FORM_VIEW_TYPES):
         return True
-    return hasattr(value, "__getitem__") and hasattr(value, "__len__")
+    return hasattr(value, "__getitem__")
 
 
 def _value_byte_form(value, _path=None):
@@ -700,6 +708,12 @@ def _value_byte_form(value, _path=None):
     access alone stands read in substance in the same
     way, through the elements its indexed access
     yields, under the same cycle guard discipline.
+    A value standing in the container form that
+    iterates by indexed access without a length act
+    stands read in substance in the same way, listed
+    by indexed access alone, index by index until the
+    access itself ends the listing, under the same
+    cycle guard discipline.
     A ChainMap value stands read through the pairs of
     every map it chains, in chain order, in parity
     with the exit scan gathering of the same scope,
@@ -737,6 +751,21 @@ def _value_byte_form(value, _path=None):
                 for key in value:
                     parts.append(_value_byte_form(key, _path))
                     parts.append(_value_byte_form(value[key], _path))
+                return b"".join(parts)
+            if (
+                hasattr(value, "__getitem__")
+                and not hasattr(value, "__len__")
+                and not hasattr(value, "__iter__")
+            ):
+                parts = []
+                index = 0
+                while True:
+                    try:
+                        element = value[index]
+                    except IndexError:
+                        break
+                    parts.append(_value_byte_form(element, _path))
+                    index += 1
                 return b"".join(parts)
             return b"".join(
                 _value_byte_form(element, _path) for element in value
