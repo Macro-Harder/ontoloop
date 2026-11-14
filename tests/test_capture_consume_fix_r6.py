@@ -48,19 +48,27 @@ class TestCaptureFixR6ComputationInputs(unittest.TestCase):
 
     def test_list_name_raises_value_error(self):
         module = require("ontoloop.capture")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.computation_inputs(["signature"])
+        self.assertEqual(
+            str(caught.exception), "unknown computation: ['signature']")
 
     def test_mapping_name_raises_value_error(self):
         module = require("ontoloop.capture")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.computation_inputs({"name": "signature"})
+        self.assertEqual(
+            str(caught.exception),
+            "unknown computation: {'name': 'signature'}")
 
     def test_hashable_outsiders_still_raise_value_error(self):
         module = require("ontoloop.capture")
         for name in ("bogus", None, 5):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as caught:
                 module.computation_inputs(name)
+            self.assertEqual(
+                str(caught.exception),
+                "unknown computation: %r" % (name,))
 
     def test_standing_names_still_return_their_input_tuples(self):
         module = require("ontoloop.capture")
@@ -83,19 +91,24 @@ class TestRedactFixR6SharedRule(unittest.TestCase):
 
     def test_list_layer_raises_value_error(self):
         module = require("ontoloop.redact")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.shared_rule([1])
+        self.assertEqual(str(caught.exception), "unknown layer: [1]")
 
     def test_mapping_layer_raises_value_error(self):
         module = require("ontoloop.redact")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.shared_rule({"layer": 1})
+        self.assertEqual(
+            str(caught.exception), "unknown layer: {'layer': 1}")
 
     def test_hashable_outsiders_still_raise_value_error(self):
         module = require("ontoloop.redact")
         for layer in ("1", 0, 1.5, None):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as caught:
                 module.shared_rule(layer)
+            self.assertEqual(
+                str(caught.exception), "unknown layer: %r" % (layer,))
 
     def test_six_standing_layers_still_return_their_rule_texts(self):
         module = require("ontoloop.redact")

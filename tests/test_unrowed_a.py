@@ -144,6 +144,31 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             record["consequences"]["bundle wrongly loadable"],
         )
 
+    def test_no_answers_and_none_answers_stand_as_three_no_answers(self):
+        module = require("ontoloop.ops")
+        for record in (module.incident_entry(),
+                       module.incident_entry(answers=None)):
+            self.assertEqual(tuple(record["questions"]),
+                             self.QUESTIONS_IN_ORDER)
+            self.assertEqual(record["answers"], {
+                "sealed or secret material involved": "no",
+                "store suspect": "no",
+                "bundle wrongly loadable": "no",
+            })
+            self.assertEqual(record["consequences"], {})
+
+    def test_refused_answer_forms_raise_value_error(self):
+        module = require("ontoloop.ops")
+        refused_forms = (
+            ("maybe", "no", "no"),
+            ("yes", "no"),
+            ("yes", "no", "no", "no"),
+            {"sealed or secret material involved": "yes"},
+        )
+        for answers in refused_forms:
+            with self.assertRaises(ValueError, msg=repr(answers)):
+                module.incident_entry(answers=answers)
+
     def test_entry_point_record_stands_in_the_incident_record(self):
         module = require("ontoloop.ops")
         record = module.incident_entry(answers=("no", "no", "no"))
@@ -156,6 +181,8 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIs(result["recollection_relied_on"], False)
         self.assertIs(result["journal_reconstructed"], True)
         self.assertIs(result["journal_read"], True)
+        self.assertEqual(result["reconstructed_material"], [])
+        self.assertEqual(result["material_read"], [])
         records = ["journal record one", "journal record two"]
         read_result = module.resolve_dispute(
             disputed=True, journal_records=records)
@@ -169,6 +196,7 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIn("take_loading_stop", module.__all__)
         stop = module.take_loading_stop()
         self.assertEqual(stop["act"], "incident loading stop")
+        self.assertIsNone(stop["bundle"])
 
     def test_joint_precedence_of_repair_verification(self):
         module = require("ontoloop.ops")
@@ -259,6 +287,15 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         stop = module.take_loading_stop(bundle="named bundle")
         landed = module.journal_record_after_append(stop, store={})
         self.assertIs(landed["journal_record_landed"], False)
+        self.assertEqual(landed["stop"], stop)
+
+    def test_loading_stop_journal_landing_with_an_appending_store(self):
+        module = require("ontoloop.ops")
+        store_module = require("ontoloop.store")
+        stop = module.take_loading_stop(bundle="named bundle")
+        landed = module.journal_record_after_append(
+            stop, store=store_module.golden_record_store())
+        self.assertIs(landed["journal_record_landed"], True)
         self.assertEqual(landed["stop"], stop)
 
 
@@ -364,10 +401,12 @@ class _FreshnessCheckPoint:
                 result["lifecycle_record"]["record_home"],
                 "holdout lifecycle record")
             self.assertEqual(result["occasion"], occasion)
+            self.assertEqual(result["check_point"], self.CHECK_POINT)
 
     def test_retirement_only_after_a_replacement_has_sealed(self):
         module = require(self.MODULE)
         refused = module.retire(self.CHECK_POINT, replacement_sealed=False)
+        self.assertEqual(refused["check_point"], self.CHECK_POINT)
         self.assertIs(refused["accepted"], False)
         self.assertIsNone(refused["lifecycle_record"]["transition"])
         self.assertEqual(
@@ -385,6 +424,7 @@ class _FreshnessCheckPoint:
             replacement_sealed_without_retiring_material=True,
         )
         self.assertIs(allowed["accepted"], True)
+        self.assertEqual(allowed["check_point"], self.CHECK_POINT)
         self.assertEqual(
             allowed["lifecycle_record"]["transition"], "Retired"
         )
@@ -399,6 +439,25 @@ class _FreshnessCheckPoint:
         self.assertIs(result["accepted"], False)
         self.assertEqual(result["error"], "superseded version")
         self.assertIn("superseded", result["error"])
+
+
+class TestUnrowed196UnknownCheckPoint(unittest.TestCase):
+    """Subsection 19.6: an unknown check point stands refused."""
+
+    def test_unknown_check_point_raises_value_error_on_each_surface(self):
+        module = require("ontoloop.dataset")
+        calls = (
+            lambda: module.freshness_check("unknown point"),
+            lambda: module.reaffirm("unknown point"),
+            lambda: module.retire(
+                "unknown point", replacement_sealed=False),
+            lambda: module.retire_unspent_sealed(
+                "unknown point", occasion="supersession"),
+            lambda: module.supersession_refusal("unknown point"),
+        )
+        for call in calls:
+            with self.assertRaises(ValueError):
+                call()
 
 
 class TestUnrowed196DatasetBuild(_FreshnessCheckPoint, unittest.TestCase):

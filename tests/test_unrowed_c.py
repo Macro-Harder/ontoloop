@@ -150,6 +150,11 @@ class Unrowed1986Tests(unittest.TestCase):
         claim = mod.clearance_claim_covering_instruction_items(
             promotion_record=("Promotion Record",))
         self.assertFalse(claim["claim_stands"])
+        for non_record in (b"Promotion Record", ["Promotion Record"],
+                           {"Promotion Record"}):
+            claim = mod.clearance_claim_covering_instruction_items(
+                promotion_record=non_record)
+            self.assertFalse(claim["claim_stands"], repr(non_record))
         record = mod.promotion_record_carrying_instruction_test_result()
         claim = mod.clearance_claim_covering_instruction_items(promotion_record=record)
         self.assertTrue(claim["claim_stands"])
@@ -247,6 +252,13 @@ class Unrowed1987Tests(unittest.TestCase):
         mod = harness.require("ontoloop.promote")
         record = mod.provisional_record(with_comparison=False)
         self.assertIsNone(record["comparison"])
+        self.assertIs(
+            record["comparison_in_same_view_as_run_count_and_coverage"],
+            False)
+        self.assertEqual(
+            record["comparison_view_contents"],
+            ["attributed run count",
+             "outcome and signal coverage figures"])
         result = mod.confirm_provisional(record)
         self.assertEqual(result["outcome"], "barred")
         self.assertEqual(result["bar_reason"], "no comparison in the provisional record")
@@ -272,12 +284,66 @@ class Unrowed1987Tests(unittest.TestCase):
         self.assertEqual(result["outcome"], "confirmed")
         self.assertNotIn("bar_reason", result)
 
+    # Fix round 7, Region 5, ruling 167 (R7-PRO-3, UC-R7-2, and
+    # Lead Engineer line E-9 counted in that act and nowhere else):
+    # a period carrying both figure positions whose figure values
+    # carry no figure substance stands as no period, so the
+    # confirmation stands barred, beside the full comparison and
+    # the empty mixes form still confirming. These pins stand
+    # confined to this method in this file, which travels in the
+    # latest push of this file under the act level splitting
+    # discipline stated at ruling 190.
+    def test_period_figures_carrying_no_figure_substance_bar_confirmation(self):
+        mod = harness.require("ontoloop.promote")
+        full_provisional = {
+            "outcome_mix": {"pass": 1},
+            "correction_position": {"open": 1},
+        }
+        full_displaced = {
+            "outcome_mix": {"pass": 1},
+            "correction_position": {"open": 1},
+        }
+        for figure in (None, "", 0):
+            period = {"outcome_mix": figure,
+                      "correction_position": figure}
+            result = mod.confirm_provisional({"comparison": {
+                "provisional_period": period,
+                "displaced_period": dict(period),
+            }})
+            self.assertEqual(result["outcome"], "barred", repr(figure))
+            self.assertEqual(
+                result["bar_reason"],
+                "no comparison in the provisional record",
+                repr(figure))
+        one_empty = {"outcome_mix": None,
+                     "correction_position": {"open": 1}}
+        result = mod.confirm_provisional({"comparison": {
+            "provisional_period": one_empty,
+            "displaced_period": full_displaced,
+        }})
+        self.assertEqual(result["outcome"], "barred")
+        self.assertEqual(result["bar_reason"],
+                         "no comparison in the provisional record")
+        result = mod.confirm_provisional({"comparison": {
+            "provisional_period": full_provisional,
+            "displaced_period": full_displaced,
+        }})
+        self.assertEqual(result["outcome"], "confirmed")
+        empty_mixes = mod.provisional_record(
+            provisional_outcomes=[],
+            displaced_outcomes=[],
+            provisional_corrections=[],
+            displaced_corrections=[])
+        result = mod.confirm_provisional(empty_mixes)
+        self.assertEqual(result["outcome"], "confirmed")
+
     def test_non_mapping_confirm_record_bars_confirmation(self):
         mod = harness.require("ontoloop.promote")
         for record in (None, "Provisional Record", 123,
                        ["Provisional Record"],
                        ("Provisional Record",), b"Provisional Record",
-                       True):
+                       True, 1.5, {"Provisional Record"},
+                       bytearray(b"Provisional Record")):
             result = mod.confirm_provisional(record)
             self.assertEqual(result["outcome"], "barred", repr(record))
             self.assertEqual(
@@ -305,6 +371,10 @@ class Unrowed1987Tests(unittest.TestCase):
         self.assertIs(
             record["comparison_in_same_view_as_run_count_and_coverage"],
             False)
+        self.assertEqual(
+            record["comparison_view_contents"],
+            ["attributed run count",
+             "outcome and signal coverage figures"])
 
 
 # ---------------------------------------------------------------------
