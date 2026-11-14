@@ -170,6 +170,15 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             (("yes", "no", "no", "no"), "answers must hold three answers"),
             ({"sealed or secret material involved": "yes"},
              "answers lacks the question: 'store suspect'"),
+            ({"sealed or secret material involved": "maybe",
+              "store suspect": "no",
+              "bundle wrongly loadable": "no"},
+             "each answer must be yes or no"),
+            ({"store suspect": "no", "bundle wrongly loadable": "no"},
+             "answers lacks the question: 'sealed or secret material involved'"),
+            ({"sealed or secret material involved": "yes",
+              "store suspect": "no"},
+             "answers lacks the question: 'bundle wrongly loadable'"),
         )
         for answers, message in refused_forms:
             with self.assertRaises(ValueError, msg=repr(answers)) as caught:
@@ -191,8 +200,18 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
 
     def test_answers_value_in_no_governed_form_raises_value_error(self):
         module = require("ontoloop.ops")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.incident_entry(answers="yes")
+        self.assertEqual(
+            str(caught.exception), "answers must be a list, tuple, mapping, or None")
+
+    def test_journal_records_value_in_no_governed_form_raises(self):
+        module = require("ontoloop.ops")
+        with self.assertRaises(ValueError) as caught:
+            module.resolve_dispute(disputed=True,
+                                   journal_records="journal record one")
+        self.assertEqual(
+            str(caught.exception), "journal records must be a list or None")
 
     def test_entry_point_record_stands_in_the_incident_record(self):
         module = require("ontoloop.ops")
@@ -218,6 +237,8 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIsNot(
             read_result["reconstructed_material"],
             read_result["material_read"])
+        self.assertIsNot(read_result["reconstructed_material"], records)
+        self.assertIsNot(read_result["material_read"], records)
 
     def test_recorder_first_rule_with_journal_records_as_a_tuple(self):
         module = require("ontoloop.ops")
@@ -295,8 +316,17 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
 
     def test_incident_append_order_unknown_act_raises_value_error(self):
         module = require("ontoloop.ops")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.incident_append_order(acts=("bogus act",))
+        self.assertEqual(
+            str(caught.exception), "unknown append act: 'bogus act'")
+
+    def test_incident_append_order_acts_value_in_no_governed_form(self):
+        module = require("ontoloop.ops")
+        with self.assertRaises(ValueError) as caught:
+            module.incident_append_order(acts="stop append")
+        self.assertEqual(
+            str(caught.exception), "acts must be a list, tuple, or None")
 
     def test_incident_append_order_acts_presented_as_a_list(self):
         module = require("ontoloop.ops")
@@ -311,6 +341,15 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertLess(
             order.index("repair verification"),
             order.index("stop append"))
+
+    def test_incident_append_order_on_a_proper_subset_of_the_acts(self):
+        module = require("ontoloop.ops")
+        order = list(module.incident_append_order(
+            acts=("stop append", "repair verification")))
+        self.assertEqual(order, ["repair verification", "stop append"])
+        self.assertEqual(
+            list(module.incident_append_order(acts=("purge append",))),
+            ["purge append"])
 
     def test_loading_stop_takes_effect_before_its_journal_record(self):
         module = require("ontoloop.ops")
@@ -341,6 +380,7 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         landed = module.journal_record_after_append(stop)
         self.assertIs(landed["journal_record_landed"], True)
         self.assertEqual(landed["stop"], stop)
+        self.assertIsNot(landed["stop"], stop)
 
     def test_loading_stop_journal_landing_with_a_store_passed(self):
         module = require("ontoloop.ops")
@@ -375,6 +415,10 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertEqual(content["effective_at"], "next run boundary")
         self.assertEqual(content["bundle"], stop["bundle"])
         self.assertEqual(content["bundle"], "named bundle")
+        self.assertEqual(
+            store["records"][-1]["record_type"], "incident loading stop")
+        self.assertEqual(
+            store["records"][-1]["record_type"], stop["act"])
 
 
 # ------------------------------------------------------------------
@@ -542,10 +586,19 @@ class TestUnrowed196UnknownCheckPoint(unittest.TestCase):
 
     def test_unknown_retirement_occasion_raises_value_error(self):
         module = require("ontoloop.dataset")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.retire_unspent_sealed(
                 "dataset build", occasion="bogus")
+        self.assertEqual(
+            str(caught.exception), "unknown retirement occasion: 'bogus'")
 
+
+    def test_no_retirement_occasion_raises_value_error(self):
+        module = require("ontoloop.dataset")
+        with self.assertRaises(ValueError) as caught:
+            module.retire_unspent_sealed("dataset build")
+        self.assertEqual(
+            str(caught.exception), "unknown retirement occasion: None")
 
 class TestUnrowed196DatasetBuild(_FreshnessCheckPoint, unittest.TestCase):
     """Subsection 19.6: freshness check at dataset build."""
@@ -597,6 +650,7 @@ class TestUnrowed1935ClaimLimitDataset(unittest.TestCase):
         self.assertIn("low confidence", outcome["attached_stamps"])
         self.assertIs(outcome["claim_limit_effect"], True)
         self.assertIs(outcome["gate_blocked"], False)
+        self.assertEqual(outcome["record_home"], "dataset record")
 
     def test_no_claim_limit_effect_where_low_confidence_does_not_attach(self):
         module = require("ontoloop.dataset")

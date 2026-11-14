@@ -710,8 +710,8 @@ class TestPromoteR2Pro1(unittest.TestCase):
         module = require("ontoloop.promote")
         with self.assertRaises(ValueError) as caught:
             module.reuse_warning_at_count(0, bound=0)
-        self.assertIn("bound", str(caught.exception))
-        self.assertIn("0", str(caught.exception))
+        self.assertEqual(
+            str(caught.exception), "unknown reuse warning bound: 0")
 
     def test_bound_below_one_stands_refused(self):
         module = require("ontoloop.promote")
@@ -726,6 +726,37 @@ class TestPromoteR2Pro1(unittest.TestCase):
             (3, 2, 1, 2),
             (4, 3, 2, 3),
             (8, 6, 5, 6),
+        ]
+        for bound, point, below, at in cases:
+            under = module.reuse_warning_at_count(below, bound=bound)
+            self.assertFalse(under["fired"])
+            self.assertEqual(under["firing_point_count"], point)
+            self.assertEqual(under["bound_after"], bound)
+            self.assertFalse(under["act_blocked"])
+            over = module.reuse_warning_at_count(at, bound=bound)
+            self.assertTrue(over["fired"])
+            self.assertEqual(over["firing_point_count"], point)
+            self.assertEqual(over["bound_after"], bound)
+            self.assertFalse(over["act_blocked"])
+
+    def test_refusal_at_bounds_beyond_the_presented_pair(self):
+        module = require("ontoloop.promote")
+        cases = [
+            (-1, "unknown reuse warning bound: -1"),
+            (0.5, "unknown reuse warning bound: 0.5"),
+            (-100, "unknown reuse warning bound: -100"),
+        ]
+        for bound, message in cases:
+            with self.assertRaises(ValueError) as caught:
+                module.reuse_warning_at_count(bound, bound=bound)
+            self.assertEqual(str(caught.exception), message)
+
+    def test_firing_at_bounds_beyond_the_presented_bounds(self):
+        module = require("ontoloop.promote")
+        cases = [
+            (2, 1, 0, 1),
+            (6, 4, 3, 4),
+            (10, 7, 6, 7),
         ]
         for bound, point, below, at in cases:
             under = module.reuse_warning_at_count(below, bound=bound)
