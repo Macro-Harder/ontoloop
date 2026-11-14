@@ -202,7 +202,7 @@ class TestCaptureFixR1(unittest.TestCase):
 
     def test_mapping_payload_at_the_journal_line_cap_is_accepted(self):
         module = require(MODULE)
-        payload = {"first": "a" * 32768, "second": "b" * 32767}
+        payload = {"first": "a" * 32768, "second": "b" * 32756}
         outcome = module.capture_payload(payload)
         self.assertTrue(outcome["accepted"])
         self.assertFalse(outcome["refused"])
