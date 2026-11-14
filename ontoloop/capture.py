@@ -594,6 +594,13 @@ _JOURNAL_LINE_CAP_BYTES = 64 * 1024
 _TEXT_FIELD_CAP_BYTES = 32 * 1024
 
 
+_BYTE_FORM_VIEW_TYPES = (
+    type({}.keys()),
+    type({}.values()),
+    type({}.items()),
+)
+
+
 def _byte_form_container(value):
     """Return True where a value stands in a walked container form.
 
@@ -607,8 +614,31 @@ def _byte_form_container(value):
     and mapping proxy forms each meet, and the UserList
     form stands read through the abstract sequence
     test, which that form meets. The deque form stands
-    named on its own beside them.
+    named on its own beside them. Beside those forms,
+    the walked forms stand as the mapping view forms,
+    the keys, values, and items views of a mapping,
+    read through the concrete view types and the
+    abstract mapping view test, which the views of a
+    plain mapping and of a wrapper mapping each meet,
+    and the general iterable form, a container carrying
+    an iteration act and standing as no iterator, read
+    through the abstract iterable test. String and byte
+    values stand decided in their own limbs before
+    this test, and this test returns False for them.
+    A value standing as an iterator, a generator among
+    them, stands in no walked form here: such a value
+    can be read once only, and this test returns False
+    for it, so the reading leaves it in its standing
+    leaf form and reads none of it.
     """
+    if isinstance(
+        value, (str, bytes, bytearray, memoryview, collections.UserString)
+    ):
+        return False
+    if isinstance(value, collections.abc.Iterator) or hasattr(
+        value, "__next__"
+    ):
+        return False
     return isinstance(
         value,
         (
@@ -622,8 +652,10 @@ def _byte_form_container(value):
             collections.abc.Mapping,
             collections.abc.Sequence,
             collections.abc.Set,
+            collections.abc.MappingView,
+            collections.abc.Iterable,
         ),
-    )
+    ) or isinstance(value, _BYTE_FORM_VIEW_TYPES)
 
 
 def _value_byte_form(value, _path=None):
@@ -634,7 +666,12 @@ def _value_byte_form(value, _path=None):
     stands measured by the bytes it views and not by
     the string form of the view, which states no part
     of that content. A string stands in its UTF-8 byte
-    form. A container value stands as the joined byte
+    form. A string form value stands decided before
+    the container test: a UserString stands read as
+    the text it carries, in the same UTF-8 byte form
+    as a plain string, at any position this reading
+    reaches, as a mapping value and as a mapping key
+    alike. A container value stands as the joined byte
     forms of the content it carries at any position
     inside it, so a memoryview nested inside a list
     standing as a mapping value stands measured in
@@ -646,14 +683,17 @@ def _value_byte_form(value, _path=None):
     set form, or the abstract mapping form stands
     read in substance at any position inside a walked
     container, under the same cycle guard discipline
-    as the concrete forms. Any other value stands in
-    the UTF-8 byte form of its string form.
+    as the concrete forms, and a value standing in a
+    mapping view form or in a general iterable form
+    stands read in substance in the same way, under
+    the same cycle guard discipline. Any other value
+    stands in the UTF-8 byte form of its string form.
     It reads recursively.
     """
     if isinstance(value, (bytes, bytearray, memoryview)):
         return bytes(value)
-    if isinstance(value, str):
-        return value.encode("utf-8")
+    if isinstance(value, (str, collections.UserString)):
+        return str(value).encode("utf-8")
     if _byte_form_container(value):
         if _path is None:
             _path = set()
