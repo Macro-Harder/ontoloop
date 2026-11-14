@@ -484,7 +484,9 @@ def submit_confirmation(record):
     standing at accepted and no reason key, as an
     authored reading at shape gap G-17.
     """
-    if not isinstance(record, dict):
+    from collections.abc import Mapping as _Mapping
+
+    if not isinstance(record, _Mapping):
         return {
             "outcome": "refused",
             "reason": "confirmation record incomplete",
@@ -576,8 +578,10 @@ def write_bundle(candidate=None, bundle_size=None):
     stand written, no file stands opened, and no sealing
     or canonical surface stands called by this surface.
     """
+    from collections.abc import Mapping as _Mapping
+
     if candidate is not None:
-        if isinstance(candidate, dict):
+        if isinstance(candidate, _Mapping):
             size = candidate.get("size")
         else:
             size = None
@@ -645,7 +649,9 @@ def raise_demotion_flag(bundle):
     stands carried as passed, and the fixture identity
     stands only where no identity value stands present.
     """
-    if isinstance(bundle, dict):
+    from collections.abc import Mapping as _Mapping
+
+    if isinstance(bundle, _Mapping):
         identity = bundle.get("bundle_identity")
         if identity is None:
             identity = _BUNDLE_IDENTITY
