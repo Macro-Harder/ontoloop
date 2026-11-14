@@ -376,9 +376,14 @@ def _bundle_copy(bundle):
     import types as _types_module
 
     def _is_atom(value):
-        return value is None or isinstance(
-            value, (bool, int, float, complex, str, bytes)
+        return value is None or type(value) in (
+            bool, int, float, complex, str, bytes
         )
+
+    def _is_atom_subclass(value):
+        return isinstance(
+            value, (bool, int, float, complex, str, bytes)
+        ) and not _is_atom(value)
 
     def _tuple_form(original, parts):
         if type(original) is tuple:
@@ -442,6 +447,10 @@ def _bundle_copy(bundle):
                     parts.append(memo[id(child)])
                 elif _is_atom(child):
                     parts.append(child)
+                elif _is_atom_subclass(child):
+                    copied = _copy_module.deepcopy(child)
+                    memo[id(child)] = copied
+                    parts.append(copied)
                 else:
                     raise ValueError("cyclic value in bundle copy")
             if isinstance(current, frozenset):
