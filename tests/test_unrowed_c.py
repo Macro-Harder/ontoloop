@@ -124,6 +124,22 @@ class Unrowed1986Tests(unittest.TestCase):
         mod = harness.require("ontoloop.promote")
         claim = mod.clearance_claim_covering_instruction_items(promotion_record=None)
         self.assertFalse(claim["claim_stands"])
+        # Fix round 3, S15-R3-013: the intermediate case stands
+        # presented, a record standing as a promotion record without
+        # the instruction test result carried on it, in both the form
+        # carrying the position at False and the form carrying no such
+        # position at all, and the claim does not stand on either.
+        standing_without_result = {
+            "record_home": "Promotion Record",
+            "instruction_test_result_carried": False,
+        }
+        claim = mod.clearance_claim_covering_instruction_items(
+            promotion_record=standing_without_result)
+        self.assertFalse(claim["claim_stands"])
+        standing_with_no_position = {"record_home": "Promotion Record"}
+        claim = mod.clearance_claim_covering_instruction_items(
+            promotion_record=standing_with_no_position)
+        self.assertFalse(claim["claim_stands"])
         record = mod.promotion_record_carrying_instruction_test_result()
         claim = mod.clearance_claim_covering_instruction_items(promotion_record=record)
         self.assertTrue(claim["claim_stands"])
@@ -172,6 +188,50 @@ class Unrowed1987Tests(unittest.TestCase):
                       record["comparison_view_contents"])
         self.assertIn("outcome mix", record["comparison_view_contents"])
         self.assertIn("correction position", record["comparison_view_contents"])
+        # Fix round 3, S15-R3-012: the figure values themselves stand
+        # pinned on material passed, and differing material returns
+        # differing counts, so a stored figure returning the same
+        # counts for every input cannot pass this test.
+        counted = mod.provisional_record(
+            with_comparison=True,
+            provisional_outcomes=["pass", "pass", "pass", "fail"],
+            displaced_outcomes=["pass", "fail", "fail"],
+            provisional_corrections=["open", "open", "corrected"],
+            displaced_corrections=["corrected", "corrected"])
+        counted_comparison = counted["comparison"]
+        counted_provisional = counted_comparison["provisional_period"]
+        counted_displaced = counted_comparison["displaced_period"]
+        self.assertEqual(counted_provisional["outcome_mix"],
+                         {"pass": 3, "fail": 1})
+        self.assertEqual(counted_displaced["outcome_mix"],
+                         {"pass": 1, "fail": 2})
+        self.assertEqual(counted_provisional["correction_position"],
+                         {"open": 2, "corrected": 1})
+        self.assertEqual(counted_displaced["correction_position"],
+                         {"corrected": 2})
+        differing = mod.provisional_record(
+            with_comparison=True,
+            provisional_outcomes=["fail", "fail"],
+            displaced_outcomes=["pass"],
+            provisional_corrections=["open"],
+            displaced_corrections=["open", "open", "open", "corrected"])
+        differing_comparison = differing["comparison"]
+        differing_provisional = differing_comparison["provisional_period"]
+        differing_displaced = differing_comparison["displaced_period"]
+        self.assertEqual(differing_provisional["outcome_mix"], {"fail": 2})
+        self.assertEqual(differing_displaced["outcome_mix"], {"pass": 1})
+        self.assertEqual(differing_provisional["correction_position"],
+                         {"open": 1})
+        self.assertEqual(differing_displaced["correction_position"],
+                         {"open": 3, "corrected": 1})
+        self.assertNotEqual(differing_provisional["outcome_mix"],
+                            counted_provisional["outcome_mix"])
+        self.assertNotEqual(differing_displaced["outcome_mix"],
+                            counted_displaced["outcome_mix"])
+        self.assertNotEqual(differing_provisional["correction_position"],
+                            counted_provisional["correction_position"])
+        self.assertNotEqual(differing_displaced["correction_position"],
+                            counted_displaced["correction_position"])
 
     def test_provisional_record_with_no_comparison_bars_confirmation(self):
         mod = harness.require("ontoloop.promote")
@@ -180,6 +240,17 @@ class Unrowed1987Tests(unittest.TestCase):
         result = mod.confirm_provisional(record)
         self.assertEqual(result["outcome"], "barred")
         self.assertEqual(result["bar_reason"], "no comparison in the provisional record")
+
+    # Fix round 3, S15-R3-014: the success side of the confirmation
+    # bar stands pinned, on a record carrying a comparison, so an act
+    # barring every record cannot pass this file.
+    def test_confirm_provisional_on_a_record_carrying_a_comparison(self):
+        mod = harness.require("ontoloop.promote")
+        record = mod.provisional_record(with_comparison=True)
+        self.assertIsNotNone(record["comparison"])
+        result = mod.confirm_provisional(record)
+        self.assertEqual(result["outcome"], "confirmed")
+        self.assertNotIn("bar_reason", result)
 
     def test_comparison_basis_stated_by_name_with_its_reason(self):
         mod = harness.require("ontoloop.promote")
