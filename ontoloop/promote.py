@@ -1287,9 +1287,9 @@ def _is_delegating_concrete_container_subclass(value):
     a concrete named container form, a list, a tuple, a
     set, a frozenset, a deque, or a UserList, in the form
     _is_delegating_container_subclass states. A subclass
-    standing in an abstract form alone stands apart: its
-    standing materialisation handling stands in its own
-    form at positions outside the mapping presentation.
+    standing in an abstract form alone stands apart from
+    this reading and stands read by the wider reading
+    that helper states.
     """
     import collections as _collections_module
 
@@ -1307,6 +1307,32 @@ def _is_delegating_concrete_container_subclass(value):
                 return False
             return type(value).__iter__ is not base.__iter__
     return False
+
+
+def _is_delegating_chainmap_subclass(value):
+    """Return True where a value stands in a delegating
+    subclass of the ChainMap form.
+
+    A delegating ChainMap subclass carries no maps of
+    its own in the standing form and its iteration act
+    does not stand in the standing form of the
+    ChainMap base: the iteration act of its type
+    stands apart from the iteration act of ChainMap,
+    delegating in its turn to one stored iterator.
+    A value standing in the ChainMap form itself, and
+    a subclass whose iteration act stands in the
+    standing form of its base, stand apart.
+    """
+    import collections as _collections_module
+
+    if not isinstance(value, _collections_module.ChainMap):
+        return False
+    if type(value) is _collections_module.ChainMap:
+        return False
+    return (
+        type(value).__iter__
+        is not _collections_module.ChainMap.__iter__
+    )
 
 
 def _is_single_pass_iterable(value):
@@ -1431,7 +1457,13 @@ def _wrapper_subtree_has_iterator(value, ancestors):
     act of its own whose getitem act returns the next
     element of one stored iterator in sequence,
     stands detected in the same way and stands never
-    listed by this act, on the same ground.
+    listed by this act, on the same ground. A
+    delegating ChainMap subclass, a mapping form
+    whose iteration act delegates to one stored
+    iterator, stands detected in the same way and
+    stands never listed by this act, because a
+    reading through its mapping views would take its
+    yielded material as keys and raise on it.
     """
     import array as _array_module
     import collections as _collections_module
@@ -1456,6 +1488,8 @@ def _wrapper_subtree_has_iterator(value, ancestors):
     ancestors = ancestors | {id(value)}
     from collections.abc import Mapping as _Mapping
 
+    if _is_delegating_chainmap_subclass(value):
+        return True
     if isinstance(value, _Mapping):
         return any(
             _wrapper_subtree_has_iterator(inner, ancestors)
@@ -1530,14 +1564,23 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0,
     form where it stands at a mapping presented
     position, reached as a value of a mapping standing
     in the holdout material through mapping values
-    alone, and a delegating subclass standing in a
-    concrete container form stands as it stands,
-    unlisted, in any
-    other position, in parity with the direct act
-    reading of that position, a position inside a
-    tuple, inside a list, inside a ChainMap, or
+    alone, and a delegating subclass stands as it
+    stands, unlisted, at a position inside a
+    container, in a concrete container form and in
+    an abstract Sequence or abstract Set form
+    alike, and a delegating subclass standing in a
+    concrete container form stands as it stands in
+    any position outside the mapping presentation,
     standing directly as the whole holdout material
-    among them. A set or frozenset
+    among them, in parity with the direct act
+    reading of that position in every case. A
+    delegating ChainMap subclass, in the form
+    _is_delegating_chainmap_subclass states, stands
+    listed once here in the same rebuilt form where
+    it stands at a mapping presented position, and
+    stands as it stands, unlisted, at a position
+    inside a container, in parity with the direct
+    act reading of that position. A set or frozenset
     stands rebuilt from its elements materialised
     once and carried in a list, so where the rebuilt
     form stands unhashable and the rebuild fails, the
@@ -1577,6 +1620,7 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0,
         return materialised
     if _is_delegating_container_subclass(value) and (
         path_state == "mapping"
+        or path_state == "other"
         or _is_delegating_concrete_container_subclass(value)
     ):
         if path_state != "mapping":
@@ -1593,6 +1637,29 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0,
 
         if len(materialised) == 1 and isinstance(
             materialised[0], _SubclassMapping
+        ) and not any(
+            key in materialised[0]
+            for key in _WRAPPER_ITEM_FIELD_KEYS
+        ):
+            return tuple(materialised)
+        return materialised
+    if _is_delegating_chainmap_subclass(value) and (
+        path_state == "mapping" or path_state == "other"
+    ):
+        if path_state != "mapping":
+            return value
+        chainmap_ancestors = ancestors | {id(value)}
+        materialised = [
+            _wrapper_materialise(
+                element, shared_module, chainmap_ancestors,
+                depth + 1, "other",
+            )
+            for element in list(value)
+        ]
+        from collections.abc import Mapping as _ChainMapMapping
+
+        if len(materialised) == 1 and isinstance(
+            materialised[0], _ChainMapMapping
         ) and not any(
             key in materialised[0]
             for key in _WRAPPER_ITEM_FIELD_KEYS
