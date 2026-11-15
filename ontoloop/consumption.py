@@ -198,24 +198,41 @@ def _tagged_digest_form(value):
     added instance content encodes over its intrinsic
     string form and over that content together, so
     state standing in either channel stands in the
-    digest. An in memory stream encodes over the
-    content it holds, read through its getvalue act
-    without consumption. A value whose content stands
+    digest. A subclass instance of a scalar or byte
+    like type carrying added instance content encodes
+    over its intrinsic value and over that content
+    together, in the same two channel form, and a
+    subclass instance of a complex, an array, or a
+    deque carrying added instance content encodes
+    over its intrinsic content and over that content
+    together, the attribute reading never preempting
+    the intrinsic channel. An in memory stream encodes
+    over the content it holds, read through its
+    getvalue act without consumption, and a stream
+    subclass instance carrying added instance content
+    encodes over that held content and over that
+    content together. A value whose content stands
     in a channel this reading cannot reach without
     consumption, an iterator among them, a stream
     whose content stands readable in no such form,
     and a value whose string form carries its process
-    address stand refused with a ValueError naming
-    the type of the material, so no digest stands
-    taken over an unread channel or over an address.
+    address in any dress, behind the words at 0x in
+    either marker case, with no at wording before it,
+    or as a decimal number after the word at, stand
+    refused with a ValueError naming the type of the
+    material, so no digest stands taken over an
+    unread channel or over an address.
     The stream and iterator positions stand decided
     before the attribute reading, so a value carrying
     readable attributes beside an unread channel
     stands read or refused on that channel and never
     on its attributes alone.
     """
+    import array as _array_module
+    import collections as _collections_module
     import datetime as _datetime_module
     import decimal as _decimal_module
+    import enum as _enum_module
     import io as _io_module
     import re as _re_module
 
@@ -248,11 +265,28 @@ def _tagged_digest_form(value):
                     _datetime_module.date,
                     _datetime_module.time,
                     _datetime_module.timedelta,
+                    complex,
+                    _array_module.array,
+                    _collections_module.deque,
                 ),
             )
             and _residual_content_mapping(current) is not None
         ):
             kind = "value_attrs"
+        elif (
+            isinstance(
+                current,
+                (bool, int, float, str, bytes, bytearray, memoryview),
+            )
+            and not isinstance(current, _enum_module.Enum)
+            and _residual_content_mapping(current) is not None
+        ):
+            kind = "scalar_attrs"
+        elif (
+            isinstance(current, _io_module.IOBase)
+            and _residual_content_mapping(current) is not None
+        ):
+            kind = "stream_attrs"
         elif (
             current is not None
             and not isinstance(
@@ -333,7 +367,12 @@ def _tagged_digest_form(value):
                     )
                 else:
                     text = str(current)
-                    if _re_module.search(r" at 0x[0-9a-fA-F]+", text):
+                    if _re_module.search(
+                        r" at 0[xX][0-9a-fA-F]+"
+                        r"| at [0-9]{5,}"
+                        r"|0[xX][0-9a-fA-F]{4,}",
+                        text,
+                    ):
                         raise ValueError(
                             "digest cannot read material of type "
                             + type(current).__name__
@@ -357,7 +396,9 @@ def _tagged_digest_form(value):
                     children.append(current[key])
                 if kind == "dict_attrs":
                     children.append(_residual_content_mapping(current))
-            elif kind in ("attrs", "value_attrs"):
+            elif kind in (
+                "attrs", "value_attrs", "scalar_attrs", "stream_attrs"
+            ):
                 children = [_residual_content_mapping(current)]
             elif kind in (
                 "list_attrs", "tuple_attrs", "set_attrs", "frozenset_attrs"
@@ -405,6 +446,60 @@ def _tagged_digest_form(value):
                 + b":" + raw + b";"
             )
             results.append(intrinsic + b"+attrs=" + parts[0] + b";")
+        elif kind == "scalar_attrs":
+            if isinstance(current, bool):
+                intrinsic = b"bool:true;" if current else b"bool:false;"
+            elif isinstance(current, int):
+                intrinsic = (
+                    b"int:" + str(current).encode("ascii") + b";"
+                )
+            elif isinstance(current, float):
+                intrinsic = (
+                    b"float:" + repr(current).encode("ascii") + b";"
+                )
+            elif isinstance(current, str):
+                raw = current.encode("utf-8")
+                intrinsic = (
+                    b"str:" + str(len(raw)).encode("ascii")
+                    + b":" + raw + b";"
+                )
+            else:
+                raw = bytes(current)
+                intrinsic = (
+                    b"bytes:" + str(len(raw)).encode("ascii")
+                    + b":" + raw + b";"
+                )
+            results.append(intrinsic + b"+attrs=" + parts[0] + b";")
+        elif kind == "stream_attrs":
+            getvalue = getattr(current, "getvalue", None)
+            content = None
+            if getvalue is not None:
+                try:
+                    content = getvalue()
+                except Exception:
+                    content = None
+            if isinstance(content, bytes):
+                intrinsic = (
+                    b"stream:"
+                    + type(current).__name__.encode("utf-8")
+                    + b":bytes:"
+                    + str(len(content)).encode("ascii")
+                    + b":" + content + b";"
+                )
+            elif isinstance(content, str):
+                raw = content.encode("utf-8")
+                intrinsic = (
+                    b"stream:"
+                    + type(current).__name__.encode("utf-8")
+                    + b":str:" + str(len(raw)).encode("ascii")
+                    + b":" + raw + b";"
+                )
+            else:
+                raise ValueError(
+                    "digest cannot read material of type "
+                    + type(current).__name__
+                )
+            results.append(intrinsic + b"+attrs=" + parts[0] + b";")
         elif kind in ("set", "frozenset", "set_attrs", "frozenset_attrs"):
             attrs_part = None
             member_parts = parts
@@ -449,8 +544,12 @@ def _material_digest(material):
     scope: byte like material, standing as bytes, as
     a bytearray, or as a memoryview, over its bytes in
     the one form the byte like family states at every
-    depth, string material over its UTF-8 encoding, and
-    any other material over the tagged canonical encoding
+    depth, string material over its UTF-8 encoding, a
+    subclass instance of a byte like or string type
+    carrying added instance content over the tagged
+    canonical encoding instead, so that content stands
+    in its digest, and any other material over the
+    tagged canonical encoding
     _tagged_digest_form states, carried behind a
     marker no string or byte limb carries, so a
     scalar, a sequence, a tuple, a set, and a mapping
@@ -463,9 +562,15 @@ def _material_digest(material):
     """
     import hashlib
 
-    if isinstance(material, (bytes, bytearray, memoryview)):
+    if (
+        isinstance(material, (bytes, bytearray, memoryview))
+        and _residual_content_mapping(material) is None
+    ):
         payload = bytes(material)
-    elif isinstance(material, str):
+    elif (
+        isinstance(material, str)
+        and _residual_content_mapping(material) is None
+    ):
         payload = material.encode("utf-8")
     else:
         payload = (
