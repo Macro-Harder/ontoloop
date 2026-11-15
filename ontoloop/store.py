@@ -1622,6 +1622,18 @@ def append_record(store, content, record_type="record"):
         # built and no heads signed.
         if records:
             last_record = records[-1]
+            # Fix round 14, ruling 490: an append over a last
+            # record standing in no mapping form stands refused
+            # in the governed refusal form of this surface, in
+            # the predecessor hash erased form its empty mapping
+            # neighbour returns, with no record built and no
+            # heads signed, and no ungoverned error escaping.
+            if not isinstance(last_record, dict):
+                return {
+                    "error": "predecessor hash erased",
+                    "appended": False,
+                    "reported_appended": False,
+                }
             if isinstance(last_record, dict) and (
                 last_record.get("hash") is None
             ):
@@ -1660,6 +1672,46 @@ def append_record(store, content, record_type="record"):
                 if last_record.get("canonical_bytes") is None:
                     return {
                         "error": "last record canonical bytes erased",
+                        "appended": False,
+                        "reported_appended": False,
+                    }
+                # Fix round 14, ruling 488: an append over a
+                # last record whose canonical bytes field stands
+                # in any form other than a standing canonical
+                # bytes value, a nonempty bytes, bytearray, or
+                # memoryview value, the forms the chain check
+                # reads in substance, stands refused in the same
+                # governed refusal form, with no record built
+                # and no heads signed.
+                canonical_value = last_record.get("canonical_bytes")
+                if not (
+                    isinstance(
+                        canonical_value, (bytes, bytearray, memoryview)
+                    )
+                    and len(canonical_value) > 0
+                ):
+                    return {
+                        "error": "last record canonical bytes not standing",
+                        "appended": False,
+                        "reported_appended": False,
+                    }
+                # Fix round 14, ruling 489: an append over a
+                # last record standing with its content,
+                # record_type, predecessor_hash, or
+                # store_sequence key deleted stands refused in
+                # the same governed refusal form, with no record
+                # built and no heads signed.
+                if any(
+                    field not in last_record
+                    for field in (
+                        "content",
+                        "record_type",
+                        "predecessor_hash",
+                        "store_sequence",
+                    )
+                ):
+                    return {
+                        "error": "last record field erased",
                         "appended": False,
                         "reported_appended": False,
                     }
