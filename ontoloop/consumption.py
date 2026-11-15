@@ -206,7 +206,16 @@ def _tagged_digest_form(value):
     deque carrying added instance content encodes
     over its intrinsic content and over that content
     together, the attribute reading never preempting
-    the intrinsic channel. An in memory stream encodes
+    the intrinsic channel. A subclass instance of an
+    exception type carrying added instance content
+    encodes over its argument content and over that
+    content together, in the same two channel form,
+    and a member of an enum mixing in int, float, or
+    str carrying added instance content beyond the
+    member state its enum class states encodes over
+    its intrinsic value and over that added content
+    together, a member carrying no such added content
+    encoding in its standing form. An in memory stream encodes
     over the content it holds, read through its
     getvalue act without consumption, and a stream
     subclass instance carrying added instance content
@@ -218,7 +227,12 @@ def _tagged_digest_form(value):
     and a value whose string form carries its process
     address in any dress, behind the words at 0x in
     either marker case, with no at wording before it,
-    or as a decimal number after the word at, stand
+    as a decimal number after the word at, behind a
+    hash sign, a colon, or brackets, behind the word
+    At with a capital first letter, grouped with
+    commas after the word at, or standing bare inside
+    a bracketed form as a decimal or hexadecimal
+    number, stand
     refused with a ValueError naming the type of the
     material, so no digest stands taken over an
     unread channel or over an address.
@@ -235,6 +249,24 @@ def _tagged_digest_form(value):
     import enum as _enum_module
     import io as _io_module
     import re as _re_module
+
+    def _enum_added_mapping(member):
+        residual = _residual_content_mapping(member)
+        if residual is None:
+            return None
+        added = {}
+        for key in residual:
+            if key in (
+                "_value_",
+                "_name_",
+                "__objclass__",
+                "_sort_order_",
+            ):
+                continue
+            added[key] = residual[key]
+        if added:
+            return added
+        return None
 
     results = []
     path = set()
@@ -274,6 +306,12 @@ def _tagged_digest_form(value):
         ):
             kind = "value_attrs"
         elif (
+            isinstance(current, _enum_module.Enum)
+            and isinstance(current, (int, float, str))
+            and _enum_added_mapping(current) is not None
+        ):
+            kind = "enum_attrs"
+        elif (
             isinstance(
                 current,
                 (bool, int, float, str, bytes, bytearray, memoryview),
@@ -287,6 +325,11 @@ def _tagged_digest_form(value):
             and _residual_content_mapping(current) is not None
         ):
             kind = "stream_attrs"
+        elif (
+            isinstance(current, BaseException)
+            and _residual_content_mapping(current) is not None
+        ):
+            kind = "exc_attrs"
         elif (
             current is not None
             and not isinstance(
@@ -370,7 +413,16 @@ def _tagged_digest_form(value):
                     if _re_module.search(
                         r" at 0[xX][0-9a-fA-F]+"
                         r"| at [0-9]{5,}"
-                        r"|0[xX][0-9a-fA-F]{4,}",
+                        r"|0[xX][0-9a-fA-F]{4,}"
+                        r"| At [0-9]{5,}"
+                        r"| [aA]t [0-9]{1,3}(?:,[0-9]{3})+"
+                        r"| [#:\[] *[0-9]{5,}"
+                        r"| [#:\[] *[0-9]{1,3}(?:,[0-9]{3})+"
+                        r"|<[^>]*[0-9]{7,}[^>]*>"
+                        r"|<[^>]*[0-9]{1,3}(?:,[0-9]{3})+[^>]*>"
+                        r"|<[^>]*\b(?=[0-9a-fA-F]*[a-fA-F])"
+                        r"(?=[0-9a-fA-F]*[0-9])"
+                        r"[0-9a-fA-F]{7,}\b[^>]*>",
                         text,
                     ):
                         raise ValueError(
@@ -396,6 +448,13 @@ def _tagged_digest_form(value):
                     children.append(current[key])
                 if kind == "dict_attrs":
                     children.append(_residual_content_mapping(current))
+            elif kind == "exc_attrs":
+                children = [
+                    tuple(current.args),
+                    _residual_content_mapping(current),
+                ]
+            elif kind == "enum_attrs":
+                children = [_enum_added_mapping(current)]
             elif kind in (
                 "attrs", "value_attrs", "scalar_attrs", "stream_attrs"
             ):
@@ -438,6 +497,11 @@ def _tagged_digest_form(value):
                 b"object:" + type(current).__name__.encode("utf-8")
                 + b"=" + parts[0] + b";"
             )
+        elif kind == "exc_attrs":
+            results.append(
+                b"object:" + type(current).__name__.encode("utf-8")
+                + b"=args=" + parts[0] + b"+attrs=" + parts[1] + b";"
+            )
         elif kind == "value_attrs":
             raw = str(current).encode("utf-8")
             intrinsic = (
@@ -446,7 +510,7 @@ def _tagged_digest_form(value):
                 + b":" + raw + b";"
             )
             results.append(intrinsic + b"+attrs=" + parts[0] + b";")
-        elif kind == "scalar_attrs":
+        elif kind in ("scalar_attrs", "enum_attrs"):
             if isinstance(current, bool):
                 intrinsic = b"bool:true;" if current else b"bool:false;"
             elif isinstance(current, int):
