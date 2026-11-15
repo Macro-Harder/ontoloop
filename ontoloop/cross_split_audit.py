@@ -592,7 +592,11 @@ def _pairs_position_elements(value):
     pairs themselves. A pairs position standing as a
     dictionary items view stands read for the pair each
     entry it yields carries in second place, in parity
-    with the enumerate reading of the same shape. Listed
+    with the enumerate reading of the same shape, with
+    enumerate index pairs stripped from the pair each
+    entry carries and a carried value standing itself as
+    an items view, or as a one element list holding one,
+    standing read for the pairs that view carries. Listed
     elements still standing as enumerate index pairs, as
     a further enumerate layer standing inside the
     position yields them, stand stripped to the pair
@@ -614,7 +618,20 @@ def _pairs_position_elements(value):
                 listed.append(_enumerate_carried(element))
         return listed
     if isinstance(value, _ItemsView):
-        return [inner for _key, inner in value]
+        pairs = []
+        for _key, inner in value:
+            carried = _enumerate_carried(inner)
+            if isinstance(carried, _ItemsView):
+                pairs.extend(_pairs_position_elements(carried))
+            elif (
+                isinstance(carried, (list, tuple))
+                and len(carried) == 1
+                and isinstance(carried[0], _ItemsView)
+            ):
+                pairs.extend(_pairs_position_elements(carried[0]))
+            else:
+                pairs.append(carried)
+        return pairs
     listed = _position_elements(value)
     if listed is None:
         return None
@@ -972,7 +989,12 @@ def _ungoverned_side(material):
     bundle once for the whole audit, so a malformed
     pair standing in a generator form stands decided
     by this reading in the same form as the same pair
-    in list form.
+    in list form. A pairs position standing as a
+    dictionary items view stands tested beside its
+    entry forms by the pairs the pairs position reading
+    extracts from it, so a malformed pair standing
+    inside such a position stands decided by this
+    reading as the same pair in list form decides.
     """
     if not isinstance(material, _Mapping):
         return False
@@ -988,6 +1010,13 @@ def _ungoverned_side(material):
         pairs, "__next__"
     ):
         for pair in list(pairs):
+            if hasattr(pair, "__next__"):
+                continue
+            if _pair_elements(pair) is not None:
+                continue
+            return True
+    if isinstance(pairs, _ItemsView):
+        for pair in _pairs_position_elements(pairs):
             if hasattr(pair, "__next__"):
                 continue
             if _pair_elements(pair) is not None:
@@ -1009,7 +1038,10 @@ def _materialised_pairs_material(material):
     consumed by an earlier read. A pair standing as an
     enumerate object stands listed in that same form as
     the items its index pairs carry, so the pair stands
-    judged in the form it presents. A bundle carrying no
+    judged in the form it presents. A pairs position
+    standing as a dictionary items view stands listed in
+    that same form as the pairs the pairs position
+    reading extracts from it. A bundle carrying no
     iterator at its pairs position stands as it stands.
     """
     if not isinstance(material, _Mapping):
@@ -1020,7 +1052,9 @@ def _materialised_pairs_material(material):
     if pairs is None:
         return material
     listed = None
-    if hasattr(pairs, "__next__"):
+    if isinstance(pairs, _ItemsView):
+        listed = _pairs_position_elements(pairs)
+    elif hasattr(pairs, "__next__"):
         listed = _pairs_position_elements(pairs)
     elif _is_partitionable_form(pairs):
         candidates = list(pairs)
@@ -1171,6 +1205,79 @@ def _mapping_position_values(value):
     return None
 
 
+def _mapping_position_material(values):
+    """Expand mapping values carrying material in their values.
+
+    A value standing as a mapping carrying no item field
+    of its own and standing as no pair in its own right
+    stands read for the material its own values carry, in
+    the same reading its position receives, at any depth
+    the presentation nests it. A value standing as a list
+    or a tuple stands read in the same way for the
+    elements it carries. Any other value stands as it
+    stands.
+    """
+    expanded = []
+    for value in values:
+        if isinstance(value, _Mapping) and not any(
+            key in value for key in _ITEM_FIELD_KEYS
+        ) and _pair_elements(value) is None:
+            expanded.extend(
+                _mapping_position_material(list(value.values()))
+            )
+        elif isinstance(value, (list, tuple)) and any(
+            isinstance(element, _Mapping)
+            and not any(
+                key in element for key in _ITEM_FIELD_KEYS
+            )
+            and _pair_elements(element) is None
+            for element in value
+        ):
+            expanded.append(
+                _mapping_position_material(list(value))
+            )
+        else:
+            expanded.append(value)
+    return expanded
+
+
+def _single_pair_sides(value):
+    """Return the two sides a single pair position value carries.
+
+    A pairs position value standing as a single pair
+    stands read through the pair reading for the sides it
+    carries. A value standing as a dictionary items view
+    or values view, whose pair reading stands in no pair
+    form, stands read for the two values it views, and a
+    value standing in a container form that iterates by
+    indexed access alone stands read for the two elements
+    its indexed access yields, in the same form.
+    """
+    if isinstance(value, _ItemsView):
+        carried = [
+            _enumerate_carried(inner) for _key, inner in value
+        ]
+        if len(carried) == 2:
+            return carried[0], carried[1]
+        return None
+    if isinstance(value, _ValuesView):
+        listed = list(value)
+        if len(listed) == 2:
+            return listed[0], listed[1]
+        return None
+    if hasattr(value, "__getitem__") and not hasattr(
+        value, "__iter__"
+    ):
+        try:
+            listed = list(value)
+        except Exception:
+            return None
+        if len(listed) == 2:
+            return listed[0], listed[1]
+        return None
+    return _pair_elements(value)
+
+
 def _direct_bundle_extra_holdout(bundle):
     """Return holdout items from bundle positions in no read form.
 
@@ -1187,11 +1294,19 @@ def _direct_bundle_extra_holdout(bundle):
     that route in silence. A position standing as a
     mapping carrying no item field of its own stands
     read here for the holdout material its values carry,
-    in that same parity. A pairs position standing in a
-    plain container form as a single pair stands read
-    here for the holdout side that pair carries, where
-    no element of the position stands as a pair in its
-    own right.
+    in that same parity, and a value of such a mapping
+    standing itself as a mapping carrying no item field
+    of its own stands read for the material its own
+    values carry in the same way. A pairs position
+    standing as a single pair, in a plain container
+    form, an iterator form, a dictionary view form, an
+    abstract Sequence or general iterable form, a set
+    form, or a form that iterates by indexed access
+    alone, stands read here for the holdout side that
+    pair carries, where no element of the position
+    stands as a pair in its own right, a pair standing
+    in a set form standing read for both of its sides,
+    the set carrying no order between them.
     """
     extra = []
     for key in ("holdout_items", "holdout"):
@@ -1201,7 +1316,7 @@ def _direct_bundle_extra_holdout(bundle):
                 continue
             values = _mapping_position_values(value)
             if values is not None:
-                for element in values:
+                for element in _mapping_position_material(values):
                     extra.extend(_unwrapped_items(element))
                 continue
             for element in _unread_position_items(value):
@@ -1211,7 +1326,7 @@ def _direct_bundle_extra_holdout(bundle):
         if value is not None and not _is_partitionable_form(value):
             values = _mapping_position_values(value)
             if values is not None:
-                elements = values
+                elements = _mapping_position_material(values)
             else:
                 elements = _unread_position_items(value)
             for element in elements:
@@ -1231,7 +1346,7 @@ def _direct_bundle_extra_holdout(bundle):
                 sides = _pair_elements(value)
                 extra.extend(_unwrapped_items(sides[1]))
             elif values is not None:
-                for element in values:
+                for element in _mapping_position_material(values):
                     sides = _pair_elements(element)
                     if sides is not None:
                         extra.extend(_unwrapped_items(sides[1]))
@@ -1240,22 +1355,18 @@ def _direct_bundle_extra_holdout(bundle):
                     sides = _pair_elements(element)
                     if sides is not None:
                         extra.extend(_unwrapped_items(sides[1]))
-            elif isinstance(
-                value,
-                (
-                    list,
-                    tuple,
-                    _collections_module.deque,
-                    _collections_module.UserList,
-                ),
-            ):
-                sides = _pair_elements(value)
+            elif _is_partitionable_form(value):
+                sides = _single_pair_sides(value)
                 if sides is not None:
                     listed = _pairs_position_elements(value)
                     if listed is not None and not any(
                         _pair_elements(element) is not None
                         for element in listed
                     ):
+                        if isinstance(value, _Set):
+                            extra.extend(
+                                _unwrapped_items(sides[0])
+                            )
                         extra.extend(_unwrapped_items(sides[1]))
     return extra
 
@@ -1274,6 +1385,9 @@ def _holdout_items_of(holdout_material):
         if isinstance(holdout_material, dict) and _is_bundle(
             holdout_material
         ):
+            holdout_material = _materialised_pairs_material(
+                holdout_material
+            )
             candidate, holdout = _split_items(holdout_material)
             return holdout + _direct_bundle_extra_holdout(
                 holdout_material
