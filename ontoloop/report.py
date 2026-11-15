@@ -1133,6 +1133,46 @@ _CLAIM_CONCEPT_ROOTS = (
     "pressureproof",
     "radiationproof",
     "chemicalproof",
+    "damag",
+    "divulg",
+    "ship",
+    "deliver",
+    "test",
+    "measur",
+    "count",
+    "weigh",
+    "clear",
+    "sampl",
+    "book",
+    "remark",
+    "notic",
+    "perceiv",
+    "backed",
+    "earthquakeproof",
+    "tornadoproof",
+    "hurricaneproof",
+    "lightningproof",
+    "frostproof",
+    "impactproof",
+    "blastproof",
+    "explosionproof",
+    "airproof",
+    "sawproof",
+    "hammerproof",
+    "uncompromis",
+    "unscath",
+    "unspoil",
+    "seamless",
+    "adamant",
+    "granit",
+    "unbound",
+    "unlimit",
+    "inexhaust",
+    "unfail",
+    "omnipot",
+    "sovereign",
+    "autonom",
+    "selfcontain",
 )
 
 # The exact assertion words, beside the assertion roots
@@ -1243,6 +1283,15 @@ _ASSERTION_WORDS = (
     "enjoys",
     "commands",
     "epitomises",
+    "advocates",
+    "purports",
+    "brags",
+    "broadcasts",
+    "publishes",
+    "claims",
+    "states",
+    "reports",
+    "notes",
 )
 
 # The assertion roots. A word beginning with one of
@@ -1628,6 +1677,26 @@ _GOVERNING_CONDITION_PHRASES = (
     "by the terms of",
     "with the approval of",
     "subject to approval by",
+    "grounded in",
+    "by authority of",
+    "as permitted by",
+    "as allowed by",
+    "with reference to",
+    "in respect of",
+    "respecting",
+    "by means of",
+    "by way of",
+    "attributable to",
+    "in consideration of",
+    "in recognition of",
+    "by order of",
+    "at the command of",
+    "subject to the terms of",
+    "inside the limits of",
+    "as laid out by",
+    "as spelled out by",
+    "as set forth by",
+    "in the light of",
 )
 
 # The wordings that carry a negated form of a claim. A
@@ -1805,6 +1874,11 @@ def _clause_claim(clause):
         "blockchain", "crypto", "biometric", "forensic", "legal",
         "government", "military", "medical", "academic",
         "scientific", "independent", "external", "internal",
+        "edge", "internet", "virtual", "data", "database",
+        "file", "document", "record", "journal", "ledger",
+        "safety", "quality", "compliance", "professional",
+        "licensed", "official", "formal", "private", "personal",
+        "phone", "password", "eye", "voice", "ill", "mal",
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
@@ -1828,7 +1902,7 @@ def _clause_claim(clause):
                 return True
     if "keeps" in words and "out" in words:
         return True
-    for passive in ("marked", "shown"):
+    for passive in ("marked", "shown", "recorded"):
         if passive in words and "by" in words[
             words.index(passive) + 1:
         ]:
@@ -2221,6 +2295,10 @@ def _clause_inability_form(clause):
         "cited", "referenc", "mention", "filed", "stored",
         "saved", "kept", "held",
         "review", "convert", "lock",
+        "damag", "divulg", "ship", "deliver", "return",
+        "test", "measur", "count", "weigh", "clear", "check",
+        "sampl", "regist", "enroll", "book", "remark",
+        "notic", "perceiv",
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -2301,6 +2379,18 @@ def _clause_inability_form(clause):
         "installation", "workflow", "pipeline", "repository",
         "ledger", "invisibly", "undetectably", "covertly",
         "wirelessly", "instantly",
+        "bunker", "fortress", "castle", "church", "mosque",
+        "synagogue", "station", "port", "mine", "farm",
+        "factory", "workshop", "studio", "cinema", "hamlet",
+        "suburb", "attic", "basement", "garden", "park",
+        "street", "road", "bridge", "tower", "cottage",
+        "cabin", "tent", "camp", "square", "moment",
+        "instant", "second", "minute", "night", "weather",
+        "shore", "coast", "beach", "cliff", "river",
+        "lake", "pond", "well", "pit", "ditch", "door",
+        "gate", "window", "distance", "volume", "temperature",
+        "currency", "length", "warehouse", "wrongfully",
+        "fraudulently",
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -2448,7 +2538,7 @@ def _seal_claim_scan(assembly_text):
                 and clause_words[len(main_words)]
                 in (
                     "provided", "given", "assuming", "granted",
-                    "presuming", "supposing",
+                    "presuming", "supposing", "seeing",
                 )
             ):
                 rest = clause_words[len(main_words) + 1:]
@@ -2518,6 +2608,7 @@ def _seal_claim_scan(assembly_text):
                 and clause_words[len(main_words)] in (
                     "as", "through", "via", "following",
                     "because", "with", "alongside", "due",
+                    "respecting",
                 )
             ):
                 tail = " ".join(clause_words[len(main_words):])
@@ -2531,6 +2622,25 @@ def _seal_claim_scan(assembly_text):
                 and len(main_words) < len(clause_words)
                 and main_words[-1] == "condition"
                 and clause_words[len(main_words)] == "that"
+            ):
+                complement = " ".join(clause_words[len(main_words) + 1:])
+                if _governing_condition_holds(
+                    "conditional on " + complement
+                ):
+                    continue
+            if (
+                main_words
+                and len(main_words) < len(clause_words)
+                and (
+                    (
+                        main_words[-1] == "insofar"
+                        and clause_words[len(main_words)] == "as"
+                    )
+                    or (
+                        main_words[-1] in ("in", "now")
+                        and clause_words[len(main_words)] == "that"
+                    )
+                )
             ):
                 complement = " ".join(clause_words[len(main_words) + 1:])
                 if _governing_condition_holds(
