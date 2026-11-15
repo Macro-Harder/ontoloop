@@ -385,15 +385,49 @@ def _bundle_copy(bundle):
     value stands refused with
     a ValueError, in place of the exception the deep
     copy act raises on a value it cannot copy, and a
-    generator or a lock standing in a function closure
-    cell, in a function default value, or in the
-    closure or default state of a property accessor
-    function stands refused in the same form, and a
+    socket object, a frame object, a traceback object,
+    a coroutine object, or an async generator object
+    standing inside such a value stands refused in
+    the same form, and a generator or a lock standing
+    in a function closure cell, in a function default
+    value, or in the closure or default state of a
+    property accessor function stands refused in the
+    same form, and a generator, a lock, or any other
+    uncopyable value standing in a function annotation
+    or in the globals mapping a function reads stands
+    refused in the same form, a module value standing
+    in the globals mapping of the module the function
+    belongs to standing as a binding of that module
+    and not as a value the function carries, and a
     dictionary view or a mapping proxy standing in a
     function default value copies in the form its
     walked position gives it, the function standing
     rebuilt over the copied default values where a
-    default value carries such a form. A dictionary view standing at
+    default value carries such a form, and a
+    dictionary view or a mapping proxy standing in
+    the globals mapping a function reads copies in
+    the same form, the function standing rebuilt over
+    a copied globals mapping where a globals value
+    carries such a form, and a dictionary view or a
+    mapping proxy standing in a default value or an
+    annotation of a bound method wrapped function or
+    of a property accessor function copies in the
+    same form, the rebuild landing on the recorded
+    method and on the recorded property, and a slice
+    standing on its own inside such a value stands
+    read by the components it carries, a member
+    component standing under the same refusal as the
+    walked positions, a view or a proxy component
+    copying in the form its walked position gives it,
+    and an uncopyable component standing refused in
+    the same form, and an accepted shape subclass
+    instance of a decimal, a fraction, a datetime,
+    or an IPv4Address carrying mutable added instance
+    state stands refused with a ValueError naming
+    that added state, in each position the instance
+    stands in, while an instance carrying no added
+    state or only immutable added state stands in its
+    standing form. A dictionary view standing at
     any position copies as a fresh list of copies of
     the material it carries, an items view as a fresh
     list of copies of its pairs, and a mapping proxy
@@ -457,6 +491,8 @@ def _bundle_copy(bundle):
     import ipaddress as _ipaddress_module
     import pathlib as _pathlib_module
     import re as _re_module
+    import socket as _socket_module
+    import sys as _sys_module
     import threading as _threading_module
     import types as _types_module
     import uuid as _uuid_module
@@ -504,6 +540,35 @@ def _bundle_copy(bundle):
         if _tuple_reproduces(built, parts):
             return built
         return tuple(parts)
+
+    def _globals_is_home_module(func, globals_map):
+        name = globals_map.get("__name__")
+        if not isinstance(name, str):
+            return False
+        home = _sys_module.modules.get(name)
+        if home is None:
+            return False
+        try:
+            return home.__dict__ is globals_map
+        except Exception:
+            return False
+
+    def _globals_walk_values(func):
+        globals_map = func.__globals__
+        if not isinstance(globals_map, dict):
+            return []
+        home = _globals_is_home_module(func, globals_map)
+        values = []
+        for key in globals_map:
+            if key == "__builtins__":
+                continue
+            value = globals_map[key]
+            if home and isinstance(
+                value, _types_module.ModuleType
+            ):
+                continue
+            values.append(value)
+        return values
 
     _accepted_bases = (
         _decimal_module.Decimal,
@@ -763,6 +828,10 @@ def _bundle_copy(bundle):
                     for accessor in (item.fget, item.fset, item.fdel):
                         if accessor is not None:
                             pending.append(accessor)
+                elif isinstance(item, slice):
+                    for component in (item.start, item.stop, item.step):
+                        if component is not None:
+                            pending.append(component)
                 elif isinstance(
                     item,
                     (
@@ -868,9 +937,24 @@ def _bundle_copy(bundle):
                         pending.extend(
                             item.__annotations__.values()
                         )
+                    globals_map = item.__globals__
+                    if (
+                        isinstance(globals_map, dict)
+                        and id(globals_map) not in seen
+                    ):
+                        seen.add(id(globals_map))
+                        pending.extend(_globals_walk_values(item))
                 elif isinstance(item, _types_module.MethodType):
                     pending.append(item.__self__)
                     pending.append(item.__func__)
+                elif isinstance(item, property):
+                    for accessor in (item.fget, item.fset, item.fdel):
+                        if accessor is not None:
+                            pending.append(accessor)
+                elif isinstance(item, slice):
+                    for component in (item.start, item.stop, item.step):
+                        if component is not None:
+                            pending.append(component)
                 elif isinstance(
                     item,
                     (
@@ -975,6 +1059,13 @@ def _bundle_copy(bundle):
                         pending.extend(
                             item.__annotations__.values()
                         )
+                    globals_map = item.__globals__
+                    if (
+                        isinstance(globals_map, dict)
+                        and id(globals_map) not in seen
+                    ):
+                        seen.add(id(globals_map))
+                        pending.extend(_globals_walk_values(item))
                 elif isinstance(item, _types_module.MethodType):
                     pending.append(item.__self__)
                     pending.append(item.__func__)
@@ -982,6 +1073,10 @@ def _bundle_copy(bundle):
                     for accessor in (item.fget, item.fset, item.fdel):
                         if accessor is not None:
                             pending.append(accessor)
+                elif isinstance(item, slice):
+                    for component in (item.start, item.stop, item.step):
+                        if component is not None:
+                            pending.append(component)
                 elif isinstance(
                     item,
                     (
@@ -1024,6 +1119,7 @@ def _bundle_copy(bundle):
                 defaults.extend(node.__kwdefaults__.values())
             if node.__annotations__:
                 defaults.extend(node.__annotations__.values())
+            defaults.extend(_globals_walk_values(node))
             for default in defaults:
                 if any(
                     id(part) in replacements
@@ -1033,7 +1129,29 @@ def _bundle_copy(bundle):
                     break
         return marked
 
-    def _function_with_copied_defaults(func, replacements=None):
+    def _copied_globals(func, replacements):
+        globals_map = func.__globals__
+        if not isinstance(globals_map, dict):
+            return None
+        changed = False
+        new_globals = dict(globals_map)
+        for key in globals_map:
+            if key == "__builtins__":
+                continue
+            value = globals_map[key]
+            if any(
+                id(part) in replacements
+                for part in _walk_nodes(value)
+            ):
+                new_globals[key] = _bundle_copy(value)
+                changed = True
+        if changed:
+            return new_globals
+        return None
+
+    def _function_with_copied_defaults(
+        func, replacements=None, new_globals=None
+    ):
         if func.__defaults__:
             new_defaults = tuple(
                 _bundle_copy(part) for part in func.__defaults__
@@ -1042,7 +1160,8 @@ def _bundle_copy(bundle):
             new_defaults = None
         built = _types_module.FunctionType(
             func.__code__,
-            func.__globals__,
+            new_globals if new_globals is not None
+            else func.__globals__,
             func.__name__,
             new_defaults,
             func.__closure__,
@@ -1083,6 +1202,27 @@ def _bundle_copy(bundle):
             pass
         return built
 
+    def _shape_subclass_carries_mutable_added(value):
+        if type(value) in _accepted_bases:
+            return False
+        if not isinstance(
+            value,
+            (
+                _decimal_module.Decimal,
+                _fractions_module.Fraction,
+                _datetime_module.datetime,
+                _ipaddress_module.IPv4Address,
+            ),
+        ):
+            return False
+        return not _instance_state_immutable(value, frozenset())
+
+    def _fallback_holds_mutable_added_shape(value):
+        for node in _walk_nodes(value):
+            if _shape_subclass_carries_mutable_added(node):
+                return True
+        return False
+
     _lock_type = type(_threading_module.Lock())
     _rlock_type = type(_threading_module.RLock())
     _condition_type = type(_threading_module.Condition())
@@ -1090,6 +1230,7 @@ def _bundle_copy(bundle):
     def _fallback_holds_uncopyable(value):
         pending = [value]
         seen = set()
+        globals_seen = set()
         while pending:
             item = pending.pop()
             if isinstance(
@@ -1101,6 +1242,11 @@ def _bundle_copy(bundle):
                     _condition_type,
                     _types_module.CellType,
                     _types_module.ModuleType,
+                    _types_module.FrameType,
+                    _types_module.TracebackType,
+                    _types_module.CoroutineType,
+                    _types_module.AsyncGeneratorType,
+                    _socket_module.socket,
                     classmethod,
                     staticmethod,
                 ),
@@ -1167,6 +1313,17 @@ def _bundle_copy(bundle):
                         pending.extend(item.__defaults__)
                     if item.__kwdefaults__:
                         pending.extend(item.__kwdefaults__.values())
+                    if item.__annotations__:
+                        pending.extend(
+                            item.__annotations__.values()
+                        )
+                    globals_map = item.__globals__
+                    if (
+                        isinstance(globals_map, dict)
+                        and id(globals_map) not in globals_seen
+                    ):
+                        globals_seen.add(id(globals_map))
+                        pending.extend(_globals_walk_values(item))
                 elif isinstance(item, _types_module.MethodType):
                     pending.append(item.__self__)
                     pending.append(item.__func__)
@@ -1174,6 +1331,10 @@ def _bundle_copy(bundle):
                     for accessor in (item.fget, item.fset, item.fdel):
                         if accessor is not None:
                             pending.append(accessor)
+                elif isinstance(item, slice):
+                    for component in (item.start, item.stop, item.step):
+                        if component is not None:
+                            pending.append(component)
                 elif isinstance(
                     item,
                     (
@@ -1543,18 +1704,66 @@ def _bundle_copy(bundle):
             )
         if _fallback_holds_uncopyable(current):
             raise ValueError("uncopyable value in bundle copy")
+        if _fallback_holds_mutable_added_shape(current):
+            raise ValueError(
+                "accepted shape subclass instance with mutable "
+                "added state in bundle copy"
+            )
         replacements = _fallback_replacements(current)
         if replacements:
             deep_memo = {}
             for marker, part in replacements.items():
                 deep_memo[marker] = _bundle_copy(part)
+            built_functions = {}
             for func in _functions_with_replacement_defaults(
                 current, replacements
             ):
-                deep_memo[id(func)] = _function_with_copied_defaults(
-                    func, replacements
+                built_functions[id(func)] = (
+                    _function_with_copied_defaults(
+                        func,
+                        replacements,
+                        _copied_globals(func, replacements),
+                    )
                 )
-            built = _copy_module.deepcopy(current, deep_memo)
+                deep_memo[id(func)] = built_functions[id(func)]
+            method_nodes = []
+            property_nodes = []
+            for node in _walk_nodes(current):
+                if isinstance(node, _types_module.MethodType):
+                    if id(node.__func__) in built_functions:
+                        method_nodes.append(node)
+                elif isinstance(node, property):
+                    accessors = (node.fget, node.fset, node.fdel)
+                    if any(
+                        accessor is not None
+                        and id(accessor) in built_functions
+                        for accessor in accessors
+                    ):
+                        property_nodes.append(node)
+            if method_nodes or property_nodes:
+                first_memo = dict(deep_memo)
+                _copy_module.deepcopy(current, first_memo)
+                for node in method_nodes:
+                    copied_self = first_memo.get(
+                        id(node.__self__), node.__self__
+                    )
+                    deep_memo[id(node)] = _types_module.MethodType(
+                        built_functions[id(node.__func__)],
+                        copied_self,
+                    )
+                for node in property_nodes:
+                    deep_memo[id(node)] = property(
+                        built_functions[id(node.fget)]
+                        if node.fget is not None else None,
+                        built_functions[id(node.fset)]
+                        if node.fset is not None else None,
+                        built_functions[id(node.fdel)]
+                        if node.fdel is not None else None,
+                        node.__doc__,
+                    )
+                built = _copy_module.deepcopy(current, deep_memo)
+            else:
+                built = _copy_module.deepcopy(current, deep_memo)
         else:
             built = _copy_module.deepcopy(current)
         memo[id(current)] = built
