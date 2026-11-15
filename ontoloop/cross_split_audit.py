@@ -564,21 +564,90 @@ def _is_index_pair_form(element):
     An element standing as a two element list, tuple,
     deque, or UserList with an integer standing in first
     place stands as an index pair of the form an
-    enumerate object yields.
+    enumerate object yields. An element standing as a
+    two element abstract Sequence, as a two element
+    general iterable container, or as a set or frozenset
+    holding an integer beside the pair it carries stands
+    as an index pair in the same way, in parity with the
+    pair reading, which reads each of those forms as a
+    pair in its own right. A dictionary view, a text
+    form, a byte form, a mapping, and an iterator each
+    stand in no index pair form here.
     """
-    return (
-        isinstance(
-            element,
-            (
-                list,
-                tuple,
-                _collections_module.deque,
-                _collections_module.UserList,
-            ),
+    if isinstance(
+        element,
+        (
+            str,
+            _UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+            _Mapping,
+            _ItemsView,
+            _KeysView,
+            _ValuesView,
+        ),
+    ):
+        return False
+    if isinstance(element, (set, frozenset)):
+        if len(element) != 2:
+            return False
+        return any(
+            isinstance(entry, int) for entry in element
+        ) and any(
+            not isinstance(entry, int) for entry in element
         )
-        and len(element) == 2
-        and isinstance(element[0], int)
-    )
+    if isinstance(
+        element,
+        (
+            list,
+            tuple,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ):
+        return len(element) == 2 and isinstance(element[0], int)
+    if isinstance(element, _Sequence):
+        try:
+            return len(element) == 2 and isinstance(
+                element[0], int
+            )
+        except Exception:
+            return False
+    if hasattr(element, "__next__"):
+        return False
+    if hasattr(element, "__iter__") or hasattr(
+        element, "__getitem__"
+    ):
+        try:
+            listed = list(element)
+        except Exception:
+            return False
+        return len(listed) == 2 and isinstance(listed[0], int)
+    return False
+
+
+def _index_pair_second(element):
+    """Return the item standing in second place of an index pair.
+
+    A set or frozenset index pair carries no order, so
+    the item it carries stands as its one element that
+    stands in no integer form. Any other index pair
+    stands read for the element its second place holds,
+    by indexed access where that access stands and by
+    its listed form where it does not.
+    """
+    if isinstance(element, (set, frozenset)):
+        for entry in element:
+            if not isinstance(entry, int):
+                return entry
+        return None
+    try:
+        return element[1]
+    except Exception:
+        return list(element)[1]
 
 
 def _enumerate_carried(element):
@@ -592,7 +661,12 @@ def _enumerate_carried(element):
     them, stand stripped in the same way until no index
     pair stands. An index pair standing in a deque form
     or a UserList form stands stripped in the same way,
-    and an index pair standing in an iterator form, a
+    and an index pair standing in an abstract Sequence
+    form, in a general iterable container form, or in a
+    set or frozenset form stands stripped in the same
+    way, the set forms carrying no order between the
+    integer and the pair they carry, and an index pair
+    standing in an iterator form, a
     generator, a map object, or a list iterator among
     them, each yielding the one index pair, stands
     stripped in the same way, the iterator standing
@@ -605,14 +679,14 @@ def _enumerate_carried(element):
     """
     while True:
         if _is_index_pair_form(element):
-            element = element[1]
+            element = _index_pair_second(element)
             continue
         if (
             isinstance(element, (list, tuple))
             and len(element) == 1
             and _is_index_pair_form(element[0])
         ):
-            element = element[0][1]
+            element = _index_pair_second(element[0])
             continue
         if hasattr(element, "__next__") and hasattr(
             element, "__iter__"
@@ -621,7 +695,7 @@ def _enumerate_carried(element):
             if len(listed) == 1 and _is_index_pair_form(
                 listed[0]
             ):
-                element = listed[0][1]
+                element = _index_pair_second(listed[0])
                 continue
             if _is_index_pair_form(listed):
                 element = listed[1]
@@ -671,7 +745,10 @@ def _pairs_position_elements(value):
         return listed
     if isinstance(value, _ItemsView):
         pairs = []
-        for _key, inner in value:
+        entries = _chain_map_items_entries(value)
+        if entries is None:
+            entries = list(value)
+        for _key, inner in entries:
             carried = _enumerate_carried(inner)
             if isinstance(carried, _ItemsView):
                 pairs.extend(_pairs_position_elements(carried))
@@ -1277,13 +1354,36 @@ def _carries_nested_mapping(listed):
     a tuple, a deque, a UserList, a set, or a frozenset
     among them, stands as carrying one where any element
     it carries stands as one or carries one in the same
-    way, at any depth the presentation nests it.
+    way, at any depth the presentation nests it. An
+    element standing in a dictionary view form, in an
+    iterator form, or in any other iterable form stands
+    as carrying one in the same way, on the elements the
+    form carries, an items view standing read for the
+    entries it yields, whose elements stand in the entry
+    tuples the view yields, so a nested mapping standing
+    inside a carrier form, or inside a second carrier
+    form the first carrier carries, stands reached in
+    the same way.
     """
     for element in listed:
         if isinstance(element, _Mapping) and not any(
             key in element for key in _ITEM_FIELD_KEYS
         ) and _pair_elements(element) is None:
             return True
+        if isinstance(
+            element,
+            (
+                str,
+                _UserString,
+                bytes,
+                bytearray,
+                memoryview,
+                _array_module.array,
+                range,
+                _Mapping,
+            ),
+        ):
+            continue
         if isinstance(
             element,
             (
@@ -1296,7 +1396,102 @@ def _carries_nested_mapping(listed):
             ),
         ) and _carries_nested_mapping(list(element)):
             return True
+        if hasattr(element, "__next__") or hasattr(
+            element, "__iter__"
+        ):
+            try:
+                children = list(element)
+            except Exception:
+                continue
+            if _carries_nested_mapping(children):
+                return True
     return False
+
+
+def _carrier_relisted_form(element):
+    """Return a re-readable form of a carrier element.
+
+    An element standing as an iterator stands listed
+    once in this reading, the list holding the relisted
+    forms of the items it yields, so a later reading of
+    the returned form stands over the same items and no
+    presented item stands consumed by an earlier read.
+    An element standing in a re-readable container or
+    view form stands rebuilt in a list of its relisted
+    elements where any element it carries stands
+    relisted, and stands as it stands where none does,
+    so a form carrying no iterator keeps its standing
+    presentation. A text form, a byte form, a mapping,
+    and any other element standing in no carrier form
+    stands as it stands.
+    """
+    if isinstance(
+        element,
+        (
+            str,
+            _UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+            _Mapping,
+        ),
+    ):
+        return element
+    if hasattr(element, "__next__"):
+        return [
+            _carrier_relisted_form(inner)
+            for inner in list(element)
+        ]
+    if isinstance(element, _ItemsView):
+        entries = [
+            (key, _carrier_relisted_form(inner))
+            for key, inner in element
+        ]
+        if all(
+            new_inner is old_inner
+            for (_key, new_inner), (_old_key, old_inner) in zip(
+                entries, list(element)
+            )
+        ):
+            return element
+        return entries
+    if isinstance(element, (_ValuesView, _KeysView)):
+        listed = [
+            _carrier_relisted_form(inner) for inner in element
+        ]
+        if all(
+            new is old for new, old in zip(listed, list(element))
+        ):
+            return element
+        return listed
+    if isinstance(
+        element,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ) or isinstance(
+        element, (_Sequence, _Set)
+    ) or hasattr(
+        element, "__iter__"
+    ) or hasattr(
+        element, "__getitem__"
+    ):
+        try:
+            raw = list(element)
+        except Exception:
+            return element
+        listed = [_carrier_relisted_form(inner) for inner in raw]
+        if all(new is old for new, old in zip(listed, raw)):
+            return element
+        return listed
+    return element
 
 
 def _mapping_position_material(values):
@@ -1315,8 +1510,13 @@ def _mapping_position_material(values):
     it carries, at any depth the presentation nests it,
     stands read in the same way for the material the
     nested mapping carries, the form standing listed once
-    in that reading where it stands as an iterator. Any
-    other value stands as it stands.
+    in that reading where it stands as an iterator. A
+    value standing as a dictionary view form carrying a
+    nested mapping stands read in the same way, a values
+    view for the values it views, a keys view for the
+    keys it views, and an items view for the values its
+    entries carry, beside any entry key standing itself
+    as a mapping. Any other value stands as it stands.
     """
     expanded = []
     for value in values:
@@ -1325,6 +1525,19 @@ def _mapping_position_material(values):
         ) and _pair_elements(value) is None:
             expanded.extend(
                 _mapping_position_material(list(value.values()))
+            )
+        elif isinstance(value, (_ValuesView, _KeysView)):
+            expanded.extend(
+                _mapping_position_material(list(value))
+            )
+        elif isinstance(value, _ItemsView):
+            collected = []
+            for entry_key, inner in value:
+                if isinstance(entry_key, _Mapping):
+                    collected.append(entry_key)
+                collected.append(inner)
+            expanded.extend(
+                _mapping_position_material(collected)
             )
         elif isinstance(
             value,
@@ -1349,12 +1562,21 @@ def _mapping_position_material(values):
             value, "__next__"
         ):
             is_iterator = hasattr(value, "__next__")
-            listed = list(value)
+            raw_listed = list(value)
+            listed = [
+                _carrier_relisted_form(element)
+                for element in raw_listed
+            ]
             if _carries_nested_mapping(listed):
                 expanded.append(
                     _mapping_position_material(listed)
                 )
             elif is_iterator:
+                expanded.append(listed)
+            elif any(
+                new is not old
+                for new, old in zip(listed, raw_listed)
+            ):
                 expanded.append(listed)
             else:
                 expanded.append(value)
@@ -1377,6 +1599,83 @@ def _is_pair_side_item(value):
     ) or _is_byte_like(value)
 
 
+def _chain_map_items_entries(value):
+    """Return the entries of a ChainMap items view in maps order.
+
+    An items view of a ChainMap yields its entries in
+    the reverse of the order of its maps, as the ruling
+    527 reading records for the same position. The
+    entries of such a view therefore stand listed in
+    the order of its maps in this reading, a key standing
+    in an earlier map standing for the entry that map
+    presents where a later map carries the same key. An
+    items view over any other mapping stands in no form
+    here and returns None, so the standing view order
+    listing decides it.
+    """
+    underlying = getattr(value, "_mapping", None)
+    if not isinstance(
+        underlying, _collections_module.ChainMap
+    ):
+        return None
+    seen = set()
+    entries = []
+    for chained in underlying.maps:
+        for key, inner in chained.items():
+            if key in seen:
+                continue
+            seen.add(key)
+            entries.append((key, inner))
+    return entries
+
+
+def _chain_map_view_sides(value):
+    """Return the two sides a ChainMap dictionary view carries.
+
+    A dictionary view of a ChainMap yields its entries
+    in the reverse of the order of its maps, the order
+    its sides stand presented, as the ruling 527 reading
+    records for the mapping form of the same position.
+    A view standing over a ChainMap therefore stands
+    read in the order of its maps in this reading: a
+    keys view for the keys its maps carry in maps order,
+    and a values view or an items view for the values
+    its maps carry in maps order, a key standing in an
+    earlier map standing for the entry that map presents
+    where a later map carries the same key. A view over
+    any other mapping, and a ChainMap view carrying any
+    count of sides but two, stands in no form here and
+    returns None, so the standing view order reading
+    decides it.
+    """
+    underlying = getattr(value, "_mapping", None)
+    if not isinstance(
+        underlying, _collections_module.ChainMap
+    ):
+        return None
+    seen = set()
+    sides = []
+    if isinstance(value, _KeysView):
+        for chained in underlying.maps:
+            for key in chained:
+                if key in seen:
+                    continue
+                seen.add(key)
+                sides.append(key)
+    elif isinstance(value, (_ValuesView, _ItemsView)):
+        for chained in underlying.maps:
+            for key, inner in chained.items():
+                if key in seen:
+                    continue
+                seen.add(key)
+                sides.append(inner)
+    else:
+        return None
+    if len(sides) == 2:
+        return sides[0], sides[1]
+    return None
+
+
 def _single_pair_sides(value):
     """Return the two sides a single pair position value carries.
 
@@ -1388,17 +1687,27 @@ def _single_pair_sides(value):
     value standing as a dictionary keys view, whose pair
     reading stands in no pair form in the same way,
     stands read for the two keys it views, in parity with
-    the values view form. A value standing in a container
+    the values view form. A value standing as a dictionary
+    view of a ChainMap stands read for the pair it carries
+    in the order of its maps, in parity with the maps
+    order reading the mapping form of the same position
+    receives. A value standing in a container
     form that iterates by indexed access alone stands
     read for the two elements its indexed access yields,
     in the same form.
     """
     if isinstance(value, _KeysView):
+        chain_sides = _chain_map_view_sides(value)
+        if chain_sides is not None:
+            return chain_sides
         listed = list(value)
         if len(listed) == 2:
             return listed[0], listed[1]
         return None
     if isinstance(value, _ItemsView):
+        chain_sides = _chain_map_view_sides(value)
+        if chain_sides is not None:
+            return chain_sides
         carried = [
             _enumerate_carried(inner) for _key, inner in value
         ]
@@ -1406,6 +1715,9 @@ def _single_pair_sides(value):
             return carried[0], carried[1]
         return None
     if isinstance(value, _ValuesView):
+        chain_sides = _chain_map_view_sides(value)
+        if chain_sides is not None:
+            return chain_sides
         listed = list(value)
         if len(listed) == 2:
             return listed[0], listed[1]
@@ -1537,6 +1849,112 @@ def _direct_bundle_extra_holdout(bundle):
     return extra
 
 
+def _nested_mapping_from_value(value):
+    """Return the nested mapping a wrapped form carries, or None.
+
+    A mapping carrying no item field of its own stands
+    as the nested mapping it stands as. A dictionary
+    view stands read for the nested mapping its elements
+    carry, an items view standing read as the mapping
+    its entries rebuild where every entry carries one.
+    Any other container, iterator, Sequence, Set, or
+    iterable form stands read for the nested mapping
+    standing in the elements it carries, through the
+    listed form reading below. A text form, a byte form,
+    and a mapping carrying an item field of its own each
+    stand in no nested mapping form here.
+    """
+    if isinstance(value, _Mapping):
+        if not any(
+            field in value for field in _ITEM_FIELD_KEYS
+        ):
+            return value
+        return None
+    if isinstance(
+        value,
+        (
+            str,
+            _UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+        ),
+    ):
+        return None
+    if isinstance(value, _ItemsView):
+        entries = list(value)
+        if entries and all(
+            isinstance(inner, _Mapping)
+            and not any(
+                field in inner for field in _ITEM_FIELD_KEYS
+            )
+            for _entry_key, inner in entries
+        ):
+            return dict(entries)
+        return _nested_mapping_from_listed(
+            [inner for _entry_key, inner in entries]
+        )
+    if isinstance(value, (_ValuesView, _KeysView)):
+        return _nested_mapping_from_listed(list(value))
+    if (
+        hasattr(value, "__next__")
+        or hasattr(value, "__iter__")
+        or hasattr(value, "__getitem__")
+    ):
+        try:
+            listed = list(value)
+        except Exception:
+            return None
+        return _nested_mapping_from_listed(listed)
+    return None
+
+
+def _nested_mapping_from_listed(listed):
+    """Return the nested mapping a listed form carries, or None.
+
+    A listed form holding the one element stands read
+    for the nested mapping that element carries, in the
+    reading above, at any depth the presentation nests
+    it. A listed form standing as an enumerate index
+    pair, an integer standing in first place beside the
+    element it carries, stands read for the nested
+    mapping its second element carries, in the same way.
+    Any other listed form stands in no nested mapping
+    form here.
+    """
+    if len(listed) == 1:
+        return _nested_mapping_from_value(listed[0])
+    if len(listed) == 2 and isinstance(listed[0], int):
+        return _nested_mapping_from_value(listed[1])
+    return None
+
+
+def _wrapped_probe(listed):
+    """Probe a listed wrapped form for the mapping it carries.
+
+    The listed elements stand relisted in the carrier
+    relisted form first, so an iterator element stands
+    held in its listed form and no element stands
+    consumed by the probe where the form carries no
+    nested mapping. Returns the nested mapping the form
+    carries or None, the relisted form, and whether any
+    element stands relisted, so a form the probe changed
+    stands replaced by its relisted form where it
+    carries no nested mapping, in the standing form of
+    the generator limb of the wrapped position reading.
+    """
+    relisted = [
+        _carrier_relisted_form(element) for element in listed
+    ]
+    nested = _nested_mapping_from_listed(relisted)
+    changed = any(
+        new is not old for new, old in zip(relisted, listed)
+    )
+    return nested, relisted, changed
+
+
 def _wrapped_nested_position_material(material):
     """Return the bundle with a wrapped nested position read.
 
@@ -1554,6 +1972,15 @@ def _wrapped_nested_position_material(material):
     rebuild, and a tuple, a deque, or a generator holding
     the one nested mapping stands read as that mapping,
     a generator standing listed once in that reading.
+    A position standing wrapped in a list, a UserList, a
+    set, a frozenset, a zip, or an enumerate form, or
+    standing one container deeper inside a list holding
+    a list, a tuple holding a tuple, a double tuple, a
+    double deque, or a deque inside a tuple, stands read
+    as the nested mapping it carries in the same way,
+    through the nested mapping reading above, a zip
+    object standing read for the tuple it yields and an
+    enumerate object for the pair it yields.
     A position standing in any other form stands as it
     stands, a generator position standing listed once
     where it stands consumed by this reading and stands
@@ -1587,18 +2014,66 @@ def _wrapped_nested_position_material(material):
                 for _entry_key, inner in entries
             ):
                 replacement = dict(entries)
+        elif isinstance(value, _KeysView):
+            nested, relisted, changed = _wrapped_probe(
+                list(value)
+            )
+            if nested is not None:
+                replacement = nested
+            elif changed:
+                replacement = relisted
+        elif isinstance(
+            value,
+            (
+                str,
+                _UserString,
+                bytes,
+                bytearray,
+                memoryview,
+                _array_module.array,
+                range,
+                _Mapping,
+            ),
+        ):
+            replacement = None
         elif isinstance(
             value, (tuple, _collections_module.deque)
         ) or hasattr(value, "__next__"):
             listed = list(value)
-            if len(listed) == 1 and isinstance(
-                listed[0], _Mapping
-            ) and not any(
-                field in listed[0] for field in _ITEM_FIELD_KEYS
-            ):
-                replacement = listed[0]
+            nested, relisted, changed = _wrapped_probe(listed)
+            if nested is not None:
+                replacement = nested
             elif hasattr(value, "__next__"):
-                replacement = listed
+                replacement = relisted
+            elif changed:
+                replacement = relisted
+        elif isinstance(
+            value,
+            (
+                list,
+                _collections_module.UserList,
+                set,
+                frozenset,
+            ),
+        ) or isinstance(
+            value, (_Sequence, _Set)
+        ) or hasattr(
+            value, "__iter__"
+        ) or hasattr(
+            value, "__getitem__"
+        ):
+            try:
+                listed = list(value)
+            except Exception:
+                listed = None
+            if listed is not None:
+                nested, relisted, changed = _wrapped_probe(
+                    listed
+                )
+                if nested is not None:
+                    replacement = nested
+                elif changed:
+                    replacement = relisted
         if replacement is not None:
             if copied is None:
                 copied = dict(material)
