@@ -727,7 +727,32 @@ def _bundle_copy(bundle):
     object, a writer object of the csv module, or a
     context manager object of the decimal module
     standing inside such a value stands refused in
-    the same form.
+    the same form, and a reader object or a DictReader
+    object of the csv module, a parser object of the
+    pyexpat module, an Unpickler object of the pickle
+    module in its compiled form, a Blob object of the
+    sqlite3 module, a secure socket object of the ssl
+    module, a getset descriptor object, a super object,
+    a variable object of the contextvars module, a
+    decoder object or a scanner object of the json
+    module, the synchronisation and process forms of
+    the multiprocessing module, a logger object of
+    the logging module, or a connection object of
+    the multiprocessing module standing inside such
+    a value stands refused in the same form, and a
+    pointer bearing form of the ctypes module, a
+    character pointer, a wide character pointer, or
+    a void pointer value, a callback object, an array
+    standing over pointer elements, or a structure
+    or union carrying a pointer bearing field
+    standing inside such a value stands refused in
+    the same form, and an uncopyable value standing
+    as an element of an iterator, or standing in
+    the arguments an exception object carries,
+    standing inside such a value stands refused in
+    the same form, the iterator reading standing in
+    a form that spends no element of a single pass
+    form the act records.
     A dictionary view standing at
     any position copies as a fresh list of copies of
     the material it carries, an items view as a fresh
@@ -797,7 +822,13 @@ def _bundle_copy(bundle):
     import hmac as _hmac_module
     import io as _io_module
     import ipaddress as _ipaddress_module
+    import json as _json_module
+    import logging as _logging_module
     import mmap as _mmap_module
+    import multiprocessing as _multiprocessing_module
+    import multiprocessing.connection as _mp_connection_module
+    import multiprocessing.process as _mp_process_module
+    import multiprocessing.synchronize as _mp_synchronize_module
     import os as _os_module
     import pathlib as _pathlib_module
     import pickle as _pickle_module
@@ -813,7 +844,17 @@ def _bundle_copy(bundle):
     import uuid as _uuid_module
     import weakref as _weakref_module
     import xml.etree.ElementTree as _xml_module
+    import xml.parsers.expat as _expat_module
     import zoneinfo as _zoneinfo_module
+
+    try:
+        import _ctypes as _ctypes_private_module
+    except Exception:
+        _ctypes_private_module = None
+    try:
+        import _multiprocessing as _multiprocessing_private_module
+    except Exception:
+        _multiprocessing_private_module = None
 
     def _is_atom(value):
         return value is None or type(value) in (
@@ -1625,6 +1666,140 @@ def _bundle_copy(bundle):
         _decimal_module.localcontext()
     )
     _dbm_type_identities = (("_dbm", "dbm"), ("_gdbm", "gdbm"))
+    _csv_reader_type = type(
+        _csv_module.reader(_io_module.StringIO())
+    )
+    _expat_parser_type = type(_expat_module.ParserCreate())
+    _unpickler_type = type(
+        _pickle_module.Unpickler(_io_module.BytesIO(b""))
+    )
+    _json_scanner_type = type(_json_module.JSONDecoder().scan_once)
+    _semlock_type = (
+        getattr(
+            _multiprocessing_private_module, "SemLock", None
+        )
+        if _multiprocessing_private_module is not None
+        else None
+    )
+    _extra_uncopyable_types = tuple(
+        kind
+        for kind in (
+            _csv_reader_type,
+            _csv_module.DictReader,
+            _expat_parser_type,
+            _unpickler_type,
+            _sqlite3_module.Blob,
+            _ssl_module.SSLObject,
+            getattr(_ssl_module, "_SSLSocket", None),
+            getattr(_types_module, "GetSetDescriptorType", None),
+            super,
+            _contextvars_module.ContextVar,
+            _json_module.JSONDecoder,
+            _json_scanner_type,
+            _semlock_type,
+            _mp_synchronize_module.Lock,
+            _mp_synchronize_module.Semaphore,
+            _mp_synchronize_module.BoundedSemaphore,
+            _mp_synchronize_module.Event,
+            _mp_synchronize_module.Condition,
+            _mp_process_module.BaseProcess,
+            _mp_connection_module.Connection,
+            _logging_module.Logger,
+        )
+        if kind is not None
+    )
+    _cfunc_ptr_type = (
+        getattr(_ctypes_private_module, "CFuncPtr", None)
+        if _ctypes_private_module is not None
+        else None
+    )
+    _ctypes_pointer_value_types = (
+        _ctypes_module.c_char_p,
+        _ctypes_module.c_wchar_p,
+        _ctypes_module.c_void_p,
+    )
+
+    def _ctypes_type_bearing(kind, seen=None):
+        if not isinstance(kind, type):
+            return False
+        if kind in _ctypes_pointer_value_types:
+            return True
+        if seen is None:
+            seen = set()
+        if kind in seen:
+            return False
+        seen = seen | {kind}
+        try:
+            if _pointer_type is not None and issubclass(
+                kind, _pointer_type
+            ):
+                return True
+            if _cfunc_ptr_type is not None and issubclass(
+                kind, _cfunc_ptr_type
+            ):
+                return True
+            if issubclass(kind, _ctypes_module.Array):
+                return _ctypes_type_bearing(
+                    getattr(kind, "_type_", None), seen
+                )
+            if issubclass(
+                kind,
+                (_ctypes_module.Structure, _ctypes_module.Union),
+            ):
+                return any(
+                    _ctypes_type_bearing(field[1], seen)
+                    for field in getattr(kind, "_fields_", [])
+                    if len(field) > 1
+                )
+        except Exception:
+            return False
+        return False
+
+    def _ctypes_value_bearing(value):
+        if isinstance(value, _ctypes_pointer_value_types):
+            return True
+        if _cfunc_ptr_type is not None and isinstance(
+            value, _cfunc_ptr_type
+        ):
+            return True
+        if isinstance(value, _ctypes_module.Array):
+            if _ctypes_type_bearing(
+                getattr(type(value), "_type_", None)
+            ):
+                return True
+            try:
+                return any(
+                    _ctypes_value_bearing(element)
+                    for element in list(value)
+                )
+            except Exception:
+                return False
+        if isinstance(
+            value, (_ctypes_module.Structure, _ctypes_module.Union)
+        ):
+            fields = getattr(type(value), "_fields_", [])
+            for field in fields:
+                if len(field) > 1 and _ctypes_type_bearing(field[1]):
+                    return True
+                try:
+                    carried = getattr(value, field[0])
+                except Exception:
+                    continue
+                if _pointer_type is not None and isinstance(
+                    carried, _pointer_type
+                ):
+                    return True
+                if isinstance(
+                    carried,
+                    (
+                        _ctypes_module.Array,
+                        _ctypes_module.Structure,
+                        _ctypes_module.Union,
+                    ),
+                ) and _ctypes_value_bearing(carried):
+                    return True
+            return False
+        return False
 
     def _fallback_holds_uncopyable(value):
         pending = [value]
@@ -1694,6 +1869,10 @@ def _bundle_copy(bundle):
                 type(item).__module__, type(item).__name__
             ) in _dbm_type_identities:
                 return True
+            if isinstance(item, _extra_uncopyable_types):
+                return True
+            if _ctypes_value_bearing(item):
+                return True
             if isinstance(item, _io_module.IOBase) and not isinstance(
                 item, (_io_module.BytesIO, _io_module.StringIO)
             ):
@@ -1705,6 +1884,11 @@ def _bundle_copy(bundle):
             if id(item) in seen:
                 continue
             seen.add(id(item))
+            if isinstance(item, _abc_module.Iterator):
+                try:
+                    _copy_module.deepcopy(item)
+                except Exception:
+                    return True
             try:
                 if isinstance(item, dict):
                     pending.extend(item.keys())
@@ -1798,6 +1982,8 @@ def _bundle_copy(bundle):
             mapping = getattr(item, "__dict__", None)
             if isinstance(mapping, dict):
                 pending.append(mapping)
+            if isinstance(item, BaseException):
+                pending.extend(item.args)
             for klass in type(item).__mro__:
                 slots = klass.__dict__.get("__slots__")
                 if not slots:
