@@ -999,6 +999,47 @@ class TestPromoteR2Pro1(unittest.TestCase):
             self.assertEqual(over["bound_after"], bound)
             self.assertFalse(over["act_blocked"])
 
+    def test_refusal_at_domain_bounds_beyond_the_further_values(self):
+        module = require("ontoloop.promote")
+        cases = [
+            (0.9999999999, "unknown reuse warning bound: 0.9999999999"),
+            (-1000000, "unknown reuse warning bound: -1000000"),
+            (0.0000001, "unknown reuse warning bound: 1e-07"),
+            (0.99999999999, "unknown reuse warning bound: 0.99999999999"),
+            (-8, "unknown reuse warning bound: -8"),
+            (-999999, "unknown reuse warning bound: -999999"),
+            (0.4, "unknown reuse warning bound: 0.4"),
+            (0.7, "unknown reuse warning bound: 0.7"),
+        ]
+        for bound, message in cases:
+            with self.assertRaises(ValueError) as caught:
+                module.reuse_warning_at_count(bound, bound=bound)
+            self.assertEqual(str(caught.exception), message)
+
+    def test_firing_at_domain_bounds_beyond_the_further_bounds(self):
+        module = require("ontoloop.promote")
+        cases = [
+            (28, 21, 20, 21),
+            (32, 24, 23, 24),
+            (34, 25, 24, 25),
+            (35, 26, 25, 26),
+            (36, 27, 26, 27),
+            (100002, 75001, 75000, 75001),
+            (1000001, 750000, 749999, 750000),
+            (10000000, 7500000, 7499999, 7500000),
+        ]
+        for bound, point, below, at in cases:
+            under = module.reuse_warning_at_count(below, bound=bound)
+            self.assertFalse(under["fired"])
+            self.assertEqual(under["firing_point_count"], point)
+            self.assertEqual(under["bound_after"], bound)
+            self.assertFalse(under["act_blocked"])
+            over = module.reuse_warning_at_count(at, bound=bound)
+            self.assertTrue(over["fired"])
+            self.assertEqual(over["firing_point_count"], point)
+            self.assertEqual(over["bound_after"], bound)
+            self.assertFalse(over["act_blocked"])
+
 
 # ------------------------------------------------------------------
 # Subsection 19.37, the warning act: age form.
