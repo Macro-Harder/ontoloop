@@ -441,7 +441,14 @@ def _bundle_copy(bundle):
     itself carries for that object elsewhere in the
     bundle, and two rebuilt functions sharing one
     globals mapping stand over one copied globals
-    mapping. A property carrying a clean accessor
+    mapping, the globals cache and the method
+    landing memo standing carried at the level of
+    the one copy act, across the root values of the
+    one bundle, at the top level mapping values, at
+    the list and tuple elements, in the separate
+    holders, at the nested mapping values, and at
+    the bound method limb standing as two separate
+    values. A property carrying a clean accessor
     beside a rebuilt accessor stands recorded over
     the rebuilt form of each accessor that stands
     rebuilt and the caller form of each present
@@ -464,7 +471,12 @@ def _bundle_copy(bundle):
     the ssl module, or an epoll object of the select
     module standing inside such a value stands
     refused in the same form as the generator and
-    the lock. A dictionary view standing at
+    the lock, and a poll object of the select
+    module, a cursor object of the sqlite3 module,
+    a hash object of the hashlib module, or an HMAC
+    object of the hmac module standing inside such
+    a value stands refused in the same form.
+    A dictionary view standing at
     any position copies as a fresh list of copies of
     the material it carries, an items view as a fresh
     list of copies of its pairs, and a mapping proxy
@@ -526,6 +538,8 @@ def _bundle_copy(bundle):
     import enum as _enum_module
     import fractions as _fractions_module
     import functools as _functools_module
+    import hashlib as _hashlib_module
+    import hmac as _hmac_module
     import io as _io_module
     import ipaddress as _ipaddress_module
     import mmap as _mmap_module
@@ -1320,6 +1334,13 @@ def _bundle_copy(bundle):
     _condition_type = type(_threading_module.Condition())
     _thread_local_type = type(_threading_module.local())
     _epoll_type = getattr(_select_module, "epoll", None)
+    _poll_type = (
+        type(_select_module.poll())
+        if hasattr(_select_module, "poll") else None
+    )
+    _cursor_type = _sqlite3_module.Cursor
+    _hash_type = type(_hashlib_module.sha256())
+    _hmac_type = _hmac_module.HMAC
 
     def _fallback_holds_uncopyable(value):
         pending = [value]
@@ -1343,6 +1364,9 @@ def _bundle_copy(bundle):
                     _socket_module.socket,
                     _thread_local_type,
                     _sqlite3_module.Connection,
+                    _cursor_type,
+                    _hash_type,
+                    _hmac_type,
                     memoryview,
                     _mmap_module.mmap,
                     _contextvars_module.Context,
@@ -1354,6 +1378,10 @@ def _bundle_copy(bundle):
                 return True
             if _epoll_type is not None and isinstance(
                 item, _epoll_type
+            ):
+                return True
+            if _poll_type is not None and isinstance(
+                item, _poll_type
             ):
                 return True
             if isinstance(item, _io_module.IOBase) and not isinstance(
@@ -1492,6 +1520,8 @@ def _bundle_copy(bundle):
 
     memo = {}
     in_progress = set()
+    act_globals_cache = {}
+    act_landing_memo = {}
     results = []
     stack = [(bundle, False, None, None, 0)]
     while stack:
@@ -1819,14 +1849,21 @@ def _bundle_copy(bundle):
             )
         replacements = _fallback_replacements(current)
         if replacements:
-            deep_memo = {}
+            deep_memo = dict(act_landing_memo)
             for marker, part in replacements.items():
-                deep_memo[marker] = _bundle_copy(part)
+                if marker not in deep_memo:
+                    deep_memo[marker] = _bundle_copy(part)
             built_functions = {}
-            globals_cache = {}
+            globals_cache = act_globals_cache
             for func in _functions_with_replacement_defaults(
                 current, replacements
             ):
+                if id(func) in act_landing_memo:
+                    built_functions[id(func)] = act_landing_memo[
+                        id(func)
+                    ]
+                    deep_memo[id(func)] = built_functions[id(func)]
+                    continue
                 built_functions[id(func)] = (
                     _function_with_copied_defaults(
                         func,
@@ -1876,8 +1913,9 @@ def _bundle_copy(bundle):
                 built = _copy_module.deepcopy(current, deep_memo)
             else:
                 built = _copy_module.deepcopy(current, deep_memo)
+            act_landing_memo.update(deep_memo)
         else:
-            built = _copy_module.deepcopy(current)
+            built = _copy_module.deepcopy(current, act_landing_memo)
         memo[id(current)] = built
         results.append(built)
     return results[0]
