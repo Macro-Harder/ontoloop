@@ -163,6 +163,16 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         with_tuple_records = module.resolve_dispute(
             disputed=False,
             journal_records=("journal record one", "journal record two"))
+        second_with_tuple_records = module.resolve_dispute(
+            disputed=False,
+            journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(with_tuple_records, second_with_tuple_records)
+        self.assertIsNot(
+            with_tuple_records["reconstructed_material"],
+            second_with_tuple_records["reconstructed_material"])
+        self.assertIsNot(
+            with_tuple_records["material_read"],
+            second_with_tuple_records["material_read"])
         self.assertIsNone(with_tuple_records["first_act"])
         self.assertIs(with_tuple_records["recollection_relied_on"], False)
         self.assertIs(with_tuple_records["journal_reconstructed"], False)
@@ -357,6 +367,11 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         first_return = module.incident_append_order()
         second_return = module.incident_append_order()
         self.assertIsNot(first_return, second_return)
+        first_tuple_return = module.incident_append_order(
+            acts=("stop append", "purge append", "repair verification"))
+        second_tuple_return = module.incident_append_order(
+            acts=("stop append", "purge append", "repair verification"))
+        self.assertIsNot(first_tuple_return, second_tuple_return)
         order = list(module.incident_append_order())
         self.assertEqual(
             set(order),
@@ -505,10 +520,16 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         companion_stop["effective_on_loading"] = False
         companion = module.discovery_after_stop(
             companion_stop, bundle=bundle)
+        second_companion = module.discovery_after_stop(
+            companion_stop, bundle=bundle)
+        self.assertIsNot(companion, second_companion)
         self.assertEqual(companion["promotion"], bundle)
         self.assertEqual(companion["bundle"], bundle)
         differing = module.discovery_after_stop(
             stop, bundle="another bundle passed to the call")
+        second_differing = module.discovery_after_stop(
+            stop, bundle="another bundle passed to the call")
+        self.assertIsNot(differing, second_differing)
         self.assertEqual(differing["bundle"], bundle)
 
     def test_loading_stop_record_boundary_and_journal_landing(self):
@@ -531,6 +552,7 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         landed = module.journal_record_after_append(stop, store={})
         second_landed = module.journal_record_after_append(stop, store={})
         self.assertIsNot(landed, second_landed)
+        self.assertIsNot(landed["stop"], second_landed["stop"])
         self.assertIs(landed["journal_record_landed"], False)
         self.assertEqual(landed["stop"], stop)
         self.assertIsNot(landed["stop"], stop)
@@ -545,6 +567,7 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         second_landed = module.journal_record_after_append(
             stop, store=appending_store)
         self.assertIsNot(landed, second_landed)
+        self.assertIsNot(landed["stop"], second_landed["stop"])
         self.assertIs(landed["journal_record_landed"], True)
         self.assertEqual(landed["stop"], stop)
         self.assertIsNot(landed["stop"], stop)
