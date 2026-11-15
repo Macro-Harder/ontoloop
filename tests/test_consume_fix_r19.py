@@ -325,8 +325,13 @@ class TestConsumeFixR19AddressStringForms(unittest.TestCase):
             _BracketDecProbe,
             _AtCapitalDecProbe,
         ):
-            with self.assertRaises(ValueError, msg=probe.__name__):
+            with self.assertRaises(ValueError) as caught:
                 module.load_with_hash_check(probe())
+            self.assertEqual(
+                str(caught.exception),
+                "digest cannot read material of type "
+                + probe.__name__,
+            )
 
     def test_ruling_728_grouped_commas_after_at_refused(self):
         module = require("ontoloop.consumption")
@@ -339,12 +344,24 @@ class TestConsumeFixR19AddressStringForms(unittest.TestCase):
 
     def test_ruling_728_uncovered_dress_nested_refused(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check([_DecNoAtProbe()])
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _DecNoAtProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check({"k": _HexNoMarkerProbe()})
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _HexNoMarkerProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check([_GroupedAtProbe()])
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _GroupedAtProbe",
+        )
 
     def test_ruling_728_covered_dress_still_refused(self):
         module = require("ontoloop.consumption")

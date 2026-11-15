@@ -1835,23 +1835,38 @@ def append_record(store, content, record_type="record"):
                     "SHA-256",
                 )
             store["manifest"] = new_manifest
-            signed = _sign_signature_object(
-                store.get("store_identity"),
-                store.get("founding_object_identity"),
-                digest,
-                _manifest_hash(new_manifest),
-                key,
-            )
-            store["signature_object"] = signed
-            store["anchor_staging_copy"] = _build_anchor_object(
-                store.get("store_identity"),
-                store.get("founding_object_identity"),
-                digest,
-                _manifest_hash(new_manifest),
-                new_manifest["record_count"],
-                new_manifest["head_store_sequence"],
-                signed["signature"],
-            )
+            # Fix round 20, ruling 801: a canonical refusal at
+            # the signing step of this act, over a store level
+            # field the canonical layer refuses, stands caught
+            # at this boundary in the same limb family as the
+            # signing key unavailable refusal, and returned in
+            # the refusal mapping form with the act rolled back
+            # whole below.
+            try:
+                signed = _sign_signature_object(
+                    store.get("store_identity"),
+                    store.get("founding_object_identity"),
+                    digest,
+                    _manifest_hash(new_manifest),
+                    key,
+                )
+                store["signature_object"] = signed
+                store["anchor_staging_copy"] = _build_anchor_object(
+                    store.get("store_identity"),
+                    store.get("founding_object_identity"),
+                    digest,
+                    _manifest_hash(new_manifest),
+                    new_manifest["record_count"],
+                    new_manifest["head_store_sequence"],
+                    signed["signature"],
+                )
+            except (_SigningKeyUnavailable, ValueError, TypeError):
+                del records[sequence - 1:]
+                store["manifest"] = old_manifest
+                store["signature_object"] = old_signature
+                store["anchor_staging_copy"] = old_anchor
+                store["key_slot"] = old_slot
+                return _key_unavailable_refusal()
         except _SigningKeyUnavailable:
             del records[sequence - 1:]
             store["manifest"] = old_manifest

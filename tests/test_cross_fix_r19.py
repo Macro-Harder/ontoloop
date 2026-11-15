@@ -401,7 +401,7 @@ class ContainerFormedKeyTests(unittest.TestCase):
                     }},
                     occasion=occasion)
                 self.assertTrue(result["fired"])
-                self.assertGreaterEqual(result["comparisons"], 1)
+                self.assertEqual(result["comparisons"], 2)
 
     def test_tuple_pair_key_inside_list_at_holdout_items_fires(self):
         check_fires(self, lambda: {"holdout_items": [

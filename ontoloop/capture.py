@@ -908,7 +908,21 @@ def capture_payload(case):
         }
     else:
         payload = case
-    measured = _measure_payload(payload)
+    # Fix round 20, ruling 802: deep finite nesting in a
+    # walked container form drives the byte form reading
+    # beneath the measurement to the interpreter limit; that
+    # RecursionError stands met here with the governed
+    # refusal in the standing refused form below.
+    try:
+        measured = _measure_payload(payload)
+    except RecursionError:
+        return {
+            "accepted": False,
+            "truncated": False,
+            "refused": True,
+            "truncation_written": False,
+            "partial_record_written": False,
+        }
     if measured["refused"]:
         return {
             "accepted": False,
