@@ -1229,27 +1229,87 @@ def _is_single_pass_iterable(value):
     """Return True where a value stands as a single pass iterable.
 
     A single pass iterable carries no next method of
-    its own, and its iter act returns one stored
-    iterator, the same object on every call, so the
-    iterable stands listed once only and a listing
-    spent on detection leaves nothing for a later
-    reading. Asking the value for its iterator twice
-    and comparing the two answers by identity detects
-    that form without listing it, because the asking
-    itself spends no element of the stored iterator.
-    A value whose iter act returns a fresh iterator on
-    each call stands re-iterable and stands apart.
+    its own and stands in no re-iterable container
+    form, so its substance stands listed once only:
+    its iter act may return one stored iterator, it
+    may return a fresh object on each call delegating
+    in its turn to one stored iterator, a generator
+    function yielding from a stored generator, a
+    generator expression, a map object, or a chain
+    object over one stored iterator among them, and
+    it may permit one iteration call only, raising on
+    a second call. No asking of its iter act stands
+    made here, because the asking itself may spend an
+    element of the stored iterator or exhaust the one
+    permitted call, so the form stands recognised by
+    its standing container forms alone. A value
+    standing in a re-iterable container form, a text
+    form, a byte form, a memoryview, an array, a
+    range, a mapping, a dictionary view, a list, a
+    tuple, a set, a frozenset, a deque, a UserList, an
+    abstract Sequence, or an abstract Set, stands
+    apart and stands read in its own form.
     """
+    import array as _array_module
+    import collections as _collections_module
+
     if hasattr(value, "__next__"):
         return False
     if not hasattr(value, "__iter__"):
         return False
-    try:
-        first = iter(value)
-        second = iter(value)
-    except Exception:
+    from collections.abc import (
+        ItemsView as _ItemsView,
+        KeysView as _KeysView,
+        Mapping as _Mapping,
+        Sequence as _Sequence,
+        Set as _Set,
+        ValuesView as _ValuesView,
+    )
+
+    if isinstance(
+        value,
+        (
+            str,
+            _collections_module.UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+            _Mapping,
+            _ItemsView,
+            _KeysView,
+            _ValuesView,
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+            _Sequence,
+            _Set,
+        ),
+    ):
         return False
-    return first is second
+    return True
+
+
+def _is_getitem_only_form(value):
+    """Return True where a value stands in getitem only form.
+
+    A getitem only form carries no iter act of its
+    own and no mapping form, and its getitem act
+    stands as its one reading act, so a listing of it
+    may return the elements of one stored iterator in
+    sequence and a second listing may stand empty.
+    """
+    if hasattr(value, "__iter__"):
+        return False
+    if not hasattr(value, "__getitem__"):
+        return False
+    from collections.abc import Mapping as _Mapping
+
+    return not isinstance(value, _Mapping)
 
 
 def _wrapper_subtree_has_iterator(value, ancestors):
@@ -1266,10 +1326,18 @@ def _wrapper_subtree_has_iterator(value, ancestors):
     stands detected in the same way. A single pass
     iterable, a container carrying no next method of
     its own whose iter act returns one stored
-    iterator, stands detected in the same way and
-    stands never listed by this act, so the one
+    iterator, a fresh object delegating to one stored
+    iterator, or a fresh generator over one stored
+    generator, and a container whose iter act permits
+    one call only, stands detected in the same way
+    and stands never listed by this act, so the one
     listing it carries stands carried to the
-    materialisation act that reads it in full.
+    materialisation act that reads it in full. A
+    getitem only form, a container carrying no iter
+    act of its own whose getitem act returns the next
+    element of one stored iterator in sequence,
+    stands detected in the same way and stands never
+    listed by this act, on the same ground.
     """
     import array as _array_module
     import collections as _collections_module
@@ -1311,18 +1379,11 @@ def _wrapper_subtree_has_iterator(value, ancestors):
             for element in elements
         )
     if hasattr(value, "__getitem__"):
-        try:
-            elements = list(value)
-        except Exception:
-            return False
-        return any(
-            _wrapper_subtree_has_iterator(element, ancestors)
-            for element in elements
-        )
+        return True
     return False
 
 
-def _wrapper_materialise(value, shared_module, ancestors):
+def _wrapper_materialise(value, shared_module, ancestors, depth=0):
     """Materialise one iterator carrying subtree for the wrapper.
 
     A subtree carrying no iterator stands returned as
@@ -1354,13 +1415,57 @@ def _wrapper_materialise(value, shared_module, ancestors):
     iterator limb above states, the list of its
     materialised items, save where it yields the one
     nested mapping, where it stands as a one element
-    tuple in the same form. A value standing in any
-    other container form stands materialised through
-    the shared act _materialise_iterators, in its
-    standing form.
+    tuple in the same form. A single pass iterable
+    stands in that form in substance as well as in
+    identity form, in the forms _is_single_pass_iterable
+    states: a delegating iteration act returning a
+    fresh object on each call and an iteration act
+    permitting one call only stand listed once here
+    in the same way, and no second call stands made
+    on either form. A getitem only form standing at
+    the wrapped position, the top position of the
+    holdout material or a direct value of the mapping
+    standing at that top position, stands listed once
+    here in the same rebuilt form, and a getitem only
+    form standing in any deeper position stands as it
+    stands, unlisted, in parity with the direct act
+    reading of that position. A set or frozenset
+    stands rebuilt from its elements materialised
+    once and carried in a list, so where the rebuilt
+    form stands unhashable and the rebuild fails, the
+    carried materialised elements stand returned in
+    list form and no second reading of the original
+    set stands made on spent material. A value
+    standing in any other container form stands
+    materialised through the shared act
+    _materialise_iterators, in its standing form.
     """
     import collections as _collections_module
 
+    if _is_getitem_only_form(value):
+        if depth > 1:
+            return value
+        try:
+            listed_once = list(value)
+        except Exception:
+            return value
+        getitem_ancestors = ancestors | {id(value)}
+        materialised = [
+            _wrapper_materialise(
+                element, shared_module, getitem_ancestors, depth + 1
+            )
+            for element in listed_once
+        ]
+        from collections.abc import Mapping as _GetitemMapping
+
+        if len(materialised) == 1 and isinstance(
+            materialised[0], _GetitemMapping
+        ) and not any(
+            key in materialised[0]
+            for key in _WRAPPER_ITEM_FIELD_KEYS
+        ):
+            return tuple(materialised)
+        return materialised
     if not _wrapper_subtree_has_iterator(value, ancestors):
         return value
     ancestors = ancestors | {id(value)}
@@ -1368,7 +1473,7 @@ def _wrapper_materialise(value, shared_module, ancestors):
 
     if hasattr(value, "__next__") and hasattr(value, "__iter__"):
         materialised = [
-            _wrapper_materialise(element, shared_module, ancestors)
+            _wrapper_materialise(element, shared_module, ancestors, depth + 1)
             for element in list(value)
         ]
         if len(materialised) == 1 and isinstance(
@@ -1385,7 +1490,7 @@ def _wrapper_materialise(value, shared_module, ancestors):
             maps.append(
                 {
                     key: _wrapper_materialise(
-                        inner, shared_module, ancestors
+                        inner, shared_module, ancestors, depth + 1
                     )
                     for key, inner in chained.items()
                 }
@@ -1393,7 +1498,7 @@ def _wrapper_materialise(value, shared_module, ancestors):
         return _collections_module.ChainMap(*maps)
     if isinstance(value, _Mapping):
         return {
-            key: _wrapper_materialise(inner, shared_module, ancestors)
+            key: _wrapper_materialise(inner, shared_module, ancestors, depth + 1)
             for key, inner in value.items()
         }
     from collections.abc import (
@@ -1411,7 +1516,7 @@ def _wrapper_materialise(value, shared_module, ancestors):
             underlying, _Mapping
         ):
             materialised = _wrapper_materialise(
-                underlying, shared_module, ancestors
+                underlying, shared_module, ancestors, depth + 1
             )
             if isinstance(materialised, _Mapping):
                 if isinstance(value, _KeysView):
@@ -1423,37 +1528,38 @@ def _wrapper_materialise(value, shared_module, ancestors):
         return shared_module._materialise_iterators(value)
     if isinstance(value, tuple):
         return tuple(
-            _wrapper_materialise(element, shared_module, ancestors)
+            _wrapper_materialise(element, shared_module, ancestors, depth + 1)
             for element in value
         )
     if isinstance(value, _collections_module.deque):
         return _collections_module.deque(
-            _wrapper_materialise(element, shared_module, ancestors)
+            _wrapper_materialise(element, shared_module, ancestors, depth + 1)
             for element in value
         )
     if isinstance(value, _collections_module.UserList):
         return _collections_module.UserList(
-            _wrapper_materialise(element, shared_module, ancestors)
+            _wrapper_materialise(element, shared_module, ancestors, depth + 1)
             for element in value
         )
     if isinstance(value, list):
         return [
-            _wrapper_materialise(element, shared_module, ancestors)
+            _wrapper_materialise(element, shared_module, ancestors, depth + 1)
             for element in value
         ]
     if isinstance(value, (set, frozenset)):
-        try:
-            return type(value)(
-                _wrapper_materialise(
-                    element, shared_module, ancestors
-                )
-                for element in value
+        materialised_elements = [
+            _wrapper_materialise(
+                element, shared_module, ancestors, depth + 1
             )
+            for element in value
+        ]
+        try:
+            return type(value)(materialised_elements)
         except TypeError:
-            return shared_module._materialise_iterators(value)
+            return materialised_elements
     if _is_single_pass_iterable(value):
         materialised = [
-            _wrapper_materialise(element, shared_module, ancestors)
+            _wrapper_materialise(element, shared_module, ancestors, depth + 1)
             for element in list(value)
         ]
         if len(materialised) == 1 and isinstance(
