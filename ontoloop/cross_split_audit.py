@@ -214,7 +214,12 @@ def _materialise_iterators(value, depth=0):
     so a later re-reading of the returned form stands
     over the same items. Mapping and collection forms
     stand rebuilt in re-iterable forms holding the
-    materialised values. A deque, a UserList, and a
+    materialised values. A ChainMap standing in any
+    position stands rebuilt in the order of its maps,
+    a key standing in an earlier map standing before a
+    key standing in a later map and standing for the
+    entry that map presents where a later map carries
+    the same key. A deque, a UserList, and a
     dictionary view stand rebuilt in that same form,
     an items view holding its pairs as tuples, so an
     iterator inside any of them stands listed once in
@@ -272,7 +277,20 @@ def _materialise_iterators(value, depth=0):
             results.append(current)
             continue
         child_ancestors = ancestors | {id(current)}
-        if current_kind == "mapping":
+        if current_kind == "mapping" and isinstance(
+            current, _collections_module.ChainMap
+        ):
+            keys = []
+            children = []
+            seen_keys = set()
+            for chained in current.maps:
+                for chained_key, inner in chained.items():
+                    if chained_key in seen_keys:
+                        continue
+                    seen_keys.add(chained_key)
+                    keys.append(chained_key)
+                    children.append(inner)
+        elif current_kind == "mapping":
             keys = list(current.keys())
             children = [inner for _key, inner in current.items()]
         elif current_kind == "dictionary view" and isinstance(
@@ -786,6 +804,11 @@ def _enumerate_carried(element):
             ):
                 element = _index_pair_second(listed[0])
                 continue
+            if len(listed) == 1 and isinstance(
+                listed[0], (list, tuple)
+            ):
+                element = listed[0]
+                continue
             if _is_index_pair_form(listed):
                 element = listed[1]
                 continue
@@ -811,7 +834,12 @@ def _pairs_position_elements(value):
     enumerate index pairs stripped from the pair each
     entry carries and a carried value standing itself as
     an items view, or as a one element list holding one,
-    standing read for the pairs that view carries. Listed
+    standing read for the pairs that view carries.
+    Material standing as an entry key of such a view, as
+    a mapping, as a wrapped key, or as a container formed
+    key, stands read beside the entry values in the same
+    way, as a pair whose holdout side that material
+    carries. Listed
     elements still standing as enumerate index pairs, as
     a further enumerate layer standing inside the
     position yields them, stand stripped to the pair
@@ -849,6 +877,19 @@ def _pairs_position_elements(value):
                 pairs.extend(_pairs_position_elements(carried[0]))
             else:
                 pairs.append(carried)
+            if isinstance(_key, _Mapping):
+                key_material = _mapping_position_material([_key])
+            else:
+                wrapped = _wrapped_key_holdout(_key)
+                if wrapped:
+                    key_material = _mapping_position_material(
+                        wrapped
+                    )
+                else:
+                    key_material = []
+            for key_item in key_material:
+                for unwrapped in _unwrapped_items(key_item):
+                    pairs.append([{}, unwrapped])
         return pairs
     listed = _position_elements(value)
     if listed is None:
@@ -1259,7 +1300,13 @@ def _materialised_pairs_material(material):
     judged in the form it presents. A pairs position
     standing as a dictionary items view stands listed in
     that same form as the pairs the pairs position
-    reading extracts from it. A bundle carrying no
+    reading extracts from it. A pair standing as a zip
+    object inside a list or a tuple element of the pairs
+    position stands listed once in the same way, the one
+    tuple it yields standing carried through the
+    enumerate carried reading, so a single pass iterable
+    standing inside that tuple stands listed once only
+    and carried within the act. A bundle carrying no
     iterator at its pairs position stands as it stands.
     """
     if not isinstance(material, _Mapping):
@@ -1289,7 +1336,15 @@ def _materialised_pairs_material(material):
         return material
     new_pairs = []
     for pair in listed:
-        if isinstance(pair, enumerate):
+        if isinstance(pair, zip):
+            listed_once = list(pair)
+            if len(listed_once) == 1:
+                new_pairs.append(
+                    _enumerate_carried(listed_once[0])
+                )
+            else:
+                new_pairs.append(listed_once)
+        elif isinstance(pair, enumerate):
             new_pairs.append(
                 [
                     _enumerate_carried(element)
@@ -1432,6 +1487,97 @@ def _unread_position_items(value):
     return []
 
 
+def _wrapped_key_holdout(key):
+    """Return the holdout material a wrapped key carries.
+
+    A key standing as a mapping stands in no wrapped
+    form here, its standing reading standing elsewhere.
+    A key standing as a single pass iterable carrying a
+    pair stands listed once only in this reading and
+    read for the holdout side that pair carries. A key
+    standing in a container form, a tuple, a list, a
+    set, or a frozenset among them, holding a nested
+    mapping stands read for that nested mapping, and a
+    key standing in such a form holding the two sides
+    of a pair as its two elements stands read for the
+    holdout side of that pair, a set form carrying no
+    order between its sides and standing read for both
+    of them. A container key holding a further wrapped
+    key stands read in the same way at any depth. Any
+    other key stands in no wrapped form here and
+    returns None.
+    """
+    if isinstance(key, _Mapping):
+        return None
+    if isinstance(
+        key,
+        (
+            str,
+            _UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+        ),
+    ):
+        return None
+    if _is_single_pass_iterable(key):
+        carried = _enumerate_carried(list(key))
+        sides = _pair_elements(carried)
+        if sides is not None and all(
+            isinstance(side, _Mapping)
+            and _is_pair_side_item(side)
+            for side in sides
+        ):
+            return [sides[1]]
+        if isinstance(carried, _Mapping):
+            return [carried]
+        return None
+    if isinstance(
+        key,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ) or isinstance(key, _Sequence):
+        try:
+            elements = list(key)
+        except Exception:
+            return None
+        nested = [
+            element
+            for element in elements
+            if isinstance(element, _Mapping)
+            and not any(
+                field in element for field in _ITEM_FIELD_KEYS
+            )
+        ]
+        if nested:
+            return nested
+        if len(elements) == 2 and all(
+            isinstance(element, _Mapping)
+            and _is_pair_side_item(element)
+            for element in elements
+        ):
+            if isinstance(key, (set, frozenset)):
+                return elements
+            return [elements[1]]
+        carried = []
+        for element in elements:
+            inner = _wrapped_key_holdout(element)
+            if inner:
+                carried.extend(inner)
+        if carried:
+            return carried
+        return None
+    return None
+
+
 def _mapping_position_values(value):
     """Return the values a mapping bundle position carries.
 
@@ -1441,15 +1587,22 @@ def _mapping_position_values(value):
     in parity with the generic mapping reading the
     direct act gives that same mapping at its top level.
     A mapping carrying an item field stands as the one
-    item it stands as, and returns None here.
+    item it stands as, and returns None here. Material
+    standing as a wrapped or container formed key of
+    such a mapping stands carried beside its values in
+    the same reading, through the wrapped key reading.
     """
     if isinstance(value, _Mapping) and not any(
         key in value for key in _ITEM_FIELD_KEYS
     ):
-        carried = [
-            key for key in value.keys()
-            if isinstance(key, _Mapping)
-        ]
+        carried = []
+        for key in value.keys():
+            if isinstance(key, _Mapping):
+                carried.append(key)
+            else:
+                wrapped = _wrapped_key_holdout(key)
+                if wrapped:
+                    carried.extend(wrapped)
         return carried + list(value.values())
     return None
 
@@ -1638,10 +1791,14 @@ def _mapping_position_material(values):
         if isinstance(value, _Mapping) and not any(
             key in value for key in _ITEM_FIELD_KEYS
         ) and _pair_elements(value) is None:
-            carried = [
-                key for key in value.keys()
-                if isinstance(key, _Mapping)
-            ]
+            carried = []
+            for key in value.keys():
+                if isinstance(key, _Mapping):
+                    carried.append(key)
+                else:
+                    wrapped = _wrapped_key_holdout(key)
+                    if wrapped:
+                        carried.extend(wrapped)
             expanded.extend(
                 _mapping_position_material(
                     carried + list(value.values())
@@ -1656,6 +1813,10 @@ def _mapping_position_material(values):
             for entry_key, inner in value:
                 if isinstance(entry_key, _Mapping):
                     collected.append(entry_key)
+                else:
+                    wrapped = _wrapped_key_holdout(entry_key)
+                    if wrapped:
+                        collected.extend(wrapped)
                 collected.append(inner)
             expanded.extend(
                 _mapping_position_material(collected)
@@ -1692,7 +1853,7 @@ def _mapping_position_material(values):
                 expanded.append(
                     _mapping_position_material(listed)
                 )
-            elif is_iterator:
+            elif is_iterator or _is_single_pass_iterable(value):
                 expanded.append(listed)
             elif any(
                 new is not old
@@ -1858,10 +2019,17 @@ def _single_pair_sides(value):
     stands read in the same way at any depth, a mapping
     standing read for the pair its values carry and for
     the pair standing as its two keys, a ChainMap in
-    the order of its maps.
+    the order of its maps. A single pass iterable
+    standing as a mapping value or in any other position
+    this reading reaches stands listed once only in
+    this reading and read for the pair its listed form
+    carries, in parity with its items view and values
+    view forms.
     """
     if _is_index_pair_form(value):
         return _single_pair_sides(_index_pair_second(value))
+    if _is_single_pass_iterable(value):
+        return _single_pair_sides(list(value))
     if isinstance(value, _KeysView):
         chain_sides = _chain_map_view_sides(value)
         if chain_sides is not None:
@@ -1961,18 +2129,29 @@ def _direct_bundle_extra_holdout(bundle):
     pair carries, where no element of the position
     stands as a pair in its own right, a pair standing
     in a set form standing read for both of its sides,
-    the set carrying no order between them.
+    the set carrying no order between them. Material
+    standing as a key wrapped in a container form, and
+    material standing as a container formed key, of a
+    mapping presented directly at a holdout side, an
+    items, or a pairs position, and material standing
+    as an entry key of an items view at the pairs
+    position, stands read here in the same way, in
+    parity with its keys view forms, through the
+    wrapped key reading.
     """
     extra = []
     for key in ("holdout_items", "holdout"):
         if key in bundle:
             value = bundle[key]
             if isinstance(value, _ItemsView):
-                collected = [
-                    entry_key
-                    for entry_key, _inner in value
-                    if isinstance(entry_key, _Mapping)
-                ]
+                collected = []
+                for entry_key, _inner in value:
+                    if isinstance(entry_key, _Mapping):
+                        collected.append(entry_key)
+                    else:
+                        wrapped = _wrapped_key_holdout(entry_key)
+                        if wrapped:
+                            collected.extend(wrapped)
                 for element in _mapping_position_material(
                     collected
                 ):
@@ -1989,11 +2168,14 @@ def _direct_bundle_extra_holdout(bundle):
     if "items" in bundle:
         value = bundle["items"]
         if isinstance(value, _ItemsView):
-            collected = [
-                entry_key
-                for entry_key, _inner in value
-                if isinstance(entry_key, _Mapping)
-            ]
+            collected = []
+            for entry_key, _inner in value:
+                if isinstance(entry_key, _Mapping):
+                    collected.append(entry_key)
+                else:
+                    wrapped = _wrapped_key_holdout(entry_key)
+                    if wrapped:
+                        collected.extend(wrapped)
             for element in _mapping_position_material(collected):
                 for item in _unwrapped_items(element):
                     side = None
@@ -2017,6 +2199,31 @@ def _direct_bundle_extra_holdout(bundle):
     if "pairs" in bundle:
         value = bundle["pairs"]
         if value is not None:
+            if isinstance(value, _Mapping):
+                key_material = []
+                for key in value.keys():
+                    if isinstance(key, _Mapping):
+                        continue
+                    wrapped = _wrapped_key_holdout(key)
+                    if wrapped:
+                        key_material.extend(wrapped)
+                if key_material:
+                    for element in _mapping_position_material(
+                        key_material
+                    ):
+                        extra.extend(_unwrapped_items(element))
+            if isinstance(value, _ItemsView):
+                for entry_key, _entry_inner in value:
+                    if isinstance(entry_key, _Mapping):
+                        entry_material = [entry_key]
+                    else:
+                        entry_material = (
+                            _wrapped_key_holdout(entry_key) or []
+                        )
+                    for element in _mapping_position_material(
+                        entry_material
+                    ):
+                        extra.extend(_unwrapped_items(element))
             values = _mapping_position_values(value)
             if isinstance(value, _Mapping) and (
                 _pair_elements(value) is not None
