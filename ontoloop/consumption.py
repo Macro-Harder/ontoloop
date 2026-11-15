@@ -816,7 +816,26 @@ def _bundle_copy(bundle):
     standing inside such a value stands refused in
     the same form, the iterator reading standing in
     a form that spends no element of a single pass
-    form the act records.
+    form the act records, and a compressor or
+    decompressor object of the bz2 or lzma module,
+    a Struct object of the struct module, a Row
+    object of the sqlite3 module, a cache wrapper
+    object of the functools module, or a library
+    object of the ctypes module standing inside
+    such a value stands refused in the same form,
+    and an uncopyable value standing in the
+    attributes or children of a tree element, in
+    an operator call specification, in the cause
+    or context chain an exception object carries,
+    or standing as the callable a callable iterator
+    or a filter object carries, standing inside
+    such a value stands refused in the same form,
+    a chain carrying copyable material standing
+    carried into the copy in a form standing apart,
+    and a function standing over a globals mapping
+    carrying a view of that same mapping standing
+    refused in the same form in place of unbounded
+    recursion in the replacements limb.
     A dictionary view standing at
     any position copies as a fresh list of copies of
     the material it carries, an items view as a fresh
@@ -871,6 +890,7 @@ def _bundle_copy(bundle):
     """
     import array as _array_module
     import asyncio as _asyncio_module
+    import bz2 as _bz2_module
     import collections as _collections
     import collections.abc as _abc_module
     import contextvars as _contextvars_module
@@ -888,11 +908,13 @@ def _bundle_copy(bundle):
     import ipaddress as _ipaddress_module
     import json as _json_module
     import logging as _logging_module
+    import lzma as _lzma_module
     import mmap as _mmap_module
     import multiprocessing as _multiprocessing_module
     import multiprocessing.connection as _mp_connection_module
     import multiprocessing.process as _mp_process_module
     import multiprocessing.synchronize as _mp_synchronize_module
+    import operator as _operator_module
     import os as _os_module
     import pathlib as _pathlib_module
     import pickle as _pickle_module
@@ -902,6 +924,7 @@ def _bundle_copy(bundle):
     import socket as _socket_module
     import sqlite3 as _sqlite3_module
     import ssl as _ssl_module
+    import struct as _struct_module
     import sys as _sys_module
     import threading as _threading_module
     import types as _types_module
@@ -1738,6 +1761,14 @@ def _bundle_copy(bundle):
         _pickle_module.Unpickler(_io_module.BytesIO(b""))
     )
     _json_scanner_type = type(_json_module.JSONDecoder().scan_once)
+    _bz2_compressor_type = type(_bz2_module.BZ2Compressor())
+    _bz2_decompressor_type = type(_bz2_module.BZ2Decompressor())
+    _lzma_compressor_type = type(_lzma_module.LZMACompressor())
+    _lzma_decompressor_type = type(_lzma_module.LZMADecompressor())
+    _lru_cache_wrapper_type = type(
+        _functools_module.lru_cache(maxsize=None)(lambda: None)
+    )
+    _callable_iterator_type = type(iter(lambda: None, None))
     _semlock_type = (
         getattr(
             _multiprocessing_private_module, "SemLock", None
@@ -1769,6 +1800,14 @@ def _bundle_copy(bundle):
             _mp_process_module.BaseProcess,
             _mp_connection_module.Connection,
             _logging_module.Logger,
+            _bz2_compressor_type,
+            _bz2_decompressor_type,
+            _lzma_compressor_type,
+            _lzma_decompressor_type,
+            _struct_module.Struct,
+            _sqlite3_module.Row,
+            _lru_cache_wrapper_type,
+            _ctypes_module.CDLL,
         )
         if kind is not None
     )
@@ -1865,6 +1904,39 @@ def _bundle_copy(bundle):
             return False
         return False
 
+    def _view_holds_itself(view):
+        mapping = getattr(view, "mapping", None)
+        if mapping is None:
+            mapping = getattr(view, "_mapping", None)
+        if mapping is None:
+            return False
+        try:
+            for key in list(mapping):
+                if key is view:
+                    return True
+                try:
+                    carried = mapping[key]
+                except Exception:
+                    continue
+                if carried is view:
+                    return True
+        except Exception:
+            return False
+        return False
+
+    def _reduce_carried(item):
+        try:
+            reduced = item.__reduce_ex__(4)
+        except Exception:
+            return ()
+        if (
+            isinstance(reduced, tuple)
+            and len(reduced) >= 2
+            and isinstance(reduced[1], tuple)
+        ):
+            return reduced[1]
+        return ()
+
     def _fallback_holds_uncopyable(value):
         pending = [value]
         seen = set()
@@ -1948,11 +2020,52 @@ def _bundle_copy(bundle):
             if id(item) in seen:
                 continue
             seen.add(id(item))
+            if isinstance(
+                item,
+                (
+                    _abc_module.KeysView,
+                    _abc_module.ValuesView,
+                    _abc_module.ItemsView,
+                ),
+            ) and _view_holds_itself(item):
+                return True
             if isinstance(item, _abc_module.Iterator):
                 try:
                     _copy_module.deepcopy(item)
                 except Exception:
                     return True
+            if isinstance(item, _xml_module.Element):
+                try:
+                    pending.extend(list(item.attrib.keys()))
+                    pending.extend(list(item.attrib.values()))
+                    pending.extend(list(item))
+                except Exception:
+                    pass
+            if isinstance(item, _xml_module.ElementTree):
+                try:
+                    root = item.getroot()
+                    if root is not None:
+                        pending.append(root)
+                except Exception:
+                    pass
+            if isinstance(item, _operator_module.methodcaller):
+                pending.extend(_reduce_carried(item)[1:])
+            if isinstance(item, _operator_module.itemgetter):
+                pending.extend(_reduce_carried(item))
+            if isinstance(item, filter) or isinstance(
+                item, _callable_iterator_type
+            ):
+                carried = _reduce_carried(item)
+                if carried and carried[0] is not None:
+                    pending.append(carried[0])
+                    bound = getattr(carried[0], "__self__", None)
+                    if bound is not None:
+                        pending.append(bound)
+                if (
+                    isinstance(item, _callable_iterator_type)
+                    and len(carried) > 1
+                ):
+                    pending.append(carried[1])
             try:
                 if isinstance(item, dict):
                     pending.extend(item.keys())
@@ -2048,6 +2161,14 @@ def _bundle_copy(bundle):
                 pending.append(mapping)
             if isinstance(item, BaseException):
                 pending.extend(item.args)
+                try:
+                    for chained in (
+                        item.__cause__, item.__context__
+                    ):
+                        if chained is not None:
+                            pending.append(chained)
+                except Exception:
+                    pass
             for klass in type(item).__mro__:
                 slots = klass.__dict__.get("__slots__")
                 if not slots:
@@ -2062,6 +2183,88 @@ def _bundle_copy(bundle):
                     except Exception:
                         pass
         return False
+
+    def _stitch_exception_chains(root, built, memo):
+        collected = []
+        seen_ids = set()
+        pending_roots = [root]
+        while pending_roots:
+            current_root = pending_roots.pop()
+            for node in _walk_nodes(current_root):
+                if id(node) in seen_ids:
+                    continue
+                seen_ids.add(id(node))
+                if not isinstance(node, BaseException):
+                    continue
+                collected.append(node)
+                try:
+                    chained_nodes = (
+                        node.__cause__, node.__context__
+                    )
+                except Exception:
+                    chained_nodes = ()
+                for chained in chained_nodes:
+                    if (
+                        chained is not None
+                        and id(chained) not in seen_ids
+                    ):
+                        pending_roots.append(chained)
+        if not collected:
+            return
+        pairs = {}
+        for node in collected:
+            copied = memo.get(id(node)) if memo else None
+            if copied is None and node is root:
+                copied = built
+            if copied is not None:
+                pairs[id(node)] = copied
+        for node in collected:
+            if id(node) in pairs:
+                continue
+            try:
+                saved_cause = node.__cause__
+                saved_context = node.__context__
+            except Exception:
+                continue
+            try:
+                node.__cause__ = None
+                node.__context__ = None
+            except Exception:
+                pass
+            try:
+                copied = _bundle_copy(node)
+            finally:
+                try:
+                    node.__cause__ = saved_cause
+                    node.__context__ = saved_context
+                except Exception:
+                    pass
+            pairs[id(node)] = copied
+        for node in collected:
+            copied = pairs.get(id(node))
+            if copied is None:
+                continue
+            for attr in ("__cause__", "__context__"):
+                try:
+                    chained = getattr(node, attr)
+                except Exception:
+                    continue
+                if chained is None:
+                    try:
+                        setattr(copied, attr, None)
+                    except Exception:
+                        pass
+                elif id(chained) in pairs:
+                    try:
+                        setattr(copied, attr, pairs[id(chained)])
+                    except Exception:
+                        pass
+            try:
+                copied.__suppress_context__ = (
+                    node.__suppress_context__
+                )
+            except Exception:
+                pass
 
     def _attr_mapping(value):
         mapping = getattr(value, "__dict__", None)
@@ -2476,6 +2679,10 @@ def _bundle_copy(bundle):
             act_landing_memo.update(deep_memo)
         else:
             built = _copy_module.deepcopy(current, act_landing_memo)
+        _stitch_exception_chains(
+            current, built,
+            deep_memo if replacements else act_landing_memo,
+        )
         memo[id(current)] = built
         results.append(built)
     return results[0]
