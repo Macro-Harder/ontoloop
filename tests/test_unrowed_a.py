@@ -148,6 +148,34 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             all_yes_tuple["consequences"],
             second_all_yes_tuple["consequences"])
 
+        r803_tuple_0 = module.incident_entry(answers=('yes', 'yes', 'no'))
+        r803_tuple_0_second = module.incident_entry(answers=('yes', 'yes', 'no'))
+        self.assertIsNot(r803_tuple_0, r803_tuple_0_second)
+        self.assertIsNot(
+            r803_tuple_0["questions"], r803_tuple_0_second["questions"])
+        self.assertIsNot(
+            r803_tuple_0["answers"], r803_tuple_0_second["answers"])
+        self.assertIsNot(
+            r803_tuple_0["consequences"], r803_tuple_0_second["consequences"])
+        r803_tuple_1 = module.incident_entry(answers=('yes', 'no', 'yes'))
+        r803_tuple_1_second = module.incident_entry(answers=('yes', 'no', 'yes'))
+        self.assertIsNot(r803_tuple_1, r803_tuple_1_second)
+        self.assertIsNot(
+            r803_tuple_1["questions"], r803_tuple_1_second["questions"])
+        self.assertIsNot(
+            r803_tuple_1["answers"], r803_tuple_1_second["answers"])
+        self.assertIsNot(
+            r803_tuple_1["consequences"], r803_tuple_1_second["consequences"])
+        r803_tuple_2 = module.incident_entry(answers=('no', 'yes', 'yes'))
+        r803_tuple_2_second = module.incident_entry(answers=('no', 'yes', 'yes'))
+        self.assertIsNot(r803_tuple_2, r803_tuple_2_second)
+        self.assertIsNot(
+            r803_tuple_2["questions"], r803_tuple_2_second["questions"])
+        self.assertIsNot(
+            r803_tuple_2["answers"], r803_tuple_2_second["answers"])
+        self.assertIsNot(
+            r803_tuple_2["consequences"], r803_tuple_2_second["consequences"])
+
     def test_answers_presented_as_a_mapping_stand_recorded_in_question_order(self):
         module = require("ontoloop.ops")
         record = module.incident_entry(answers={
@@ -216,6 +244,43 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             third_question_mapping["consequences"],
             second_third_question_mapping["consequences"])
 
+
+        r803_mapping_0 = module.incident_entry(answers={"sealed or secret material involved": "yes", "store suspect": "yes", "bundle wrongly loadable": "no"})
+        r803_mapping_0_second = module.incident_entry(answers={"sealed or secret material involved": "yes", "store suspect": "yes", "bundle wrongly loadable": "no"})
+        self.assertIsNot(r803_mapping_0, r803_mapping_0_second)
+        self.assertIsNot(
+            r803_mapping_0["questions"], r803_mapping_0_second["questions"])
+        self.assertIsNot(
+            r803_mapping_0["answers"], r803_mapping_0_second["answers"])
+        self.assertIsNot(
+            r803_mapping_0["consequences"], r803_mapping_0_second["consequences"])
+        r803_mapping_1 = module.incident_entry(answers={"sealed or secret material involved": "yes", "store suspect": "no", "bundle wrongly loadable": "yes"})
+        r803_mapping_1_second = module.incident_entry(answers={"sealed or secret material involved": "yes", "store suspect": "no", "bundle wrongly loadable": "yes"})
+        self.assertIsNot(r803_mapping_1, r803_mapping_1_second)
+        self.assertIsNot(
+            r803_mapping_1["questions"], r803_mapping_1_second["questions"])
+        self.assertIsNot(
+            r803_mapping_1["answers"], r803_mapping_1_second["answers"])
+        self.assertIsNot(
+            r803_mapping_1["consequences"], r803_mapping_1_second["consequences"])
+        r803_mapping_2 = module.incident_entry(answers={"sealed or secret material involved": "no", "store suspect": "yes", "bundle wrongly loadable": "yes"})
+        r803_mapping_2_second = module.incident_entry(answers={"sealed or secret material involved": "no", "store suspect": "yes", "bundle wrongly loadable": "yes"})
+        self.assertIsNot(r803_mapping_2, r803_mapping_2_second)
+        self.assertIsNot(
+            r803_mapping_2["questions"], r803_mapping_2_second["questions"])
+        self.assertIsNot(
+            r803_mapping_2["answers"], r803_mapping_2_second["answers"])
+        self.assertIsNot(
+            r803_mapping_2["consequences"], r803_mapping_2_second["consequences"])
+        r803_mapping_3 = module.incident_entry(answers={"sealed or secret material involved": "yes", "store suspect": "yes", "bundle wrongly loadable": "yes"})
+        r803_mapping_3_second = module.incident_entry(answers={"sealed or secret material involved": "yes", "store suspect": "yes", "bundle wrongly loadable": "yes"})
+        self.assertIsNot(r803_mapping_3, r803_mapping_3_second)
+        self.assertIsNot(
+            r803_mapping_3["questions"], r803_mapping_3_second["questions"])
+        self.assertIsNot(
+            r803_mapping_3["answers"], r803_mapping_3_second["answers"])
+        self.assertIsNot(
+            r803_mapping_3["consequences"], r803_mapping_3_second["consequences"])
 
     def test_undisputed_form_stands_in_its_governed_form(self):
         module = require("ontoloop.ops")
@@ -503,6 +568,91 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIsNot(
             empty_tuple_disputed_result["material_read"],
             second_empty_tuple_disputed_result["material_read"])
+        r805_float_zero_tuple = module.resolve_dispute(disputed=0.0, journal_records=("journal record one", "journal record two"))
+        r805_float_zero_tuple_second = module.resolve_dispute(disputed=0.0, journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r805_float_zero_tuple, r805_float_zero_tuple_second)
+        self.assertIsNot(
+            r805_float_zero_tuple["reconstructed_material"], r805_float_zero_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r805_float_zero_tuple["material_read"], r805_float_zero_tuple_second["material_read"])
+        r805_float_zero_omitted = module.resolve_dispute(disputed=0.0)
+        r805_float_zero_omitted_second = module.resolve_dispute(disputed=0.0)
+        self.assertIsNot(r805_float_zero_omitted, r805_float_zero_omitted_second)
+        self.assertIsNot(
+            r805_float_zero_omitted["reconstructed_material"], r805_float_zero_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r805_float_zero_omitted["material_read"], r805_float_zero_omitted_second["material_read"])
+        r805_float_zero_none = module.resolve_dispute(disputed=0.0, journal_records=None)
+        r805_float_zero_none_second = module.resolve_dispute(disputed=0.0, journal_records=None)
+        self.assertIsNot(r805_float_zero_none, r805_float_zero_none_second)
+        self.assertIsNot(
+            r805_float_zero_none["reconstructed_material"], r805_float_zero_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r805_float_zero_none["material_read"], r805_float_zero_none_second["material_read"])
+        r805_empty_list_tuple = module.resolve_dispute(disputed=[], journal_records=("journal record one", "journal record two"))
+        r805_empty_list_tuple_second = module.resolve_dispute(disputed=[], journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r805_empty_list_tuple, r805_empty_list_tuple_second)
+        self.assertIsNot(
+            r805_empty_list_tuple["reconstructed_material"], r805_empty_list_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r805_empty_list_tuple["material_read"], r805_empty_list_tuple_second["material_read"])
+        r805_empty_list_omitted = module.resolve_dispute(disputed=[])
+        r805_empty_list_omitted_second = module.resolve_dispute(disputed=[])
+        self.assertIsNot(r805_empty_list_omitted, r805_empty_list_omitted_second)
+        self.assertIsNot(
+            r805_empty_list_omitted["reconstructed_material"], r805_empty_list_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r805_empty_list_omitted["material_read"], r805_empty_list_omitted_second["material_read"])
+        r805_empty_list_none = module.resolve_dispute(disputed=[], journal_records=None)
+        r805_empty_list_none_second = module.resolve_dispute(disputed=[], journal_records=None)
+        self.assertIsNot(r805_empty_list_none, r805_empty_list_none_second)
+        self.assertIsNot(
+            r805_empty_list_none["reconstructed_material"], r805_empty_list_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r805_empty_list_none["material_read"], r805_empty_list_none_second["material_read"])
+        r805_empty_tuple_tuple = module.resolve_dispute(disputed=(), journal_records=("journal record one", "journal record two"))
+        r805_empty_tuple_tuple_second = module.resolve_dispute(disputed=(), journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r805_empty_tuple_tuple, r805_empty_tuple_tuple_second)
+        self.assertIsNot(
+            r805_empty_tuple_tuple["reconstructed_material"], r805_empty_tuple_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r805_empty_tuple_tuple["material_read"], r805_empty_tuple_tuple_second["material_read"])
+        r805_empty_tuple_omitted = module.resolve_dispute(disputed=())
+        r805_empty_tuple_omitted_second = module.resolve_dispute(disputed=())
+        self.assertIsNot(r805_empty_tuple_omitted, r805_empty_tuple_omitted_second)
+        self.assertIsNot(
+            r805_empty_tuple_omitted["reconstructed_material"], r805_empty_tuple_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r805_empty_tuple_omitted["material_read"], r805_empty_tuple_omitted_second["material_read"])
+        r805_empty_tuple_none = module.resolve_dispute(disputed=(), journal_records=None)
+        r805_empty_tuple_none_second = module.resolve_dispute(disputed=(), journal_records=None)
+        self.assertIsNot(r805_empty_tuple_none, r805_empty_tuple_none_second)
+        self.assertIsNot(
+            r805_empty_tuple_none["reconstructed_material"], r805_empty_tuple_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r805_empty_tuple_none["material_read"], r805_empty_tuple_none_second["material_read"])
+        r807_empty_mapping = module.resolve_dispute(disputed={}, journal_records=["journal record one", "journal record two"])
+        r807_empty_mapping_second = module.resolve_dispute(disputed={}, journal_records=["journal record one", "journal record two"])
+        self.assertIsNot(r807_empty_mapping, r807_empty_mapping_second)
+        self.assertIsNot(
+            r807_empty_mapping["reconstructed_material"], r807_empty_mapping_second["reconstructed_material"])
+        self.assertIsNot(
+            r807_empty_mapping["material_read"], r807_empty_mapping_second["material_read"])
+        r807_empty_bytes = module.resolve_dispute(disputed=b"", journal_records=["journal record one", "journal record two"])
+        r807_empty_bytes_second = module.resolve_dispute(disputed=b"", journal_records=["journal record one", "journal record two"])
+        self.assertIsNot(r807_empty_bytes, r807_empty_bytes_second)
+        self.assertIsNot(
+            r807_empty_bytes["reconstructed_material"], r807_empty_bytes_second["reconstructed_material"])
+        self.assertIsNot(
+            r807_empty_bytes["material_read"], r807_empty_bytes_second["material_read"])
+        r807_empty_set = module.resolve_dispute(disputed=set(), journal_records=["journal record one", "journal record two"])
+        r807_empty_set_second = module.resolve_dispute(disputed=set(), journal_records=["journal record one", "journal record two"])
+        self.assertIsNot(r807_empty_set, r807_empty_set_second)
+        self.assertIsNot(
+            r807_empty_set["reconstructed_material"], r807_empty_set_second["reconstructed_material"])
+        self.assertIsNot(
+            r807_empty_set["material_read"], r807_empty_set_second["material_read"])
+
     def test_consequence_of_a_yes_at_each_question(self):
         module = require("ontoloop.ops")
         for question in self.QUESTIONS_IN_ORDER:
@@ -633,6 +783,34 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             all_yes_list["answers"], second_all_yes_list["answers"])
         self.assertIsNot(
             all_yes_list["consequences"], second_all_yes_list["consequences"])
+
+        r803_list_0 = module.incident_entry(answers=['yes', 'yes', 'no'])
+        r803_list_0_second = module.incident_entry(answers=['yes', 'yes', 'no'])
+        self.assertIsNot(r803_list_0, r803_list_0_second)
+        self.assertIsNot(
+            r803_list_0["questions"], r803_list_0_second["questions"])
+        self.assertIsNot(
+            r803_list_0["answers"], r803_list_0_second["answers"])
+        self.assertIsNot(
+            r803_list_0["consequences"], r803_list_0_second["consequences"])
+        r803_list_1 = module.incident_entry(answers=['yes', 'no', 'yes'])
+        r803_list_1_second = module.incident_entry(answers=['yes', 'no', 'yes'])
+        self.assertIsNot(r803_list_1, r803_list_1_second)
+        self.assertIsNot(
+            r803_list_1["questions"], r803_list_1_second["questions"])
+        self.assertIsNot(
+            r803_list_1["answers"], r803_list_1_second["answers"])
+        self.assertIsNot(
+            r803_list_1["consequences"], r803_list_1_second["consequences"])
+        r803_list_2 = module.incident_entry(answers=['no', 'yes', 'yes'])
+        r803_list_2_second = module.incident_entry(answers=['no', 'yes', 'yes'])
+        self.assertIsNot(r803_list_2, r803_list_2_second)
+        self.assertIsNot(
+            r803_list_2["questions"], r803_list_2_second["questions"])
+        self.assertIsNot(
+            r803_list_2["answers"], r803_list_2_second["answers"])
+        self.assertIsNot(
+            r803_list_2["consequences"], r803_list_2_second["consequences"])
 
     def test_answers_value_in_no_governed_form_raises_value_error(self):
         module = require("ontoloop.ops")
@@ -853,6 +1031,98 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIsNot(
             list_disputed_result["material_read"],
             second_list_disputed_result["material_read"])
+        r804_two_tuple = module.resolve_dispute(disputed=2, journal_records=("journal record one", "journal record two"))
+        r804_two_tuple_second = module.resolve_dispute(disputed=2, journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r804_two_tuple, r804_two_tuple_second)
+        self.assertIsNot(
+            r804_two_tuple["reconstructed_material"], r804_two_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r804_two_tuple["material_read"], r804_two_tuple_second["material_read"])
+        r804_two_omitted = module.resolve_dispute(disputed=2)
+        r804_two_omitted_second = module.resolve_dispute(disputed=2)
+        self.assertIsNot(r804_two_omitted, r804_two_omitted_second)
+        self.assertIsNot(
+            r804_two_omitted["reconstructed_material"], r804_two_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r804_two_omitted["material_read"], r804_two_omitted_second["material_read"])
+        r804_two_none = module.resolve_dispute(disputed=2, journal_records=None)
+        r804_two_none_second = module.resolve_dispute(disputed=2, journal_records=None)
+        self.assertIsNot(r804_two_none, r804_two_none_second)
+        self.assertIsNot(
+            r804_two_none["reconstructed_material"], r804_two_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r804_two_none["material_read"], r804_two_none_second["material_read"])
+        r804_bytes_tuple = module.resolve_dispute(disputed=b"a disputed value standing as bytes", journal_records=("journal record one", "journal record two"))
+        r804_bytes_tuple_second = module.resolve_dispute(disputed=b"a disputed value standing as bytes", journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r804_bytes_tuple, r804_bytes_tuple_second)
+        self.assertIsNot(
+            r804_bytes_tuple["reconstructed_material"], r804_bytes_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r804_bytes_tuple["material_read"], r804_bytes_tuple_second["material_read"])
+        r804_bytes_omitted = module.resolve_dispute(disputed=b"a disputed value standing as bytes")
+        r804_bytes_omitted_second = module.resolve_dispute(disputed=b"a disputed value standing as bytes")
+        self.assertIsNot(r804_bytes_omitted, r804_bytes_omitted_second)
+        self.assertIsNot(
+            r804_bytes_omitted["reconstructed_material"], r804_bytes_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r804_bytes_omitted["material_read"], r804_bytes_omitted_second["material_read"])
+        r804_bytes_none = module.resolve_dispute(disputed=b"a disputed value standing as bytes", journal_records=None)
+        r804_bytes_none_second = module.resolve_dispute(disputed=b"a disputed value standing as bytes", journal_records=None)
+        self.assertIsNot(r804_bytes_none, r804_bytes_none_second)
+        self.assertIsNot(
+            r804_bytes_none["reconstructed_material"], r804_bytes_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r804_bytes_none["material_read"], r804_bytes_none_second["material_read"])
+        r804_list_tuple = module.resolve_dispute(disputed=["a disputed value standing as a list"], journal_records=("journal record one", "journal record two"))
+        r804_list_tuple_second = module.resolve_dispute(disputed=["a disputed value standing as a list"], journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r804_list_tuple, r804_list_tuple_second)
+        self.assertIsNot(
+            r804_list_tuple["reconstructed_material"], r804_list_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r804_list_tuple["material_read"], r804_list_tuple_second["material_read"])
+        r804_list_omitted = module.resolve_dispute(disputed=["a disputed value standing as a list"])
+        r804_list_omitted_second = module.resolve_dispute(disputed=["a disputed value standing as a list"])
+        self.assertIsNot(r804_list_omitted, r804_list_omitted_second)
+        self.assertIsNot(
+            r804_list_omitted["reconstructed_material"], r804_list_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r804_list_omitted["material_read"], r804_list_omitted_second["material_read"])
+        r804_list_none = module.resolve_dispute(disputed=["a disputed value standing as a list"], journal_records=None)
+        r804_list_none_second = module.resolve_dispute(disputed=["a disputed value standing as a list"], journal_records=None)
+        self.assertIsNot(r804_list_none, r804_list_none_second)
+        self.assertIsNot(
+            r804_list_none["reconstructed_material"], r804_list_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r804_list_none["material_read"], r804_list_none_second["material_read"])
+        r806_float = module.resolve_dispute(disputed=1.5, journal_records=records)
+        r806_float_second = module.resolve_dispute(disputed=1.5, journal_records=records)
+        self.assertIsNot(r806_float, r806_float_second)
+        self.assertIsNot(
+            r806_float["reconstructed_material"], r806_float_second["reconstructed_material"])
+        self.assertIsNot(
+            r806_float["material_read"], r806_float_second["material_read"])
+        r806_tuple = module.resolve_dispute(disputed=("a disputed value standing as a tuple",), journal_records=records)
+        r806_tuple_second = module.resolve_dispute(disputed=("a disputed value standing as a tuple",), journal_records=records)
+        self.assertIsNot(r806_tuple, r806_tuple_second)
+        self.assertIsNot(
+            r806_tuple["reconstructed_material"], r806_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r806_tuple["material_read"], r806_tuple_second["material_read"])
+        r806_mapping = module.resolve_dispute(disputed={"a disputed key": "a disputed value"}, journal_records=records)
+        r806_mapping_second = module.resolve_dispute(disputed={"a disputed key": "a disputed value"}, journal_records=records)
+        self.assertIsNot(r806_mapping, r806_mapping_second)
+        self.assertIsNot(
+            r806_mapping["reconstructed_material"], r806_mapping_second["reconstructed_material"])
+        self.assertIsNot(
+            r806_mapping["material_read"], r806_mapping_second["material_read"])
+        r806_set = module.resolve_dispute(disputed={"a disputed value standing as a set"}, journal_records=records)
+        r806_set_second = module.resolve_dispute(disputed={"a disputed value standing as a set"}, journal_records=records)
+        self.assertIsNot(r806_set, r806_set_second)
+        self.assertIsNot(
+            r806_set["reconstructed_material"], r806_set_second["reconstructed_material"])
+        self.assertIsNot(
+            r806_set["material_read"], r806_set_second["material_read"])
+
     def test_recorder_first_rule_with_journal_records_as_a_tuple(self):
         module = require("ontoloop.ops")
         records = ("journal record one", "journal record two")
@@ -917,6 +1187,13 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         second_empty_tuple_bundle_stop = module.take_loading_stop(bundle=())
         self.assertIsNot(
             empty_tuple_bundle_stop, second_empty_tuple_bundle_stop)
+        r809_empty_bytes_stop = module.take_loading_stop(bundle=b"")
+        r809_empty_bytes_second_stop = module.take_loading_stop(bundle=b"")
+        self.assertIsNot(r809_empty_bytes_stop, r809_empty_bytes_second_stop)
+        r809_empty_set_stop = module.take_loading_stop(bundle=set())
+        r809_empty_set_second_stop = module.take_loading_stop(bundle=set())
+        self.assertIsNot(r809_empty_set_stop, r809_empty_set_second_stop)
+
     def test_joint_precedence_of_repair_verification(self):
         module = require("ontoloop.ops")
         first_return = module.incident_append_order()
@@ -1077,6 +1354,19 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIsNot(first_stop_tuple_return, second_stop_tuple_return)
         self.assertEqual(
             list(first_stop_tuple_return), ["stop append", "stop append"])
+        r808_purge_list = module.incident_append_order(acts=["purge append", "purge append", "purge append"])
+        r808_purge_list_second = module.incident_append_order(acts=["purge append", "purge append", "purge append"])
+        self.assertIsNot(r808_purge_list, r808_purge_list_second)
+        self.assertEqual(list(r808_purge_list), ["purge append", "purge append", "purge append"])
+        r808_repair_tuple = module.incident_append_order(acts=("repair verification", "repair verification", "repair verification"))
+        r808_repair_tuple_second = module.incident_append_order(acts=("repair verification", "repair verification", "repair verification"))
+        self.assertIsNot(r808_repair_tuple, r808_repair_tuple_second)
+        self.assertEqual(list(r808_repair_tuple), ["repair verification", "repair verification", "repair verification"])
+        r808_stop_list = module.incident_append_order(acts=["stop append", "stop append", "stop append"])
+        r808_stop_list_second = module.incident_append_order(acts=["stop append", "stop append", "stop append"])
+        self.assertIsNot(r808_stop_list, r808_stop_list_second)
+        self.assertEqual(list(r808_stop_list), ["stop append", "stop append", "stop append"])
+
     def test_incident_append_order_on_a_proper_subset_of_the_acts(self):
         module = require("ontoloop.ops")
         order = list(module.incident_append_order(
@@ -1472,6 +1762,97 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             empty_list_effective_discovery,
             second_empty_list_effective_discovery)
         self.assertEqual(empty_list_effective_discovery["promotion"], bundle)
+        r810_empty_mapping_stop = dict(stop)
+        r810_empty_mapping_stop["effective_on_loading"] = {}
+        r810_empty_mapping = module.discovery_after_stop(r810_empty_mapping_stop, bundle=bundle)
+        r810_empty_mapping_second = module.discovery_after_stop(r810_empty_mapping_stop, bundle=bundle)
+        self.assertIsNot(r810_empty_mapping, r810_empty_mapping_second)
+        self.assertEqual(r810_empty_mapping["promotion"], bundle)
+        r810_empty_tuple_stop = dict(stop)
+        r810_empty_tuple_stop["effective_on_loading"] = ()
+        r810_empty_tuple = module.discovery_after_stop(r810_empty_tuple_stop, bundle=bundle)
+        r810_empty_tuple_second = module.discovery_after_stop(r810_empty_tuple_stop, bundle=bundle)
+        self.assertIsNot(r810_empty_tuple, r810_empty_tuple_second)
+        self.assertEqual(r810_empty_tuple["promotion"], bundle)
+        r810_empty_bytes_stop = dict(stop)
+        r810_empty_bytes_stop["effective_on_loading"] = b""
+        r810_empty_bytes = module.discovery_after_stop(r810_empty_bytes_stop, bundle=bundle)
+        r810_empty_bytes_second = module.discovery_after_stop(r810_empty_bytes_stop, bundle=bundle)
+        self.assertIsNot(r810_empty_bytes, r810_empty_bytes_second)
+        self.assertEqual(r810_empty_bytes["promotion"], bundle)
+        r811_empty_string_none_stop = dict(stop)
+        r811_empty_string_none_stop["effective_on_loading"] = ""
+        r811_empty_string_none = module.discovery_after_stop(r811_empty_string_none_stop, bundle=None)
+        r811_empty_string_none_second = module.discovery_after_stop(r811_empty_string_none_stop, bundle=None)
+        self.assertIsNot(r811_empty_string_none, r811_empty_string_none_second)
+        self.assertEqual(r811_empty_string_none["promotion"], None)
+        self.assertEqual(r811_empty_string_none["bundle"], bundle)
+        r811_empty_string_omitted_stop = dict(stop)
+        r811_empty_string_omitted_stop["effective_on_loading"] = ""
+        r811_empty_string_omitted = module.discovery_after_stop(r811_empty_string_omitted_stop)
+        r811_empty_string_omitted_second = module.discovery_after_stop(r811_empty_string_omitted_stop)
+        self.assertIsNot(r811_empty_string_omitted, r811_empty_string_omitted_second)
+        self.assertEqual(r811_empty_string_omitted["promotion"], None)
+        self.assertEqual(r811_empty_string_omitted["bundle"], bundle)
+        r811_float_zero_none_stop = dict(stop)
+        r811_float_zero_none_stop["effective_on_loading"] = 0.0
+        r811_float_zero_none = module.discovery_after_stop(r811_float_zero_none_stop, bundle=None)
+        r811_float_zero_none_second = module.discovery_after_stop(r811_float_zero_none_stop, bundle=None)
+        self.assertIsNot(r811_float_zero_none, r811_float_zero_none_second)
+        self.assertEqual(r811_float_zero_none["promotion"], None)
+        self.assertEqual(r811_float_zero_none["bundle"], bundle)
+        r811_float_zero_omitted_stop = dict(stop)
+        r811_float_zero_omitted_stop["effective_on_loading"] = 0.0
+        r811_float_zero_omitted = module.discovery_after_stop(r811_float_zero_omitted_stop)
+        r811_float_zero_omitted_second = module.discovery_after_stop(r811_float_zero_omitted_stop)
+        self.assertIsNot(r811_float_zero_omitted, r811_float_zero_omitted_second)
+        self.assertEqual(r811_float_zero_omitted["promotion"], None)
+        self.assertEqual(r811_float_zero_omitted["bundle"], bundle)
+        r811_empty_list_none_stop = dict(stop)
+        r811_empty_list_none_stop["effective_on_loading"] = []
+        r811_empty_list_none = module.discovery_after_stop(r811_empty_list_none_stop, bundle=None)
+        r811_empty_list_none_second = module.discovery_after_stop(r811_empty_list_none_stop, bundle=None)
+        self.assertIsNot(r811_empty_list_none, r811_empty_list_none_second)
+        self.assertEqual(r811_empty_list_none["promotion"], None)
+        self.assertEqual(r811_empty_list_none["bundle"], bundle)
+        r811_empty_list_omitted_stop = dict(stop)
+        r811_empty_list_omitted_stop["effective_on_loading"] = []
+        r811_empty_list_omitted = module.discovery_after_stop(r811_empty_list_omitted_stop)
+        r811_empty_list_omitted_second = module.discovery_after_stop(r811_empty_list_omitted_stop)
+        self.assertIsNot(r811_empty_list_omitted, r811_empty_list_omitted_second)
+        self.assertEqual(r811_empty_list_omitted["promotion"], None)
+        self.assertEqual(r811_empty_list_omitted["bundle"], bundle)
+        r812_bytes = module.discovery_after_stop(b"a stop standing as bytes", bundle=bundle)
+        r812_bytes_second = module.discovery_after_stop(b"a stop standing as bytes", bundle=bundle)
+        self.assertIsNot(r812_bytes, r812_bytes_second)
+        self.assertEqual(r812_bytes["promotion"], bundle)
+        self.assertEqual(r812_bytes["bundle"], bundle)
+        r812_integer = module.discovery_after_stop(7, bundle=bundle)
+        r812_integer_second = module.discovery_after_stop(7, bundle=bundle)
+        self.assertIsNot(r812_integer, r812_integer_second)
+        self.assertEqual(r812_integer["promotion"], bundle)
+        self.assertEqual(r812_integer["bundle"], bundle)
+        r813_list_none = module.discovery_after_stop(["a stop standing as a list"], bundle=None)
+        r813_list_none_second = module.discovery_after_stop(["a stop standing as a list"], bundle=None)
+        self.assertIsNot(r813_list_none, r813_list_none_second)
+        self.assertEqual(r813_list_none["promotion"], None)
+        self.assertEqual(r813_list_none["bundle"], None)
+        r813_list_omitted = module.discovery_after_stop(["a stop standing as a list"])
+        r813_list_omitted_second = module.discovery_after_stop(["a stop standing as a list"])
+        self.assertIsNot(r813_list_omitted, r813_list_omitted_second)
+        self.assertEqual(r813_list_omitted["promotion"], None)
+        self.assertEqual(r813_list_omitted["bundle"], None)
+        r813_tuple_none = module.discovery_after_stop(("a stop standing as a tuple",), bundle=None)
+        r813_tuple_none_second = module.discovery_after_stop(("a stop standing as a tuple",), bundle=None)
+        self.assertIsNot(r813_tuple_none, r813_tuple_none_second)
+        self.assertEqual(r813_tuple_none["promotion"], None)
+        self.assertEqual(r813_tuple_none["bundle"], None)
+        r813_tuple_omitted = module.discovery_after_stop(("a stop standing as a tuple",))
+        r813_tuple_omitted_second = module.discovery_after_stop(("a stop standing as a tuple",))
+        self.assertIsNot(r813_tuple_omitted, r813_tuple_omitted_second)
+        self.assertEqual(r813_tuple_omitted["promotion"], None)
+        self.assertEqual(r813_tuple_omitted["bundle"], None)
+
     def test_loading_stop_record_boundary_and_journal_landing(self):
         module = require("ontoloop.ops")
         stop = module.take_loading_stop()
@@ -1573,6 +1954,22 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         second_list_stop_landed = module.journal_record_after_append(
             ["a stop standing as a list"])
         self.assertIsNot(list_stop_landed, second_list_stop_landed)
+        r815_list_none_landed = module.journal_record_after_append(
+            ["a stop standing as a list"], store=None)
+        r815_list_none_second_landed = module.journal_record_after_append(
+            ["a stop standing as a list"], store=None)
+        self.assertIsNot(r815_list_none_landed, r815_list_none_second_landed)
+        r814_tuple_omitted_landed = module.journal_record_after_append(
+            ("a stop standing as a tuple",))
+        r814_tuple_omitted_second_landed = module.journal_record_after_append(
+            ("a stop standing as a tuple",))
+        self.assertIsNot(r814_tuple_omitted_landed, r814_tuple_omitted_second_landed)
+        r815_tuple_none_landed = module.journal_record_after_append(
+            ("a stop standing as a tuple",), store=None)
+        r815_tuple_none_second_landed = module.journal_record_after_append(
+            ("a stop standing as a tuple",), store=None)
+        self.assertIsNot(r815_tuple_none_landed, r815_tuple_none_second_landed)
+
     def test_loading_stop_journal_landing_with_a_store_passed(self):
         module = require("ontoloop.ops")
         stop = module.take_loading_stop(bundle="named bundle")
@@ -1683,6 +2080,34 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIsNot(
             empty_stop_empty_store_landed["stop"],
             second_empty_stop_empty_store_landed["stop"])
+        r814_list_empty_landed = module.journal_record_after_append(
+            ["a stop standing as a list"], store={})
+        r814_list_empty_second_landed = module.journal_record_after_append(
+            ["a stop standing as a list"], store={})
+        self.assertIsNot(r814_list_empty_landed, r814_list_empty_second_landed)
+        r815_list_standing_landed = module.journal_record_after_append(
+            ["a stop standing as a list"], store=standing_store)
+        r815_list_standing_second_landed = module.journal_record_after_append(
+            ["a stop standing as a list"], store=standing_store)
+        self.assertIsNot(r815_list_standing_landed, r815_list_standing_second_landed)
+        r815_tuple_empty_landed = module.journal_record_after_append(
+            ("a stop standing as a tuple",), store={})
+        r815_tuple_empty_second_landed = module.journal_record_after_append(
+            ("a stop standing as a tuple",), store={})
+        self.assertIsNot(r815_tuple_empty_landed, r815_tuple_empty_second_landed)
+        r815_tuple_standing_landed = module.journal_record_after_append(
+            ("a stop standing as a tuple",), store=standing_store)
+        r815_tuple_standing_second_landed = module.journal_record_after_append(
+            ("a stop standing as a tuple",), store=standing_store)
+        self.assertIsNot(r815_tuple_standing_landed, r815_tuple_standing_second_landed)
+        r814_empty_standing_landed = module.journal_record_after_append(
+            {}, store=standing_store)
+        r814_empty_standing_second_landed = module.journal_record_after_append(
+            {}, store=standing_store)
+        self.assertIsNot(r814_empty_standing_landed, r814_empty_standing_second_landed)
+        self.assertIsNot(
+            r814_empty_standing_landed["stop"], r814_empty_standing_second_landed["stop"])
+
     def test_loading_stop_journal_landing_with_an_appending_store(self):
         module = require("ontoloop.ops")
         store_module = require("ontoloop.store")
@@ -1755,6 +2180,17 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIsNot(
             empty_stop_appending_landed["stop"],
             second_empty_stop_appending_landed["stop"])
+        r814_list_appending_landed = module.journal_record_after_append(
+            ["a stop standing as a list"], store=appending_store)
+        r814_list_appending_second_landed = module.journal_record_after_append(
+            ["a stop standing as a list"], store=appending_store)
+        self.assertIsNot(r814_list_appending_landed, r814_list_appending_second_landed)
+        r815_tuple_appending_landed = module.journal_record_after_append(
+            ("a stop standing as a tuple",), store=appending_store)
+        r815_tuple_appending_second_landed = module.journal_record_after_append(
+            ("a stop standing as a tuple",), store=appending_store)
+        self.assertIsNot(r815_tuple_appending_landed, r815_tuple_appending_second_landed)
+
     def test_loading_stop_journal_landing_records_the_append_content(self):
         module = require("ontoloop.ops")
         store_module = require("ontoloop.store")
