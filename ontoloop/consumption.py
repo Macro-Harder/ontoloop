@@ -190,29 +190,77 @@ def _tagged_digest_form(value):
     value stating no content in any of those forms
     encodes under its type name in a no content form
     carrying no process address, so its encoding
-    stands the same in every process.
+    stands the same in every process. A subclass
+    instance of a named container form encodes over
+    its container content and over its added instance
+    content together, and a subclass instance of a
+    Decimal, a date, a time, or a timedelta carrying
+    added instance content encodes over its intrinsic
+    string form and over that content together, so
+    state standing in either channel stands in the
+    digest. An in memory stream encodes over the
+    content it holds, read through its getvalue act
+    without consumption. A value whose content stands
+    in a channel this reading cannot reach without
+    consumption, an iterator among them, a stream
+    whose content stands readable in no such form,
+    and a value whose string form carries its process
+    address stand refused with a ValueError naming
+    the type of the material, so no digest stands
+    taken over an unread channel or over an address.
+    The stream and iterator positions stand decided
+    before the attribute reading, so a value carrying
+    readable attributes beside an unread channel
+    stands read or refused on that channel and never
+    on its attributes alone.
     """
+    import datetime as _datetime_module
+    import decimal as _decimal_module
+    import io as _io_module
+    import re as _re_module
+
     results = []
     path = set()
     stack = [(value, False, 0)]
     while stack:
         current, expanded, child_count = stack.pop()
+        base_kind = None
         if isinstance(current, dict):
-            kind = "dict"
+            base_kind = "dict"
         elif isinstance(current, list):
-            kind = "list"
+            base_kind = "list"
         elif isinstance(current, tuple):
-            kind = "tuple"
+            base_kind = "tuple"
         elif isinstance(current, frozenset):
-            kind = "frozenset"
+            base_kind = "frozenset"
         elif isinstance(current, set):
-            kind = "set"
+            base_kind = "set"
+        if base_kind is not None:
+            if _residual_content_mapping(current) is not None:
+                kind = base_kind + "_attrs"
+            else:
+                kind = base_kind
+        elif (
+            isinstance(
+                current,
+                (
+                    _decimal_module.Decimal,
+                    _datetime_module.date,
+                    _datetime_module.time,
+                    _datetime_module.timedelta,
+                ),
+            )
+            and _residual_content_mapping(current) is not None
+        ):
+            kind = "value_attrs"
         elif (
             current is not None
             and not isinstance(
                 current,
                 (bool, int, float, str, bytes, bytearray, memoryview),
             )
+            and not isinstance(current, _io_module.IOBase)
+            and not hasattr(current, "__next__")
             and _residual_content_mapping(current) is not None
         ):
             kind = "attrs"
@@ -240,7 +288,41 @@ def _tagged_digest_form(value):
                     b"bytes:" + str(len(raw)).encode("ascii") + b":" + raw + b";"
                 )
             else:
-                if (
+                if isinstance(current, _io_module.IOBase):
+                    getvalue = getattr(current, "getvalue", None)
+                    content = None
+                    if getvalue is not None:
+                        try:
+                            content = getvalue()
+                        except Exception:
+                            content = None
+                    if isinstance(content, bytes):
+                        results.append(
+                            b"stream:"
+                            + type(current).__name__.encode("utf-8")
+                            + b":bytes:"
+                            + str(len(content)).encode("ascii")
+                            + b":" + content + b";"
+                        )
+                    elif isinstance(content, str):
+                        raw = content.encode("utf-8")
+                        results.append(
+                            b"stream:"
+                            + type(current).__name__.encode("utf-8")
+                            + b":str:" + str(len(raw)).encode("ascii")
+                            + b":" + raw + b";"
+                        )
+                    else:
+                        raise ValueError(
+                            "digest cannot read material of type "
+                            + type(current).__name__
+                        )
+                elif hasattr(current, "__next__"):
+                    raise ValueError(
+                        "digest cannot read material of type "
+                        + type(current).__name__
+                    )
+                elif (
                     type(current).__str__ is object.__str__
                     and type(current).__repr__ is object.__repr__
                 ):
@@ -250,7 +332,13 @@ def _tagged_digest_form(value):
                         + b":nocontent;"
                     )
                 else:
-                    raw = str(current).encode("utf-8")
+                    text = str(current)
+                    if _re_module.search(r" at 0x[0-9a-fA-F]+", text):
+                        raise ValueError(
+                            "digest cannot read material of type "
+                            + type(current).__name__
+                        )
+                    raw = text.encode("utf-8")
                     results.append(
                         b"other:" + type(current).__name__.encode("utf-8")
                         + b":" + str(len(raw)).encode("ascii")
@@ -262,13 +350,20 @@ def _tagged_digest_form(value):
             if marker in path:
                 raise ValueError("cyclic value in canonical form")
             path.add(marker)
-            if kind == "dict":
+            if kind in ("dict", "dict_attrs"):
                 children = []
                 for key in current:
                     children.append(key)
                     children.append(current[key])
-            elif kind == "attrs":
+                if kind == "dict_attrs":
+                    children.append(_residual_content_mapping(current))
+            elif kind in ("attrs", "value_attrs"):
                 children = [_residual_content_mapping(current)]
+            elif kind in (
+                "list_attrs", "tuple_attrs", "set_attrs", "frozenset_attrs"
+            ):
+                children = list(current)
+                children.append(_residual_content_mapping(current))
             else:
                 children = list(current)
             stack.append((current, True, len(children)))
@@ -281,26 +376,66 @@ def _tagged_digest_form(value):
             del results[len(results) - child_count:]
         else:
             parts = []
-        if kind == "dict":
+        if kind in ("dict", "dict_attrs"):
+            attrs_part = None
+            entry_parts = parts
+            if kind == "dict_attrs":
+                attrs_part = parts[-1]
+                entry_parts = parts[:-1]
             entries = []
-            for index in range(0, len(parts), 2):
-                entries.append(parts[index] + b"=" + parts[index + 1])
+            for index in range(0, len(entry_parts), 2):
+                entries.append(
+                    entry_parts[index] + b"=" + entry_parts[index + 1]
+                )
             entries.sort()
-            results.append(b"dict:{" + b",".join(entries) + b"}")
+            encoded = b"dict:{" + b",".join(entries) + b"}"
+            if attrs_part is not None:
+                encoded = encoded + b"+attrs=" + attrs_part + b";"
+            results.append(encoded)
         elif kind == "attrs":
             results.append(
                 b"object:" + type(current).__name__.encode("utf-8")
                 + b"=" + parts[0] + b";"
             )
-        elif kind in ("set", "frozenset"):
-            parts.sort()
-            results.append(
-                kind.encode("ascii") + b":[" + b",".join(parts) + b"]"
+        elif kind == "value_attrs":
+            raw = str(current).encode("utf-8")
+            intrinsic = (
+                b"other:" + type(current).__name__.encode("utf-8")
+                + b":" + str(len(raw)).encode("ascii")
+                + b":" + raw + b";"
             )
+            results.append(intrinsic + b"+attrs=" + parts[0] + b";")
+        elif kind in ("set", "frozenset", "set_attrs", "frozenset_attrs"):
+            attrs_part = None
+            member_parts = parts
+            base_kind = kind
+            if kind in ("set_attrs", "frozenset_attrs"):
+                attrs_part = parts[-1]
+                member_parts = parts[:-1]
+                base_kind = kind[:-len("_attrs")]
+            member_parts.sort()
+            encoded = (
+                base_kind.encode("ascii")
+                + b":[" + b",".join(member_parts) + b"]"
+            )
+            if attrs_part is not None:
+                encoded = encoded + b"+attrs=" + attrs_part + b";"
+            results.append(encoded)
         else:
-            results.append(
-                kind.encode("ascii") + b":[" + b",".join(parts) + b"]"
+            attrs_part = None
+            member_parts = parts
+            base_kind = kind
+            if kind in ("list_attrs", "tuple_attrs"):
+                attrs_part = parts[-1]
+                member_parts = parts[:-1]
+                base_kind = kind[:-len("_attrs")]
+            encoded = (
+                base_kind.encode("ascii")
+                + b":[" + b",".join(member_parts) + b"]"
             )
+            if attrs_part is not None:
+                encoded = encoded + b"+attrs=" + attrs_part + b";"
+            results.append(encoded)
     return results[0]
 
 
@@ -1972,14 +2107,19 @@ def discover(workflow=None):
     the registry holds and nothing a later call returns.
     Where none stands, the return states the no promotion
     position as a normal answer and carries no error form.
+    The no promotion position stands decided by the
+    presence of the workflow name in the registry and
+    not by the value of the bundle read, so a bundle
+    recorded as the value None returns the promotion
+    answer carrying the None bundle.
     """
-    bundle = _CURRENT_PROMOTIONS.get(workflow)
-    if bundle is None:
+    if workflow not in _CURRENT_PROMOTIONS:
         return {
             "answer": "no promotion",
             "is_error": False,
             "bundle": None,
         }
+    bundle = _CURRENT_PROMOTIONS[workflow]
     return {
         "answer": "promotion",
         "is_error": False,
