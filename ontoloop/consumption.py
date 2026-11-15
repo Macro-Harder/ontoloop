@@ -123,7 +123,14 @@ def _residual_content_mapping(value):
     slot values, this act returns a fresh mapping of
     that content, keyed by attribute or slot name, so
     the encoding reads the content of the value and
-    not only its string form. Where the value carries
+    not only its string form. A slot whose stated name
+    carries two leading underscores stands stored
+    under a storage name carrying the stating class
+    name as a prefix, and the act reads that slot
+    under its storage name beside the raw name, so
+    its content stands in the mapping in the same
+    form as any other slot content. Where the value
+    carries
     no such content, the act returns None, and the
     encoding states its governed no content form or
     its content bearing string form, as
@@ -149,8 +156,16 @@ def _residual_content_mapping(value):
                 continue
             try:
                 mapping[name] = getattr(value, name)
-            except AttributeError:
                 continue
+            except AttributeError:
+                pass
+            if name.startswith("__") and not name.endswith("__"):
+                storage = "_" + cls.__name__.lstrip("_") + name
+                if storage != name:
+                    try:
+                        mapping[name] = getattr(value, storage)
+                    except AttributeError:
+                        continue
     if mapping:
         return mapping
     return None
@@ -210,12 +225,26 @@ def _tagged_digest_form(value):
     exception type carrying added instance content
     encodes over its argument content and over that
     content together, in the same two channel form,
-    and a member of an enum mixing in int, float, or
-    str carrying added instance content beyond the
+    the filename channels of an OSError standing
+    beside its argument content in that form, and the
+    cause and context channels of an exception
+    standing beside its argument content in every
+    exception form, the encoding walk standing over
+    that chaining walk in its cyclic form, and a
+    member of an enum mixing in int, float, str, or
+    bytes carrying added instance content beyond the
     member state its enum class states encodes over
     its intrinsic value and over that added content
     together, a member carrying no such added content
-    encoding in its standing form. An in memory stream encodes
+    encoding in its standing form. A defaultdict
+    encodes over its entries and over a governed form
+    of its default factory together, a factory stating
+    no such form standing refused, and a function
+    carrying added instance content stands refused in
+    the form its plain form stands refused, the
+    function channel standing decided before the
+    attribute reading in the same form as the stream
+    and iterator positions. An in memory stream encodes
     over the content it holds, read through its
     getvalue act without consumption, and a stream
     subclass instance carrying added instance content
@@ -232,7 +261,14 @@ def _tagged_digest_form(value):
     At with a capital first letter, grouped with
     commas after the word at, or standing bare inside
     a bracketed form as a decimal or hexadecimal
-    number, stand
+    number, or standing in any whole token dress the
+    scan reads in substance, after a space, inside
+    parentheses, behind an equals sign, a semicolon,
+    or a slash, attached to its introducer, or at the
+    head of the form, or standing separated into
+    groups by one separator character, as grouped
+    decimal groups or as hexadecimal pairs or groups,
+    stand
     refused with a ValueError naming the type of the
     material, so no digest stands taken over an
     unread channel or over an address.
@@ -249,6 +285,7 @@ def _tagged_digest_form(value):
     import enum as _enum_module
     import io as _io_module
     import re as _re_module
+    import types as _types_module
 
     def _enum_added_mapping(member):
         residual = _residual_content_mapping(member)
@@ -266,6 +303,102 @@ def _tagged_digest_form(value):
             added[key] = residual[key]
         if added:
             return added
+        return None
+
+    def _address_bearing(text):
+        if _re_module.search(
+            r" at 0[xX][0-9a-fA-F]+"
+            r"| at [0-9]{5,}"
+            r"|0[xX][0-9a-fA-F]{4,}"
+            r"| At [0-9]{5,}"
+            r"| [aA]t [0-9]{1,3}(?:,[0-9]{3})+"
+            r"| [#:\[] *[0-9]{5,}"
+            r"| [#:\[] *[0-9]{1,3}(?:,[0-9]{3})+"
+            r"|<[^>]*[0-9]{7,}[^>]*>"
+            r"|<[^>]*[0-9]{1,3}(?:,[0-9]{3})+[^>]*>"
+            r"|<[^>]*\b(?=[0-9a-fA-F]*[a-fA-F])"
+            r"(?=[0-9a-fA-F]*[0-9])"
+            r"[0-9a-fA-F]{7,}\b[^>]*>",
+            text,
+        ):
+            return True
+        stripped = text.strip()
+        if _re_module.fullmatch(
+            r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)"
+            r"(?:[eE][+-]?[0-9]+)?",
+            stripped,
+        ):
+            return False
+        if _re_module.search(r"[0-9]{7,}", text):
+            return True
+        if _re_module.search(
+            r"(?<![0-9a-fA-F])"
+            r"(?=[0-9a-fA-F]*[a-fA-F])(?=[0-9a-fA-F]*[0-9])"
+            r"[0-9a-fA-F]{7,}(?![0-9a-fA-F])",
+            text,
+        ):
+            return True
+        if _re_module.search(
+            r"(?<![0-9])[0-9]{1,3}(?:[,_'.\- ][0-9]{3}){2,}"
+            r"(?![0-9])",
+            text,
+        ):
+            return True
+        if _re_module.search(
+            r"(?<![0-9a-fA-F])[0-9a-fA-F]{2}([\-./:_ ])"
+            r"[0-9a-fA-F]{2}(?:\1[0-9a-fA-F]{2}){4,}"
+            r"(?![0-9a-fA-F])",
+            text,
+        ):
+            return True
+        for match in _re_module.finditer(
+            r"(?<![0-9a-fA-F])[0-9a-fA-F]{4}([\-./:_ ])"
+            r"[0-9a-fA-F]{4}(?:\1[0-9a-fA-F]{4}){1,}"
+            r"(?![0-9a-fA-F])",
+            text,
+        ):
+            if _re_module.search(r"[a-fA-F]", match.group(0)):
+                return True
+        return False
+
+    def _dict_factory_token(current):
+        if not isinstance(
+            current, _collections_module.defaultdict
+        ):
+            return None
+        factory = current.default_factory
+        if factory is None:
+            return None
+        if isinstance(factory, type):
+            return (
+                "factorytype:"
+                + factory.__module__
+                + "."
+                + factory.__qualname__
+            )
+        if (
+            callable(factory)
+            and type(factory).__name__
+            == "builtin_function_or_method"
+            and getattr(factory, "__qualname__", None)
+            and "<lambda>" not in factory.__qualname__
+        ):
+            return (
+                "factorybuiltin:"
+                + factory.__module__
+                + "."
+                + factory.__qualname__
+            )
+        raise ValueError(
+            "digest cannot read material of type "
+            + type(current).__name__
+        )
+
+    def _exception_filename(current, attribute):
+        if isinstance(current, OSError):
+            value = getattr(current, attribute, None)
+            if value is not None:
+                return value
         return None
 
     results = []
@@ -307,7 +440,7 @@ def _tagged_digest_form(value):
             kind = "value_attrs"
         elif (
             isinstance(current, _enum_module.Enum)
-            and isinstance(current, (int, float, str))
+            and isinstance(current, (int, float, str, bytes))
             and _enum_added_mapping(current) is not None
         ):
             kind = "enum_attrs"
@@ -331,6 +464,14 @@ def _tagged_digest_form(value):
         ):
             kind = "exc_attrs"
         elif (
+            isinstance(current, BaseException)
+            and (
+                getattr(current, "__cause__", None) is not None
+                or getattr(current, "__context__", None) is not None
+            )
+        ):
+            kind = "exc_chain"
+        elif (
             current is not None
             and not isinstance(
                 current,
@@ -342,6 +483,8 @@ def _tagged_digest_form(value):
         ):
             kind = "attrs"
         else:
+            kind = None
+        if isinstance(current, _types_module.FunctionType):
             kind = None
         if kind is None:
             if current is None:
@@ -410,21 +553,7 @@ def _tagged_digest_form(value):
                     )
                 else:
                     text = str(current)
-                    if _re_module.search(
-                        r" at 0[xX][0-9a-fA-F]+"
-                        r"| at [0-9]{5,}"
-                        r"|0[xX][0-9a-fA-F]{4,}"
-                        r"| At [0-9]{5,}"
-                        r"| [aA]t [0-9]{1,3}(?:,[0-9]{3})+"
-                        r"| [#:\[] *[0-9]{5,}"
-                        r"| [#:\[] *[0-9]{1,3}(?:,[0-9]{3})+"
-                        r"|<[^>]*[0-9]{7,}[^>]*>"
-                        r"|<[^>]*[0-9]{1,3}(?:,[0-9]{3})+[^>]*>"
-                        r"|<[^>]*\b(?=[0-9a-fA-F]*[a-fA-F])"
-                        r"(?=[0-9a-fA-F]*[0-9])"
-                        r"[0-9a-fA-F]{7,}\b[^>]*>",
-                        text,
-                    ):
+                    if _address_bearing(text):
                         raise ValueError(
                             "digest cannot read material of type "
                             + type(current).__name__
@@ -448,10 +577,25 @@ def _tagged_digest_form(value):
                     children.append(current[key])
                 if kind == "dict_attrs":
                     children.append(_residual_content_mapping(current))
+                factory_token = _dict_factory_token(current)
+                if factory_token is not None:
+                    children.append(factory_token)
             elif kind == "exc_attrs":
                 children = [
                     tuple(current.args),
                     _residual_content_mapping(current),
+                    _exception_filename(current, "filename"),
+                    _exception_filename(current, "filename2"),
+                    getattr(current, "__cause__", None),
+                    getattr(current, "__context__", None),
+                ]
+            elif kind == "exc_chain":
+                children = [
+                    tuple(current.args),
+                    _exception_filename(current, "filename"),
+                    _exception_filename(current, "filename2"),
+                    getattr(current, "__cause__", None),
+                    getattr(current, "__context__", None),
                 ]
             elif kind == "enum_attrs":
                 children = [_enum_added_mapping(current)]
@@ -477,11 +621,15 @@ def _tagged_digest_form(value):
         else:
             parts = []
         if kind in ("dict", "dict_attrs"):
-            attrs_part = None
+            factory_part = None
             entry_parts = parts
-            if kind == "dict_attrs":
-                attrs_part = parts[-1]
+            if _dict_factory_token(current) is not None:
+                factory_part = parts[-1]
                 entry_parts = parts[:-1]
+            attrs_part = None
+            if kind == "dict_attrs":
+                attrs_part = entry_parts[-1]
+                entry_parts = entry_parts[:-1]
             entries = []
             for index in range(0, len(entry_parts), 2):
                 entries.append(
@@ -490,7 +638,11 @@ def _tagged_digest_form(value):
             entries.sort()
             encoded = b"dict:{" + b",".join(entries) + b"}"
             if attrs_part is not None:
-                encoded = encoded + b"+attrs=" + attrs_part + b";"
+                encoded = encoded + b"+attrs=" + attrs_part
+            if factory_part is not None:
+                encoded = encoded + b"+factory=" + factory_part
+            if attrs_part is not None or factory_part is not None:
+                encoded = encoded + b";"
             results.append(encoded)
         elif kind == "attrs":
             results.append(
@@ -500,7 +652,20 @@ def _tagged_digest_form(value):
         elif kind == "exc_attrs":
             results.append(
                 b"object:" + type(current).__name__.encode("utf-8")
-                + b"=args=" + parts[0] + b"+attrs=" + parts[1] + b";"
+                + b"=args=" + parts[0] + b"+attrs=" + parts[1]
+                + b"+filename=" + parts[2]
+                + b"+filename2=" + parts[3]
+                + b"+cause=" + parts[4]
+                + b"+context=" + parts[5] + b";"
+            )
+        elif kind == "exc_chain":
+            results.append(
+                b"object:" + type(current).__name__.encode("utf-8")
+                + b"=args=" + parts[0]
+                + b"+filename=" + parts[1]
+                + b"+filename2=" + parts[2]
+                + b"+cause=" + parts[3]
+                + b"+context=" + parts[4] + b";"
             )
         elif kind == "value_attrs":
             raw = str(current).encode("utf-8")
