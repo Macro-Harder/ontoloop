@@ -1225,6 +1225,90 @@ _WRAPPER_ITEM_FIELD_KEYS = (
 )
 
 
+def _is_delegating_container_subclass(value):
+    """Return True where a value stands in a delegating
+    subclass of a named container form.
+
+    A delegating subclass stands in a named container
+    form by inheritance, a list, a tuple, a set, a
+    frozenset, a deque, a UserList, an abstract
+    Sequence, or an abstract Set, while its iteration
+    act does not stand in the standing form of its
+    base: the iteration act of its type stands apart
+    from the iteration act of the base it stands in.
+    A value standing in the base form itself, and a
+    subclass whose iteration act stands in the
+    standing form of its base, stand apart. A text
+    form and a mapping form stand apart in every case,
+    in parity with the direct act reading of those
+    forms.
+    """
+    import collections as _collections_module
+
+    from collections.abc import Mapping as _Mapping
+    from collections.abc import Sequence as _Sequence
+    from collections.abc import Set as _Set
+
+    if isinstance(value, _Mapping):
+        return False
+    if isinstance(
+        value,
+        (
+            str,
+            _collections_module.UserString,
+            bytes,
+            bytearray,
+            memoryview,
+        ),
+    ):
+        return False
+    concrete_bases = (
+        list,
+        tuple,
+        set,
+        frozenset,
+        _collections_module.deque,
+        _collections_module.UserList,
+    )
+    for base in concrete_bases:
+        if isinstance(value, base):
+            if type(value) is base:
+                return False
+            return type(value).__iter__ is not base.__iter__
+    if _Sequence in type(value).__mro__ and isinstance(value, _Sequence):
+        return type(value).__iter__ is not _Sequence.__iter__
+    if _Set in type(value).__mro__ and isinstance(value, _Set):
+        return type(value).__iter__ is not _Set.__iter__
+    return False
+
+
+def _is_delegating_concrete_container_subclass(value):
+    """Return True where a delegating subclass stands in
+    a concrete named container form, a list, a tuple, a
+    set, a frozenset, a deque, or a UserList, in the form
+    _is_delegating_container_subclass states. A subclass
+    standing in an abstract form alone stands apart: its
+    standing materialisation handling stands in its own
+    form at positions outside the mapping presentation.
+    """
+    import collections as _collections_module
+
+    concrete_bases = (
+        list,
+        tuple,
+        set,
+        frozenset,
+        _collections_module.deque,
+        _collections_module.UserList,
+    )
+    for base in concrete_bases:
+        if isinstance(value, base):
+            if type(value) is base:
+                return False
+            return type(value).__iter__ is not base.__iter__
+    return False
+
+
 def _is_single_pass_iterable(value):
     """Return True where a value stands as a single pass iterable.
 
@@ -1242,7 +1326,15 @@ def _is_single_pass_iterable(value):
     made here, because the asking itself may spend an
     element of the stored iterator or exhaust the one
     permitted call, so the form stands recognised by
-    its standing container forms alone. A value
+    its standing container forms alone. A subclass of
+    a named container form whose iteration act does
+    not stand in the standing form of its base stands
+    in the same substance and stands recognised in
+    that form, its iteration act delegating in its
+    turn to one stored iterator, while a subclass
+    whose iteration act stands in the standing form
+    of its base stands apart in the same way as its
+    base. A value
     standing in a re-iterable container form, a text
     form, a byte form, a memoryview, an array, a
     range, a mapping, a dictionary view, a list, a
@@ -1266,6 +1358,8 @@ def _is_single_pass_iterable(value):
         ValuesView as _ValuesView,
     )
 
+    if _is_delegating_container_subclass(value):
+        return True
     if isinstance(
         value,
         (
@@ -1383,7 +1477,8 @@ def _wrapper_subtree_has_iterator(value, ancestors):
     return False
 
 
-def _wrapper_materialise(value, shared_module, ancestors, depth=0):
+def _wrapper_materialise(value, shared_module, ancestors, depth=0,
+                         path_state="top"):
     """Materialise one iterator carrying subtree for the wrapper.
 
     A subtree carrying no iterator stands returned as
@@ -1429,7 +1524,20 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0):
     here in the same rebuilt form, and a getitem only
     form standing in any deeper position stands as it
     stands, unlisted, in parity with the direct act
-    reading of that position. A set or frozenset
+    reading of that position. A delegating container
+    subclass, in the form _is_delegating_container_subclass
+    states, stands listed once here in the same rebuilt
+    form where it stands at a mapping presented
+    position, reached as a value of a mapping standing
+    in the holdout material through mapping values
+    alone, and a delegating subclass standing in a
+    concrete container form stands as it stands,
+    unlisted, in any
+    other position, in parity with the direct act
+    reading of that position, a position inside a
+    tuple, inside a list, inside a ChainMap, or
+    standing directly as the whole holdout material
+    among them. A set or frozenset
     stands rebuilt from its elements materialised
     once and carried in a list, so where the rebuilt
     form stands unhashable and the rebuild fails, the
@@ -1452,7 +1560,8 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0):
         getitem_ancestors = ancestors | {id(value)}
         materialised = [
             _wrapper_materialise(
-                element, shared_module, getitem_ancestors, depth + 1
+                element, shared_module, getitem_ancestors,
+                depth + 1, "other",
             )
             for element in listed_once
         ]
@@ -1466,6 +1575,30 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0):
         ):
             return tuple(materialised)
         return materialised
+    if _is_delegating_container_subclass(value) and (
+        path_state == "mapping"
+        or _is_delegating_concrete_container_subclass(value)
+    ):
+        if path_state != "mapping":
+            return value
+        subclass_ancestors = ancestors | {id(value)}
+        materialised = [
+            _wrapper_materialise(
+                element, shared_module, subclass_ancestors,
+                depth + 1, "other",
+            )
+            for element in list(value)
+        ]
+        from collections.abc import Mapping as _SubclassMapping
+
+        if len(materialised) == 1 and isinstance(
+            materialised[0], _SubclassMapping
+        ) and not any(
+            key in materialised[0]
+            for key in _WRAPPER_ITEM_FIELD_KEYS
+        ):
+            return tuple(materialised)
+        return materialised
     if not _wrapper_subtree_has_iterator(value, ancestors):
         return value
     ancestors = ancestors | {id(value)}
@@ -1473,7 +1606,9 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0):
 
     if hasattr(value, "__next__") and hasattr(value, "__iter__"):
         materialised = [
-            _wrapper_materialise(element, shared_module, ancestors, depth + 1)
+            _wrapper_materialise(
+                element, shared_module, ancestors, depth + 1, "other"
+            )
             for element in list(value)
         ]
         if len(materialised) == 1 and isinstance(
@@ -1490,15 +1625,21 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0):
             maps.append(
                 {
                     key: _wrapper_materialise(
-                        inner, shared_module, ancestors, depth + 1
+                        inner, shared_module, ancestors,
+                        depth + 1, "other",
                     )
                     for key, inner in chained.items()
                 }
             )
         return _collections_module.ChainMap(*maps)
     if isinstance(value, _Mapping):
+        child_state = (
+            "mapping" if path_state in ("top", "mapping") else "other"
+        )
         return {
-            key: _wrapper_materialise(inner, shared_module, ancestors, depth + 1)
+            key: _wrapper_materialise(
+                inner, shared_module, ancestors, depth + 1, child_state
+            )
             for key, inner in value.items()
         }
     from collections.abc import (
@@ -1516,7 +1657,7 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0):
             underlying, _Mapping
         ):
             materialised = _wrapper_materialise(
-                underlying, shared_module, ancestors, depth + 1
+                underlying, shared_module, ancestors, depth + 1, "other"
             )
             if isinstance(materialised, _Mapping):
                 if isinstance(value, _KeysView):
@@ -1528,28 +1669,36 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0):
         return shared_module._materialise_iterators(value)
     if isinstance(value, tuple):
         return tuple(
-            _wrapper_materialise(element, shared_module, ancestors, depth + 1)
+            _wrapper_materialise(
+                element, shared_module, ancestors, depth + 1, "other"
+            )
             for element in value
         )
     if isinstance(value, _collections_module.deque):
         return _collections_module.deque(
-            _wrapper_materialise(element, shared_module, ancestors, depth + 1)
+            _wrapper_materialise(
+                element, shared_module, ancestors, depth + 1, "other"
+            )
             for element in value
         )
     if isinstance(value, _collections_module.UserList):
         return _collections_module.UserList(
-            _wrapper_materialise(element, shared_module, ancestors, depth + 1)
+            _wrapper_materialise(
+                element, shared_module, ancestors, depth + 1, "other"
+            )
             for element in value
         )
     if isinstance(value, list):
         return [
-            _wrapper_materialise(element, shared_module, ancestors, depth + 1)
+            _wrapper_materialise(
+                element, shared_module, ancestors, depth + 1, "other"
+            )
             for element in value
         ]
     if isinstance(value, (set, frozenset)):
         materialised_elements = [
             _wrapper_materialise(
-                element, shared_module, ancestors, depth + 1
+                element, shared_module, ancestors, depth + 1, "other"
             )
             for element in value
         ]
@@ -1559,7 +1708,9 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0):
             return materialised_elements
     if _is_single_pass_iterable(value):
         materialised = [
-            _wrapper_materialise(element, shared_module, ancestors, depth + 1)
+            _wrapper_materialise(
+                element, shared_module, ancestors, depth + 1, "other"
+            )
             for element in list(value)
         ]
         if len(materialised) == 1 and isinstance(
