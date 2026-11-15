@@ -610,7 +610,19 @@ def _bundle_copy(bundle):
     module, a cursor object of the sqlite3 module,
     a hash object of the hashlib module, or an HMAC
     object of the hmac module standing inside such
-    a value stands refused in the same form.
+    a value stands refused in the same form, and an
+    iterator over a memoryview, a scandir iterator
+    or a DirEntry object of the os module, a simple
+    queue object of the queue module, a token object
+    of the contextvars module, a memory BIO object
+    of the ssl module, a byref object or a pointer
+    object of the ctypes module, a future object of
+    the asyncio module, a database handle object of
+    the dbm module, an XMLParser object, a Pickler
+    object, a writer object of the csv module, or a
+    context manager object of the decimal module
+    standing inside such a value stands refused in
+    the same form.
     A dictionary view standing at
     any position copies as a fresh list of copies of
     the material it carries, an items view as a fresh
@@ -664,10 +676,13 @@ def _bundle_copy(bundle):
     copied parts.
     """
     import array as _array_module
+    import asyncio as _asyncio_module
     import collections as _collections
     import collections.abc as _abc_module
     import contextvars as _contextvars_module
     import copy as _copy_module
+    import csv as _csv_module
+    import ctypes as _ctypes_module
     import datetime as _datetime_module
     import decimal as _decimal_module
     import enum as _enum_module
@@ -678,7 +693,10 @@ def _bundle_copy(bundle):
     import io as _io_module
     import ipaddress as _ipaddress_module
     import mmap as _mmap_module
+    import os as _os_module
     import pathlib as _pathlib_module
+    import pickle as _pickle_module
+    import queue as _queue_module
     import re as _re_module
     import select as _select_module
     import socket as _socket_module
@@ -689,6 +707,7 @@ def _bundle_copy(bundle):
     import types as _types_module
     import uuid as _uuid_module
     import weakref as _weakref_module
+    import xml.etree.ElementTree as _xml_module
     import zoneinfo as _zoneinfo_module
 
     def _is_atom(value):
@@ -1476,6 +1495,31 @@ def _bundle_copy(bundle):
     _cursor_type = _sqlite3_module.Cursor
     _hash_type = type(_hashlib_module.sha256())
     _hmac_type = _hmac_module.HMAC
+    _memory_iterator_type = type(iter(memoryview(b"")))
+    try:
+        _scandir_probe = _os_module.scandir(_os_module.curdir)
+        _scandir_iterator_type = type(_scandir_probe)
+        _scandir_probe.close()
+    except Exception:
+        _scandir_iterator_type = None
+    _dir_entry_type = getattr(_os_module, "DirEntry", None)
+    _simple_queue_type = _queue_module.SimpleQueue
+    _token_type = _contextvars_module.Token
+    _memory_bio_type = _ssl_module.MemoryBIO
+    _carg_object_type = type(
+        _ctypes_module.byref(_ctypes_module.c_int(0))
+    )
+    _pointer_type = getattr(_ctypes_module, "_Pointer", None)
+    _future_type = _asyncio_module.Future
+    _xml_parser_type = _xml_module.XMLParser
+    _pickler_type = _pickle_module.Pickler
+    _csv_writer_type = type(
+        _csv_module.writer(_io_module.StringIO())
+    )
+    _decimal_context_manager_type = type(
+        _decimal_module.localcontext()
+    )
+    _dbm_type_identities = (("_dbm", "dbm"), ("_gdbm", "gdbm"))
 
     def _fallback_holds_uncopyable(value):
         pending = [value]
@@ -1506,6 +1550,16 @@ def _bundle_copy(bundle):
                     _mmap_module.mmap,
                     _contextvars_module.Context,
                     _ssl_module.SSLContext,
+                    _memory_iterator_type,
+                    _simple_queue_type,
+                    _token_type,
+                    _memory_bio_type,
+                    _carg_object_type,
+                    _future_type,
+                    _xml_parser_type,
+                    _pickler_type,
+                    _csv_writer_type,
+                    _decimal_context_manager_type,
                     classmethod,
                     staticmethod,
                 ),
@@ -1518,6 +1572,22 @@ def _bundle_copy(bundle):
             if _poll_type is not None and isinstance(
                 item, _poll_type
             ):
+                return True
+            if _scandir_iterator_type is not None and isinstance(
+                item, _scandir_iterator_type
+            ):
+                return True
+            if _dir_entry_type is not None and isinstance(
+                item, _dir_entry_type
+            ):
+                return True
+            if _pointer_type is not None and isinstance(
+                item, _pointer_type
+            ):
+                return True
+            if (
+                type(item).__module__, type(item).__name__
+            ) in _dbm_type_identities:
                 return True
             if isinstance(item, _io_module.IOBase) and not isinstance(
                 item, (_io_module.BytesIO, _io_module.StringIO)
