@@ -1751,6 +1751,35 @@ def append_record(store, content, record_type="record"):
                         "appended": False,
                         "reported_appended": False,
                     }
+                # Fix round 16, ruling 578: an append over a
+                # last record whose hash stands in the standing
+                # hash form in a wrong value stands refused in
+                # the same governed refusal form, with no record
+                # built and no heads signed. The hash stands
+                # read against the record it stands over: the
+                # four journal fields of the last record, taken
+                # in their standing values, recompute under the
+                # journal record hashing act to the hash the
+                # last record carries, and any other value in
+                # the standing hash form, or a value the
+                # hashing act refuses, does not.
+                try:
+                    standing_hash = _hash_journal_record(
+                        last_record.get("content"),
+                        last_record.get("predecessor_hash"),
+                        last_record.get("store_sequence"),
+                        last_record.get("record_type"),
+                    )
+                except Exception:
+                    standing_hash = None
+                if standing_hash is None or (
+                    standing_hash != last_hash
+                ):
+                    return {
+                        "error": "last record hash not standing",
+                        "appended": False,
+                        "reported_appended": False,
+                    }
         old_manifest = store.get("manifest")
         old_signature = store.get("signature_object")
         old_anchor = store.get("anchor_staging_copy")
