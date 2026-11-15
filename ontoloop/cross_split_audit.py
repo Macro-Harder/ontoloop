@@ -586,6 +586,26 @@ def _is_single_pass_iterable(value):
     return True
 
 
+def _contains_single_use(value):
+    """Whether a value carries a single use form inside it.
+
+    A value standing as an iterator or as a general
+    iterable standing listed once only carries such a
+    form, and a list or a tuple carries one where any
+    element it carries carries one in the same way.
+    Any other value carries none here.
+    """
+    if _is_single_pass_iterable(value):
+        return True
+    if hasattr(value, "__next__"):
+        return True
+    if isinstance(value, (list, tuple)):
+        return any(
+            _contains_single_use(element) for element in value
+        )
+    return False
+
+
 def _position_elements(value):
     """List a bundle position value once, or return None.
 
@@ -633,6 +653,8 @@ def _is_index_pair_form(element):
             _ValuesView,
         ),
     ):
+        return False
+    if _is_single_pass_iterable(element):
         return False
     if isinstance(element, (set, frozenset)):
         if len(element) != 2:
@@ -687,6 +709,8 @@ def _index_pair_second(element):
             if not isinstance(entry, int):
                 return entry
         return None
+    if _is_single_pass_iterable(element):
+        return list(element)[1]
     try:
         return element[1]
     except Exception:
@@ -730,14 +754,33 @@ def _enumerate_carried(element):
         if (
             isinstance(element, (list, tuple))
             and len(element) == 1
+            and _is_single_pass_iterable(element[0])
+        ):
+            element = list(element[0])
+            continue
+        if (
+            isinstance(element, (list, tuple))
+            and len(element) == 1
             and _is_index_pair_form(element[0])
         ):
             element = _index_pair_second(element[0])
+            continue
+        if (
+            isinstance(element, (list, tuple))
+            and len(element) == 1
+            and isinstance(element[0], (list, tuple))
+        ):
+            element = element[0]
             continue
         if hasattr(element, "__next__") and hasattr(
             element, "__iter__"
         ):
             listed = list(element)
+            if len(listed) == 1 and _is_single_pass_iterable(
+                listed[0]
+            ):
+                element = list(listed[0])
+                continue
             if len(listed) == 1 and _is_index_pair_form(
                 listed[0]
             ):
@@ -1238,6 +1281,7 @@ def _materialised_pairs_material(material):
         if any(
             hasattr(pair, "__next__")
             or _is_single_pass_iterable(pair)
+            or _contains_single_use(pair)
             for pair in candidates
         ):
             listed = candidates
@@ -1271,6 +1315,8 @@ def _materialised_pairs_material(material):
             else:
                 new_pairs.append(listed_once)
         elif _is_single_pass_iterable(pair):
+            new_pairs.append(_enumerate_carried(pair))
+        elif _contains_single_use(pair):
             new_pairs.append(_enumerate_carried(pair))
         else:
             new_pairs.append(pair)
@@ -1751,6 +1797,44 @@ def _chain_map_view_sides(value):
     return None
 
 
+def _mapping_key_sides(value):
+    """Return the two sides standing as the keys of a mapping.
+
+    A mapping carrying two keys, each standing as an
+    item a pair side carries in mapping form, stands
+    read for those keys as its pair sides. A ChainMap
+    stands read in the order of its maps, in parity
+    with ruling 569, a key standing in an earlier map
+    standing before a key standing in a later map. Any
+    other mapping stands read in its standing key
+    order. A mapping standing in no such form returns
+    None.
+    """
+    if not isinstance(value, _Mapping):
+        return None
+    if _pair_elements(value) is not None:
+        return None
+    if len(value) != 2:
+        return None
+    if not all(
+        isinstance(key, _Mapping) and _is_pair_side_item(key)
+        for key in value.keys()
+    ):
+        return None
+    if isinstance(value, _collections_module.ChainMap):
+        sides = []
+        for chained in value.maps:
+            for key in chained.keys():
+                if any(key is held for held in sides):
+                    continue
+                sides.append(key)
+        if len(sides) == 2:
+            return sides[0], sides[1]
+        return None
+    listed = list(value.keys())
+    return listed[0], listed[1]
+
+
 def _single_pair_sides(value):
     """Return the two sides a single pair position value carries.
 
@@ -1769,8 +1853,15 @@ def _single_pair_sides(value):
     receives. A value standing in a container
     form that iterates by indexed access alone stands
     read for the two elements its indexed access yields,
-    in the same form.
+    in the same form. A view standing as the one element
+    a view, a container, or a mapping value carries
+    stands read in the same way at any depth, a mapping
+    standing read for the pair its values carry and for
+    the pair standing as its two keys, a ChainMap in
+    the order of its maps.
     """
+    if _is_index_pair_form(value):
+        return _single_pair_sides(_index_pair_second(value))
     if isinstance(value, _KeysView):
         chain_sides = _chain_map_view_sides(value)
         if chain_sides is not None:
@@ -1778,6 +1869,8 @@ def _single_pair_sides(value):
         listed = list(value)
         if len(listed) == 2:
             return listed[0], listed[1]
+        if len(listed) == 1:
+            return _single_pair_sides(listed[0])
         return None
     if isinstance(value, _ItemsView):
         chain_sides = _chain_map_view_sides(value)
@@ -1788,6 +1881,8 @@ def _single_pair_sides(value):
         ]
         if len(carried) == 2:
             return carried[0], carried[1]
+        if len(carried) == 1:
+            return _single_pair_sides(carried[0])
         return None
     if isinstance(value, _ValuesView):
         chain_sides = _chain_map_view_sides(value)
@@ -1796,6 +1891,20 @@ def _single_pair_sides(value):
         listed = list(value)
         if len(listed) == 2:
             return listed[0], listed[1]
+        if len(listed) == 1:
+            return _single_pair_sides(listed[0])
+        return None
+    if isinstance(value, _Mapping):
+        sides = _pair_elements(value)
+        if sides is not None:
+            return sides
+        key_sides = _mapping_key_sides(value)
+        if key_sides is not None:
+            return key_sides
+        for inner in value.values():
+            sides = _single_pair_sides(inner)
+            if sides is not None:
+                return sides
         return None
     if hasattr(value, "__getitem__") and not hasattr(
         value, "__iter__"
@@ -1806,22 +1915,21 @@ def _single_pair_sides(value):
             return None
         if len(listed) == 2:
             return listed[0], listed[1]
+        if len(listed) == 1:
+            return _single_pair_sides(listed[0])
         return None
     if hasattr(value, "__next__"):
-        return _pair_elements(value)
+        listed = _position_elements(value)
+        if listed is not None and len(listed) == 1:
+            sides = _single_pair_sides(listed[0])
+            if sides is not None:
+                return sides
+        return _pair_elements(listed)
     listed = _position_elements(value)
     if listed is not None and len(listed) == 1:
-        inner = listed[0]
-        if isinstance(inner, (_ItemsView, _KeysView, _ValuesView)):
-            return _single_pair_sides(inner)
-        if (
-            isinstance(inner, (list, tuple))
-            and len(inner) == 1
-            and isinstance(
-                inner[0], (_ItemsView, _KeysView, _ValuesView)
-            )
-        ):
-            return _single_pair_sides(inner[0])
+        sides = _single_pair_sides(listed[0])
+        if sides is not None:
+            return sides
     return _pair_elements(value)
 
 
@@ -1859,6 +1967,16 @@ def _direct_bundle_extra_holdout(bundle):
     for key in ("holdout_items", "holdout"):
         if key in bundle:
             value = bundle[key]
+            if isinstance(value, _ItemsView):
+                collected = [
+                    entry_key
+                    for entry_key, _inner in value
+                    if isinstance(entry_key, _Mapping)
+                ]
+                for element in _mapping_position_material(
+                    collected
+                ):
+                    extra.extend(_unwrapped_items(element))
             if value is None or _is_partitionable_form(value):
                 continue
             values = _mapping_position_values(value)
@@ -1870,6 +1988,19 @@ def _direct_bundle_extra_holdout(bundle):
                 extra.extend(_unwrapped_items(element))
     if "items" in bundle:
         value = bundle["items"]
+        if isinstance(value, _ItemsView):
+            collected = [
+                entry_key
+                for entry_key, _inner in value
+                if isinstance(entry_key, _Mapping)
+            ]
+            for element in _mapping_position_material(collected):
+                for item in _unwrapped_items(element):
+                    side = None
+                    if isinstance(item, _Mapping):
+                        side = item.get("split") or item.get("side")
+                    if side in ("holdout", "sealed holdout"):
+                        extra.append(item)
         if value is not None and not _is_partitionable_form(value):
             values = _mapping_position_values(value)
             if values is not None:
@@ -1918,14 +2049,27 @@ def _direct_bundle_extra_holdout(bundle):
                     _is_pair_side_item(key) for key in value.keys()
                 )
             ):
-                key_sides = list(value.keys())
-                extra.extend(_unwrapped_items(key_sides[1]))
+                key_sides = _mapping_key_sides(value)
+                if key_sides is not None:
+                    extra.extend(_unwrapped_items(key_sides[1]))
+                else:
+                    listed_keys = list(value.keys())
+                    extra.extend(_unwrapped_items(listed_keys[1]))
             elif values is not None:
-                view_sides = None
+                keyed_sides = None
                 for element in values:
-                    view_sides = _single_pair_sides(element)
-                    if view_sides is not None:
+                    keyed_sides = _mapping_key_sides(element)
+                    if keyed_sides is not None:
                         break
+                if keyed_sides is not None:
+                    view_sides = keyed_sides
+                else:
+                    view_sides = None
+                if view_sides is None:
+                    for element in values:
+                        view_sides = _single_pair_sides(element)
+                        if view_sides is not None:
+                            break
                 if view_sides is not None:
                     extra.extend(
                         _unwrapped_items(view_sides[1])
@@ -2129,36 +2273,69 @@ def _wrapped_nested_position_material(material):
         replacement = None
         if isinstance(value, _ValuesView):
             listed = list(value)
-            if len(listed) == 1 and isinstance(
-                listed[0], _Mapping
+            relisted = [
+                _carrier_relisted_form(element)
+                for element in listed
+            ]
+            changed = any(
+                new is not old
+                for new, old in zip(relisted, listed)
+            )
+            if len(relisted) == 1 and isinstance(
+                relisted[0], _Mapping
             ) and not any(
-                field in listed[0] for field in _ITEM_FIELD_KEYS
+                field in relisted[0] for field in _ITEM_FIELD_KEYS
             ):
-                replacement = listed[0]
+                replacement = relisted[0]
             else:
-                nested = _nested_mapping_from_value(value)
-                if nested is not None:
-                    replacement = nested
-                else:
-                    replacement = _multi_nested_replacement(listed)
-        elif isinstance(value, _ItemsView):
-            entries = list(value)
-            if entries and all(
-                isinstance(inner, _Mapping)
-                and not any(
-                    field in inner for field in _ITEM_FIELD_KEYS
-                )
-                for _entry_key, inner in entries
-            ):
-                replacement = dict(entries)
-            else:
-                nested = _nested_mapping_from_value(value)
+                nested = _nested_mapping_from_listed(relisted)
                 if nested is not None:
                     replacement = nested
                 else:
                     replacement = _multi_nested_replacement(
-                        [inner for _entry_key, inner in entries]
+                        relisted
                     )
+                if replacement is None and changed:
+                    replacement = relisted
+        elif isinstance(value, _ItemsView):
+            entries = list(value)
+            relisted_entries = [
+                (entry_key, _carrier_relisted_form(inner))
+                for entry_key, inner in entries
+            ]
+            changed = any(
+                new_inner is not old_inner
+                for (_new_key, new_inner), (
+                    _old_key, old_inner
+                ) in zip(relisted_entries, entries)
+            )
+            if relisted_entries and all(
+                isinstance(inner, _Mapping)
+                and not any(
+                    field in inner for field in _ITEM_FIELD_KEYS
+                )
+                for _entry_key, inner in relisted_entries
+            ):
+                replacement = dict(relisted_entries)
+            else:
+                nested = _nested_mapping_from_listed(
+                    [
+                        inner
+                        for _entry_key, inner in relisted_entries
+                    ]
+                )
+                if nested is not None:
+                    replacement = nested
+                else:
+                    replacement = _multi_nested_replacement(
+                        [
+                            inner
+                            for _entry_key, inner
+                            in relisted_entries
+                        ]
+                    )
+                if replacement is None and changed:
+                    replacement = dict(relisted_entries).items()
         elif isinstance(value, _KeysView):
             nested, relisted, changed = _wrapped_probe(
                 list(value)
