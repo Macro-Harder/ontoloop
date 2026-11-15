@@ -341,22 +341,31 @@ class TestConsumeFixR17NoContentDigest(unittest.TestCase):
 
     def test_ruling_620_zip_and_map_iterators_refused(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(zip([1, 2]))
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type zip")
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(map(str, [1, 2]))
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type map")
 
     def test_ruling_620_further_iterator_forms_refused(self):
         module = require("ontoloop.consumption")
         forms = (
-            enumerate([1, 2]),
-            filter(None, [1, 2]),
-            reversed([1, 2]),
-            iter([1, 2]),
+            (enumerate([1, 2]), "enumerate"),
+            (filter(None, [1, 2]), "filter"),
+            (reversed([1, 2]), "list_reverseiterator"),
+            (iter([1, 2]), "list_iterator"),
         )
-        for form in forms:
-            with self.assertRaises(ValueError, msg=repr(type(form))):
+        for form, type_name in forms:
+            with self.assertRaises(ValueError, msg=repr(type(form))) as caught:
                 module.load_with_hash_check(form)
+            self.assertEqual(
+                str(caught.exception),
+                "digest cannot read material of type " + type_name)
 
     def test_ruling_620_standing_content_forms_still_decide(self):
         self.assertEqual(_digest(b"alpha"), _digest(bytearray(b"alpha")))
@@ -388,30 +397,48 @@ class TestConsumeFixR17GeneratorAddressDigest(unittest.TestCase):
 
     def test_ruling_621_generator_refused_at_digest_surface(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(item for item in [1, 2])
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type generator")
 
     def test_ruling_621_two_generators_over_same_items_refused(self):
         module = require("ontoloop.consumption")
         for _ in range(2):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as caught:
                 module.load_with_hash_check(item for item in [1, 2])
+            self.assertEqual(
+                str(caught.exception),
+                "digest cannot read material of type generator")
 
     def test_ruling_621_generator_nested_refused(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check([(item for item in [1, 2])])
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type generator")
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 {"k": (item for item in [1, 2])}
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type generator")
 
     def test_ruling_621_address_carrying_repr_refused(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(_AddressReprProbe())
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _AddressReprProbe")
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(_AddressReprProbeSecond())
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _AddressReprProbeSecond")
 
     def test_ruling_621_open_file_value_refused(self):
         module = require("ontoloop.consumption")
@@ -420,8 +447,11 @@ class TestConsumeFixR17GeneratorAddressDigest(unittest.TestCase):
             os.write(handle, b"file content one")
             os.close(handle)
             with open(path, "r", encoding="utf-8") as stream:
-                with self.assertRaises(ValueError):
+                with self.assertRaises(ValueError) as caught:
                     module.load_with_hash_check(stream)
+                self.assertEqual(
+                    str(caught.exception),
+                    "digest cannot read material of type TextIOWrapper")
         finally:
             os.unlink(path)
 

@@ -106,6 +106,35 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             "bundle wrongly loadable": "no",
         })
 
+        second_question_yes = module.incident_entry(
+            answers=("no", "yes", "no"))
+        second_second_question_yes = module.incident_entry(
+            answers=("no", "yes", "no"))
+        self.assertIsNot(second_question_yes, second_second_question_yes)
+        self.assertIsNot(
+            second_question_yes["questions"],
+            second_second_question_yes["questions"])
+        self.assertIsNot(
+            second_question_yes["answers"],
+            second_second_question_yes["answers"])
+        self.assertIsNot(
+            second_question_yes["consequences"],
+            second_second_question_yes["consequences"])
+        third_question_yes = module.incident_entry(
+            answers=("no", "no", "yes"))
+        second_third_question_yes = module.incident_entry(
+            answers=("no", "no", "yes"))
+        self.assertIsNot(third_question_yes, second_third_question_yes)
+        self.assertIsNot(
+            third_question_yes["questions"],
+            second_third_question_yes["questions"])
+        self.assertIsNot(
+            third_question_yes["answers"],
+            second_third_question_yes["answers"])
+        self.assertIsNot(
+            third_question_yes["consequences"],
+            second_third_question_yes["consequences"])
+
     def test_answers_presented_as_a_mapping_stand_recorded_in_question_order(self):
         module = require("ontoloop.ops")
         record = module.incident_entry(answers={
@@ -130,6 +159,7 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         })
         self.assertIn(
             "sealed or secret material involved", record["consequences"])
+
 
     def test_undisputed_form_stands_in_its_governed_form(self):
         module = require("ontoloop.ops")
@@ -212,6 +242,112 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             no_argument_result["material_read"],
             second_no_argument_result["material_read"])
 
+
+        none_records_result = module.resolve_dispute(
+            disputed=False, journal_records=None)
+        second_none_records_result = module.resolve_dispute(
+            disputed=False, journal_records=None)
+        self.assertIsNot(none_records_result, second_none_records_result)
+        self.assertIsNot(
+            none_records_result["reconstructed_material"],
+            second_none_records_result["reconstructed_material"])
+        self.assertIsNot(
+            none_records_result["material_read"],
+            second_none_records_result["material_read"])
+        zero_tuple_result = module.resolve_dispute(
+            disputed=0,
+            journal_records=("journal record one", "journal record two"))
+        second_zero_tuple_result = module.resolve_dispute(
+            disputed=0,
+            journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(zero_tuple_result, second_zero_tuple_result)
+        self.assertIsNot(
+            zero_tuple_result["reconstructed_material"],
+            second_zero_tuple_result["reconstructed_material"])
+        self.assertIsNot(
+            zero_tuple_result["material_read"],
+            second_zero_tuple_result["material_read"])
+        zero_no_records_result = module.resolve_dispute(disputed=0)
+        second_zero_no_records_result = module.resolve_dispute(disputed=0)
+        self.assertIsNot(
+            zero_no_records_result, second_zero_no_records_result)
+        self.assertIsNot(
+            zero_no_records_result["reconstructed_material"],
+            second_zero_no_records_result["reconstructed_material"])
+        self.assertIsNot(
+            zero_no_records_result["material_read"],
+            second_zero_no_records_result["material_read"])
+        zero_none_records_result = module.resolve_dispute(
+            disputed=0, journal_records=None)
+        second_zero_none_records_result = module.resolve_dispute(
+            disputed=0, journal_records=None)
+        self.assertIsNot(
+            zero_none_records_result, second_zero_none_records_result)
+        self.assertIsNot(
+            zero_none_records_result["reconstructed_material"],
+            second_zero_none_records_result["reconstructed_material"])
+        self.assertIsNot(
+            zero_none_records_result["material_read"],
+            second_zero_none_records_result["material_read"])
+        none_disputed_result = module.resolve_dispute(
+            disputed=None,
+            journal_records=["journal record one", "journal record two"])
+        second_none_disputed_result = module.resolve_dispute(
+            disputed=None,
+            journal_records=["journal record one", "journal record two"])
+        self.assertIsNot(none_disputed_result, second_none_disputed_result)
+        self.assertIsNot(
+            none_disputed_result["reconstructed_material"],
+            second_none_disputed_result["reconstructed_material"])
+        self.assertIsNot(
+            none_disputed_result["material_read"],
+            second_none_disputed_result["material_read"])
+        empty_disputed_result = module.resolve_dispute(
+            disputed="",
+            journal_records=["journal record one", "journal record two"])
+        second_empty_disputed_result = module.resolve_dispute(
+            disputed="",
+            journal_records=["journal record one", "journal record two"])
+        self.assertIsNot(empty_disputed_result, second_empty_disputed_result)
+        self.assertIsNot(
+            empty_disputed_result["reconstructed_material"],
+            second_empty_disputed_result["reconstructed_material"])
+        self.assertIsNot(
+            empty_disputed_result["material_read"],
+            second_empty_disputed_result["material_read"])
+        ops_empty_result = module.resolve_dispute(disputed="")
+        second_ops_empty_result = module.resolve_dispute(disputed="")
+        self.assertIsNot(ops_empty_result, second_ops_empty_result)
+        self.assertIsNot(
+            ops_empty_result["reconstructed_material"],
+            second_ops_empty_result["reconstructed_material"])
+        self.assertIsNot(
+            ops_empty_result["material_read"],
+            second_ops_empty_result["material_read"])
+        ops_none_disputed_result = module.resolve_dispute(disputed=None)
+        second_ops_none_disputed_result = module.resolve_dispute(
+            disputed=None)
+        self.assertIsNot(
+            ops_none_disputed_result, second_ops_none_disputed_result)
+        self.assertIsNot(
+            ops_none_disputed_result["reconstructed_material"],
+            second_ops_none_disputed_result["reconstructed_material"])
+        self.assertIsNot(
+            ops_none_disputed_result["material_read"],
+            second_ops_none_disputed_result["material_read"])
+        ops_zero_tuple_result = module.resolve_dispute(
+            disputed=0,
+            journal_records=("journal record one", "journal record two"))
+        second_ops_zero_tuple_result = module.resolve_dispute(
+            disputed=0,
+            journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(ops_zero_tuple_result, second_ops_zero_tuple_result)
+        self.assertIsNot(
+            ops_zero_tuple_result["reconstructed_material"],
+            second_ops_zero_tuple_result["reconstructed_material"])
+        self.assertIsNot(
+            ops_zero_tuple_result["material_read"],
+            second_ops_zero_tuple_result["material_read"])
     def test_consequence_of_a_yes_at_each_question(self):
         module = require("ontoloop.ops")
         for question in self.QUESTIONS_IN_ORDER:
@@ -416,6 +552,23 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             none_records_result["material_read"],
             second_none_records_result["material_read"])
 
+
+        string_disputed_result = module.resolve_dispute(
+            disputed="a disputed value standing as a string",
+            journal_records=records)
+        second_string_disputed_result = module.resolve_dispute(
+            disputed="a disputed value standing as a string",
+            journal_records=records)
+        self.assertIsNot(
+            string_disputed_result, second_string_disputed_result)
+        self.assertIsNot(
+            string_disputed_result["reconstructed_material"],
+            second_string_disputed_result["reconstructed_material"])
+        self.assertIsNot(
+            string_disputed_result["material_read"],
+            second_string_disputed_result["material_read"])
+        self.assertEqual(
+            string_disputed_result["first_act"], "journal reconstruction")
     def test_recorder_first_rule_with_journal_records_as_a_tuple(self):
         module = require("ontoloop.ops")
         records = ("journal record one", "journal record two")
@@ -451,6 +604,14 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertEqual(stop["act"], "incident loading stop")
         self.assertIsNone(stop["bundle"])
 
+
+        empty_bundle_stop = module.take_loading_stop(bundle="")
+        second_empty_bundle_stop = module.take_loading_stop(bundle="")
+        self.assertIsNot(empty_bundle_stop, second_empty_bundle_stop)
+        self.assertEqual(empty_bundle_stop["bundle"], "")
+        zero_bundle_stop = module.take_loading_stop(bundle=0)
+        second_zero_bundle_stop = module.take_loading_stop(bundle=0)
+        self.assertIsNot(zero_bundle_stop, second_zero_bundle_stop)
     def test_joint_precedence_of_repair_verification(self):
         module = require("ontoloop.ops")
         first_return = module.incident_append_order()
@@ -562,6 +723,31 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             acts=["purge append", "purge append", "stop append"])
         self.assertIsNot(first_repeated_return, second_repeated_return)
 
+
+        first_tuple_repeated_return = module.incident_append_order(
+            acts=("purge append", "purge append", "stop append"))
+        second_tuple_repeated_return = module.incident_append_order(
+            acts=("purge append", "purge append", "stop append"))
+        self.assertIsNot(
+            first_tuple_repeated_return, second_tuple_repeated_return)
+        self.assertEqual(
+            list(first_tuple_repeated_return),
+            ["purge append", "purge append", "stop append"])
+        first_ops_tuple_repeated_return = module.incident_append_order(
+            acts=("purge append", "purge append", "stop append"))
+        second_ops_tuple_repeated_return = module.incident_append_order(
+            acts=("purge append", "purge append", "stop append"))
+        self.assertIsNot(
+            first_ops_tuple_repeated_return,
+            second_ops_tuple_repeated_return)
+        first_repair_repeated_return = module.incident_append_order(
+            acts=["repair verification", "repair verification",
+                  "stop append"])
+        second_repair_repeated_return = module.incident_append_order(
+            acts=["repair verification", "repair verification",
+                  "stop append"])
+        self.assertIsNot(
+            first_repair_repeated_return, second_repair_repeated_return)
     def test_incident_append_order_on_a_proper_subset_of_the_acts(self):
         module = require("ontoloop.ops")
         order = list(module.incident_append_order(
@@ -732,6 +918,113 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             truthy_effective_discovery,
             second_truthy_effective_discovery)
 
+
+        zero_effective_stop = dict(stop)
+        zero_effective_stop["effective_on_loading"] = 0
+        zero_effective_discovery = module.discovery_after_stop(
+            zero_effective_stop, bundle=bundle)
+        second_zero_effective_discovery = module.discovery_after_stop(
+            zero_effective_stop, bundle=bundle)
+        self.assertIsNot(
+            zero_effective_discovery, second_zero_effective_discovery)
+        self.assertEqual(zero_effective_discovery["promotion"], bundle)
+        self.assertEqual(zero_effective_discovery["bundle"], bundle)
+        companion_none_bundle_discovery = module.discovery_after_stop(
+            companion_stop, bundle=None)
+        second_companion_none_bundle_discovery = (
+            module.discovery_after_stop(companion_stop, bundle=None))
+        self.assertIsNot(
+            companion_none_bundle_discovery,
+            second_companion_none_bundle_discovery)
+        no_bundle_none_bundle_discovery = module.discovery_after_stop(
+            no_bundle_stop, bundle=None)
+        second_no_bundle_none_bundle_discovery = (
+            module.discovery_after_stop(no_bundle_stop, bundle=None))
+        self.assertIsNot(
+            no_bundle_none_bundle_discovery,
+            second_no_bundle_none_bundle_discovery)
+        no_mapping_no_argument_discovery = module.discovery_after_stop(
+            None)
+        second_no_mapping_no_argument_discovery = (
+            module.discovery_after_stop(None))
+        self.assertIsNot(
+            no_mapping_no_argument_discovery,
+            second_no_mapping_no_argument_discovery)
+        no_mapping_none_bundle_discovery = module.discovery_after_stop(
+            None, bundle=None)
+        second_no_mapping_none_bundle_discovery = (
+            module.discovery_after_stop(None, bundle=None))
+        self.assertIsNot(
+            no_mapping_none_bundle_discovery,
+            second_no_mapping_none_bundle_discovery)
+        truthy_none_bundle_discovery = module.discovery_after_stop(
+            truthy_effective_stop, bundle=None)
+        second_truthy_none_bundle_discovery = (
+            module.discovery_after_stop(truthy_effective_stop, bundle=None))
+        self.assertIsNot(
+            truthy_none_bundle_discovery,
+            second_truthy_none_bundle_discovery)
+        truthy_no_argument_discovery = module.discovery_after_stop(
+            truthy_effective_stop)
+        second_truthy_no_argument_discovery = (
+            module.discovery_after_stop(truthy_effective_stop))
+        self.assertIsNot(
+            truthy_no_argument_discovery,
+            second_truthy_no_argument_discovery)
+        no_key_none_bundle_discovery = module.discovery_after_stop(
+            no_effective_key_stop, bundle=None)
+        second_no_key_none_bundle_discovery = (
+            module.discovery_after_stop(no_effective_key_stop, bundle=None))
+        self.assertIsNot(
+            no_key_none_bundle_discovery,
+            second_no_key_none_bundle_discovery)
+        no_key_no_argument_discovery = module.discovery_after_stop(
+            no_effective_key_stop)
+        second_no_key_no_argument_discovery = (
+            module.discovery_after_stop(no_effective_key_stop))
+        self.assertIsNot(
+            no_key_no_argument_discovery,
+            second_no_key_no_argument_discovery)
+        empty_mapping_discovery = module.discovery_after_stop(
+            {}, bundle=bundle)
+        second_empty_mapping_discovery = module.discovery_after_stop(
+            {}, bundle=bundle)
+        self.assertIsNot(
+            empty_mapping_discovery, second_empty_mapping_discovery)
+        self.assertEqual(empty_mapping_discovery["promotion"], bundle)
+        self.assertEqual(empty_mapping_discovery["bundle"], bundle)
+        ops_no_mapping_no_argument_discovery = (
+            module.discovery_after_stop(None))
+        second_ops_no_mapping_no_argument_discovery = (
+            module.discovery_after_stop(None))
+        self.assertIsNot(
+            ops_no_mapping_no_argument_discovery,
+            second_ops_no_mapping_no_argument_discovery)
+        ops_string_none_bundle_discovery = module.discovery_after_stop(
+            "a stop standing as no mapping", bundle=None)
+        second_ops_string_none_bundle_discovery = (
+            module.discovery_after_stop(
+                "a stop standing as no mapping", bundle=None))
+        self.assertIsNot(
+            ops_string_none_bundle_discovery,
+            second_ops_string_none_bundle_discovery)
+        ops_no_key_none_bundle_discovery = module.discovery_after_stop(
+            no_key_stop, bundle=None)
+        second_ops_no_key_none_bundle_discovery = (
+            module.discovery_after_stop(no_key_stop, bundle=None))
+        self.assertIsNot(
+            ops_no_key_none_bundle_discovery,
+            second_ops_no_key_none_bundle_discovery)
+        string_effective_stop = dict(stop)
+        string_effective_stop["effective_on_loading"] = (
+            "a truthy string value")
+        string_effective_discovery = module.discovery_after_stop(
+            string_effective_stop, bundle=bundle)
+        second_string_effective_discovery = module.discovery_after_stop(
+            string_effective_stop, bundle=bundle)
+        self.assertIsNot(
+            string_effective_discovery, second_string_effective_discovery)
+        self.assertEqual(string_effective_discovery["promotion"], bundle)
     def test_loading_stop_record_boundary_and_journal_landing(self):
         module = require("ontoloop.ops")
         stop = module.take_loading_stop()
@@ -758,6 +1051,57 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             "a stop standing as no mapping")
         self.assertIsNot(string_stop_landed, second_string_stop_landed)
 
+
+        named_stop = module.take_loading_stop(bundle="named bundle")
+        named_none_store_landed = module.journal_record_after_append(
+            named_stop, store=None)
+        second_named_none_store_landed = (
+            module.journal_record_after_append(named_stop, store=None))
+        self.assertIsNot(
+            named_none_store_landed, second_named_none_store_landed)
+        self.assertIsNot(
+            named_none_store_landed["stop"],
+            second_named_none_store_landed["stop"])
+        none_stop_no_store_landed = module.journal_record_after_append(
+            None)
+        second_none_stop_no_store_landed = (
+            module.journal_record_after_append(None))
+        self.assertIsNot(
+            none_stop_no_store_landed, second_none_stop_no_store_landed)
+        none_stop_none_store_landed = module.journal_record_after_append(
+            None, store=None)
+        second_none_stop_none_store_landed = (
+            module.journal_record_after_append(None, store=None))
+        self.assertIsNot(
+            none_stop_none_store_landed,
+            second_none_stop_none_store_landed)
+        string_stop_none_store_landed = (
+            module.journal_record_after_append(
+                "a stop standing as a string", store=None))
+        second_string_stop_none_store_landed = (
+            module.journal_record_after_append(
+                "a stop standing as a string", store=None))
+        self.assertIsNot(
+            string_stop_none_store_landed,
+            second_string_stop_none_store_landed)
+        no_bundle_key_stop = {
+            key: value for key, value in stop.items() if key != "bundle"
+        }
+        no_bundle_key_landed = module.journal_record_after_append(
+            no_bundle_key_stop)
+        second_no_bundle_key_landed = (
+            module.journal_record_after_append(no_bundle_key_stop))
+        self.assertIsNot(no_bundle_key_landed, second_no_bundle_key_landed)
+        self.assertIsNot(
+            no_bundle_key_landed["stop"],
+            second_no_bundle_key_landed["stop"])
+        ops_none_stop_no_store_landed = (
+            module.journal_record_after_append(None))
+        second_ops_none_stop_no_store_landed = (
+            module.journal_record_after_append(None))
+        self.assertIsNot(
+            ops_none_stop_no_store_landed,
+            second_ops_none_stop_no_store_landed)
     def test_loading_stop_journal_landing_with_a_store_passed(self):
         module = require("ontoloop.ops")
         stop = module.take_loading_stop(bundle="named bundle")
@@ -797,6 +1141,39 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             "a stop standing as no mapping", store={})
         self.assertIsNot(string_stop_landed, second_string_stop_landed)
 
+
+        none_stop_empty_store_landed = (
+            module.journal_record_after_append(None, store={}))
+        second_none_stop_empty_store_landed = (
+            module.journal_record_after_append(None, store={}))
+        self.assertIsNot(
+            none_stop_empty_store_landed,
+            second_none_stop_empty_store_landed)
+        none_stop_standing_store_landed = (
+            module.journal_record_after_append(
+                None, store=standing_store))
+        second_none_stop_standing_store_landed = (
+            module.journal_record_after_append(
+                None, store=standing_store))
+        self.assertIsNot(
+            none_stop_standing_store_landed,
+            second_none_stop_standing_store_landed)
+        string_stop_standing_store_landed = (
+            module.journal_record_after_append(
+                "a stop standing as a string", store=standing_store))
+        second_string_stop_standing_store_landed = (
+            module.journal_record_after_append(
+                "a stop standing as a string", store=standing_store))
+        self.assertIsNot(
+            string_stop_standing_store_landed,
+            second_string_stop_standing_store_landed)
+        ops_none_stop_empty_store_landed = (
+            module.journal_record_after_append(None, store={}))
+        second_ops_none_stop_empty_store_landed = (
+            module.journal_record_after_append(None, store={}))
+        self.assertIsNot(
+            ops_none_stop_empty_store_landed,
+            second_ops_none_stop_empty_store_landed)
     def test_loading_stop_journal_landing_with_an_appending_store(self):
         module = require("ontoloop.ops")
         store_module = require("ontoloop.store")
@@ -825,6 +1202,25 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             None, store=appending_store)
         self.assertIsNot(none_stop_landed, second_none_stop_landed)
 
+
+        string_stop_appending_landed = (
+            module.journal_record_after_append(
+                "a stop standing as a string", store=appending_store))
+        second_string_stop_appending_landed = (
+            module.journal_record_after_append(
+                "a stop standing as a string", store=appending_store))
+        self.assertIsNot(
+            string_stop_appending_landed,
+            second_string_stop_appending_landed)
+        ops_string_stop_appending_landed = (
+            module.journal_record_after_append(
+                "a stop standing as a string", store=appending_store))
+        second_ops_string_stop_appending_landed = (
+            module.journal_record_after_append(
+                "a stop standing as a string", store=appending_store))
+        self.assertIsNot(
+            ops_string_stop_appending_landed,
+            second_ops_string_stop_appending_landed)
     def test_loading_stop_journal_landing_records_the_append_content(self):
         module = require("ontoloop.ops")
         store_module = require("ontoloop.store")
