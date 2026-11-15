@@ -127,6 +127,13 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
     def test_undisputed_form_stands_in_its_governed_form(self):
         module = require("ontoloop.ops")
         result = module.resolve_dispute(disputed=False)
+        second_result = module.resolve_dispute(disputed=False)
+        self.assertIsNot(result, second_result)
+        self.assertIsNot(
+            result["reconstructed_material"],
+            second_result["reconstructed_material"])
+        self.assertIsNot(
+            result["material_read"], second_result["material_read"])
         self.assertIsNone(result["first_act"])
         self.assertIs(result["recollection_relied_on"], False)
         self.assertIs(result["journal_reconstructed"], False)
@@ -138,6 +145,16 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         with_records = module.resolve_dispute(
             disputed=False,
             journal_records=["journal record one", "journal record two"])
+        second_with_records = module.resolve_dispute(
+            disputed=False,
+            journal_records=["journal record one", "journal record two"])
+        self.assertIsNot(with_records, second_with_records)
+        self.assertIsNot(
+            with_records["reconstructed_material"],
+            second_with_records["reconstructed_material"])
+        self.assertIsNot(
+            with_records["material_read"],
+            second_with_records["material_read"])
         self.assertEqual(with_records["reconstructed_material"], [])
         self.assertEqual(with_records["material_read"], [])
         self.assertIsNot(
@@ -268,6 +285,12 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
     def test_recorder_first_rule(self):
         module = require("ontoloop.ops")
         result = module.resolve_dispute(disputed=True)
+        second_no_records = module.resolve_dispute(disputed=True)
+        self.assertIsNot(
+            result["reconstructed_material"],
+            second_no_records["reconstructed_material"])
+        self.assertIsNot(
+            result["material_read"], second_no_records["material_read"])
         self.assertEqual(result["first_act"], "journal reconstruction")
         self.assertIs(result["recollection_relied_on"], False)
         self.assertIs(result["journal_reconstructed"], True)
@@ -284,6 +307,9 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIsNot(
             read_result["reconstructed_material"],
             second_read_result["reconstructed_material"])
+        self.assertIsNot(
+            read_result["material_read"],
+            second_read_result["material_read"])
         self.assertEqual(
             read_result["reconstructed_material"], records)
         self.assertEqual(read_result["material_read"], records)
@@ -299,6 +325,13 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         records = ("journal record one", "journal record two")
         result = module.resolve_dispute(
             disputed=True, journal_records=records)
+        second_result = module.resolve_dispute(
+            disputed=True, journal_records=records)
+        self.assertIsNot(
+            result["reconstructed_material"],
+            second_result["reconstructed_material"])
+        self.assertIsNot(
+            result["material_read"], second_result["material_read"])
         self.assertEqual(result["first_act"], "journal reconstruction")
         self.assertEqual(
             result["reconstructed_material"],
@@ -314,6 +347,8 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         module = require("ontoloop.ops")
         self.assertIn("take_loading_stop", module.__all__)
         stop = module.take_loading_stop()
+        second_stop = module.take_loading_stop()
+        self.assertIsNot(stop, second_stop)
         self.assertEqual(stop["act"], "incident loading stop")
         self.assertIsNone(stop["bundle"])
 
@@ -390,8 +425,21 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
 
     def test_incident_append_order_acts_presented_as_a_list(self):
         module = require("ontoloop.ops")
+        first_return = module.incident_append_order(
+            acts=["stop append", "purge append", "repair verification"])
+        second_return = module.incident_append_order(
+            acts=["stop append", "purge append", "repair verification"])
+        self.assertIsNot(first_return, second_return)
         order = list(module.incident_append_order(
             acts=["stop append", "purge append", "repair verification"]))
+        self.assertEqual(
+            order,
+            ["repair verification", "stop append", "purge append"])
+        self.assertEqual(
+            list(module.incident_append_order(
+                acts=["purge append", "stop append",
+                      "repair verification"])),
+            ["repair verification", "purge append", "stop append"])
         self.assertEqual(
             set(order),
             {"repair verification", "purge append", "stop append"})
@@ -449,6 +497,8 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         self.assertIs(stop["journal_record_landed"], False)
         self.assertEqual(stop["bundle"], bundle)
         discovery = module.discovery_after_stop(stop, bundle=bundle)
+        second_discovery = module.discovery_after_stop(stop, bundle=bundle)
+        self.assertIsNot(discovery, second_discovery)
         self.assertEqual(discovery["promotion"], None)
         self.assertEqual(discovery["bundle"], bundle)
         companion_stop = dict(stop)
@@ -470,6 +520,7 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         landed = module.journal_record_after_append(stop)
         second_landed = module.journal_record_after_append(stop)
         self.assertIsNot(landed, second_landed)
+        self.assertIsNot(landed["stop"], second_landed["stop"])
         self.assertIs(landed["journal_record_landed"], True)
         self.assertEqual(landed["stop"], stop)
         self.assertIsNot(landed["stop"], stop)
@@ -478,6 +529,8 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         module = require("ontoloop.ops")
         stop = module.take_loading_stop(bundle="named bundle")
         landed = module.journal_record_after_append(stop, store={})
+        second_landed = module.journal_record_after_append(stop, store={})
+        self.assertIsNot(landed, second_landed)
         self.assertIs(landed["journal_record_landed"], False)
         self.assertEqual(landed["stop"], stop)
         self.assertIsNot(landed["stop"], stop)
@@ -486,8 +539,12 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         module = require("ontoloop.ops")
         store_module = require("ontoloop.store")
         stop = module.take_loading_stop(bundle="named bundle")
+        appending_store = store_module.golden_record_store()
         landed = module.journal_record_after_append(
-            stop, store=store_module.golden_record_store())
+            stop, store=appending_store)
+        second_landed = module.journal_record_after_append(
+            stop, store=appending_store)
+        self.assertIsNot(landed, second_landed)
         self.assertIs(landed["journal_record_landed"], True)
         self.assertEqual(landed["stop"], stop)
         self.assertIsNot(landed["stop"], stop)
