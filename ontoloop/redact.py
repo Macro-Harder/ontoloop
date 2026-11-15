@@ -1945,6 +1945,58 @@ def _is_top_state_entry(element):
     return False
 
 
+def _top_state_entry_beside_content(element, _path=None):
+    """Return the content a top level state entry carries beside it.
+
+    A top level element standing as the state entry in
+    one of the forms _is_top_state_entry names carries
+    no content beside that entry where it stands in its
+    pair form alone, and this act returns no content for
+    it. A mapping form element counts the content it
+    carries beside its state entry, gathered through
+    the mapping reading under the _skip_top_state flag
+    in the same form as a mapping standing at the top
+    level itself. A set form element carrying a member
+    beyond its pair counts the members it carries
+    beside the state name. An indexable sequence
+    element carrying an element beyond its pair counts
+    the elements it carries beyond its first two, the
+    name and the state value standing as the pair.
+    """
+    if _is_mapping_form(element):
+        return _assembly_content(
+            element, _path, True, _skip_top_state=True
+        )
+    if _is_set_form(element):
+        try:
+            count = len(element)
+        except Exception:
+            return []
+        if count <= 2:
+            return []
+        content = []
+        for member in element:
+            try:
+                if member == "assembly_state":
+                    continue
+            except Exception:
+                pass
+            content.extend(_assembly_content(member, _path, False))
+        return content
+    if _is_indexable_sequence_form(element):
+        try:
+            count = len(element)
+        except Exception:
+            return []
+        if count <= 2:
+            return []
+        content = []
+        for member in list(element)[2:]:
+            content.extend(_assembly_content(member, _path, False))
+        return content
+    return []
+
+
 def _assembly_content(assembly, _path=None, _top=True,
                       _skip_top_state=False, _nested_top=False):
     """Return the scannable content items of an assembly.
@@ -2005,7 +2057,20 @@ def _assembly_content(assembly, _path=None, _top=True,
     the state entry in the same way a keys view or a
     values view element counts its content beside
     that entry, and a state only items view element
-    counts no content. That nested reading reaches view
+    counts no content. A top level element standing
+    in one of the remaining forms _is_top_state_entry
+    names stands read under that same flag in the
+    same way, through _top_state_entry_beside_content:
+    a mapping form element counts the content it
+    carries beside its state entry, a set form element
+    carrying a member beyond its pair counts the
+    members it carries beside the state name, and an
+    indexable sequence element carrying an element
+    beyond its pair counts the elements it carries
+    beyond its first two, so an assembly carrying
+    content beside its state entry in one of those
+    forms alone counts that content, and a state only
+    element in each such form counts no content. That nested reading reaches view
     elements alone: a state entry standing in pair
     form below the top level stands gathered as
     content in its standing form, and a view standing
@@ -2158,6 +2223,11 @@ def _assembly_content(assembly, _path=None, _top=True,
                     and _skip_top_state
                     and _is_top_state_entry(element)
                 ):
+                    content.extend(
+                        _top_state_entry_beside_content(
+                            element, _path
+                        )
+                    )
                     continue
                 if (
                     ((_top and _skip_top_state) or _nested_top)

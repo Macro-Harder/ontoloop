@@ -1216,6 +1216,220 @@ def candidate_with_instruction_item(kind=None):
     }
 
 
+_WRAPPER_ITEM_FIELD_KEYS = (
+    "text",
+    "instruction_text",
+    "content",
+    "group",
+    "signature",
+)
+
+
+def _wrapper_subtree_has_iterator(value, ancestors):
+    """Return True where a value carries an iterator in its subtree.
+
+    A text form, a byte form, a memoryview, an array,
+    and a range stand as leaves and carry no iterator.
+    A value standing on its own ancestor path stands
+    as it stands at the cyclic position and carries no
+    further iterator for this reading. An iterator
+    itself, and any mapping value, view entry,
+    container element, or indexed access element
+    standing as one or carrying one in its subtree,
+    stands detected in the same way.
+    """
+    import array as _array_module
+    import collections as _collections_module
+
+    if isinstance(
+        value,
+        (
+            str,
+            _collections_module.UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+        ),
+    ):
+        return False
+    if id(value) in ancestors:
+        return False
+    if hasattr(value, "__next__") and hasattr(value, "__iter__"):
+        return True
+    ancestors = ancestors | {id(value)}
+    from collections.abc import Mapping as _Mapping
+
+    if isinstance(value, _Mapping):
+        return any(
+            _wrapper_subtree_has_iterator(inner, ancestors)
+            for inner in value.values()
+        )
+    if hasattr(value, "__iter__"):
+        try:
+            elements = list(value)
+        except Exception:
+            return False
+        return any(
+            _wrapper_subtree_has_iterator(element, ancestors)
+            for element in elements
+        )
+    if hasattr(value, "__getitem__"):
+        try:
+            elements = list(value)
+        except Exception:
+            return False
+        return any(
+            _wrapper_subtree_has_iterator(element, ancestors)
+            for element in elements
+        )
+    return False
+
+
+def _wrapper_materialise(value, shared_module, ancestors):
+    """Materialise one iterator carrying subtree for the wrapper.
+
+    A subtree carrying no iterator stands returned as
+    it stands, in the form the shared direct act reads
+    for it: a single pair standing in set or frozenset
+    form, a single pair standing in ChainMap form with
+    its maps order standing as the chain carries it,
+    and a bundle position standing as a nested mapping
+    wrapped in a dictionary view, a tuple, or a deque
+    form each reach the direct act in those forms. A
+    subtree carrying an iterator stands rebuilt in a
+    re-iterable form of the same kind where its kind
+    carries one: a mapping standing rebuilt as a plain
+    mapping in its items order, a ChainMap standing
+    rebuilt as a ChainMap over its materialised maps
+    in maps order, a dictionary view standing rebuilt
+    as the same view of its materialised mapping, and
+    a tuple, a deque, and a UserList standing rebuilt
+    in those same forms, with every iterator inside
+    them standing listed once. An iterator standing
+    listed once stands as the list of its items, save
+    where it yields the one nested mapping, a mapping
+    carrying no item field of its own, where it stands
+    as a one element tuple, the wrapped form the
+    direct act reads for a nested mapping position.
+    A value standing in any other container form
+    stands materialised through the shared act
+    _materialise_iterators, in its standing form.
+    """
+    import collections as _collections_module
+
+    if not _wrapper_subtree_has_iterator(value, ancestors):
+        return value
+    ancestors = ancestors | {id(value)}
+    from collections.abc import Mapping as _Mapping
+
+    if hasattr(value, "__next__") and hasattr(value, "__iter__"):
+        materialised = [
+            _wrapper_materialise(element, shared_module, ancestors)
+            for element in list(value)
+        ]
+        if len(materialised) == 1 and isinstance(
+            materialised[0], _Mapping
+        ) and not any(
+            key in materialised[0]
+            for key in _WRAPPER_ITEM_FIELD_KEYS
+        ):
+            return tuple(materialised)
+        return materialised
+    if isinstance(value, _collections_module.ChainMap):
+        maps = []
+        for chained in value.maps:
+            maps.append(
+                {
+                    key: _wrapper_materialise(
+                        inner, shared_module, ancestors
+                    )
+                    for key, inner in chained.items()
+                }
+            )
+        return _collections_module.ChainMap(*maps)
+    if isinstance(value, _Mapping):
+        return {
+            key: _wrapper_materialise(inner, shared_module, ancestors)
+            for key, inner in value.items()
+        }
+    from collections.abc import (
+        ItemsView as _ItemsView,
+        KeysView as _KeysView,
+        MappingView as _MappingView,
+        ValuesView as _ValuesView,
+    )
+
+    if isinstance(value, _MappingView):
+        underlying = getattr(value, "mapping", None)
+        if underlying is None:
+            underlying = getattr(value, "_mapping", None)
+        if underlying is not None and isinstance(
+            underlying, _Mapping
+        ):
+            materialised = _wrapper_materialise(
+                underlying, shared_module, ancestors
+            )
+            if isinstance(materialised, _Mapping):
+                if isinstance(value, _KeysView):
+                    return materialised.keys()
+                if isinstance(value, _ValuesView):
+                    return materialised.values()
+                if isinstance(value, _ItemsView):
+                    return materialised.items()
+        return shared_module._materialise_iterators(value)
+    if isinstance(value, tuple):
+        return tuple(
+            _wrapper_materialise(element, shared_module, ancestors)
+            for element in value
+        )
+    if isinstance(value, _collections_module.deque):
+        return _collections_module.deque(
+            _wrapper_materialise(element, shared_module, ancestors)
+            for element in value
+        )
+    if isinstance(value, _collections_module.UserList):
+        return _collections_module.UserList(
+            _wrapper_materialise(element, shared_module, ancestors)
+            for element in value
+        )
+    if isinstance(value, list):
+        return [
+            _wrapper_materialise(element, shared_module, ancestors)
+            for element in value
+        ]
+    if isinstance(value, (set, frozenset)):
+        try:
+            return type(value)(
+                _wrapper_materialise(
+                    element, shared_module, ancestors
+                )
+                for element in value
+            )
+        except TypeError:
+            return shared_module._materialise_iterators(value)
+    return shared_module._materialise_iterators(value)
+
+
+def _materialise_holdout_for_wrapper(holdout_material, shared_module):
+    """Return the holdout material materialised for the wrapper.
+
+    The wrapper materialisation stands the holdout
+    material in a form the shared direct act reads for
+    the pair and the material it carries, in the form
+    _wrapper_materialise states: a form carrying no
+    iterator stands as it stands, and an iterator
+    carrying form stands listed once in a re-iterable
+    form of its kind, so every instruction item of the
+    test stands compared against the same holdout
+    material in the form that act reads for it.
+    """
+    return _wrapper_materialise(
+        holdout_material, shared_module, frozenset()
+    )
+
+
 def test_instruction_items_against_holdout(bundle, occasion=None,
                                            after_partial_scoring=False):
     """Return the instruction item test outcome at promotion.
@@ -1263,6 +1477,18 @@ def test_instruction_items_against_holdout(bundle, occasion=None,
     the same holdout items, and a text form standing in
     the shared recursive reading past the interpreter
     limit returns that same governed refusal form.
+    Holdout material standing in a form carrying no
+    iterator stands presented to the shared act in
+    that same form, in the form
+    _materialise_holdout_for_wrapper states, so a
+    single pair standing in set or frozenset form, a
+    single pair standing in ChainMap form with its
+    maps order standing as the chain carries it, and
+    a bundle position standing as a nested mapping
+    wrapped in a dictionary view, a tuple, a deque,
+    or a generator form each reach the shared act in
+    a form that act reads for the pair and the
+    material they carry.
     """
     if occasion not in ("candidate construction", "promotion"):
         raise ValueError("unknown instruction test occasion: %r" % (occasion,))
@@ -1302,8 +1528,8 @@ def test_instruction_items_against_holdout(bundle, occasion=None,
         holdout_material = []
     from ontoloop import cross_split_audit as _shared_module
 
-    holdout_material = _shared_module._materialise_iterators(
-        holdout_material
+    holdout_material = _materialise_holdout_for_wrapper(
+        holdout_material, _shared_module
     )
 
     outcome = None
