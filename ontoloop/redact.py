@@ -1996,7 +1996,16 @@ def _assembly_content(assembly, _path=None, _top=True,
     in that position stands as the state entry itself
     for the floor decision, and content the view
     carries beside that entry still stands counted in
-    the same way. That nested reading reaches view
+    the same way. A view element standing directly
+    as an element at the top level stands read under
+    that same flag in the same form, through the view
+    branch of that gathering, before any pair element
+    test on the element stands reached, so an items
+    view element counts the content it carries beside
+    the state entry in the same way a keys view or a
+    values view element counts its content beside
+    that entry, and a state only items view element
+    counts no content. That nested reading reaches view
     elements alone: a state entry standing in pair
     form below the top level stands gathered as
     content in its standing form, and a view standing
@@ -2132,12 +2141,6 @@ def _assembly_content(assembly, _path=None, _top=True,
             content = []
             for element in assembly:
                 if (
-                    _top
-                    and _skip_top_state
-                    and _is_top_state_entry(element)
-                ):
-                    continue
-                if (
                     ((_top and _skip_top_state) or _nested_top)
                     and _is_view_form(element)
                 ):
@@ -2149,6 +2152,12 @@ def _assembly_content(assembly, _path=None, _top=True,
                             _skip_top_state=True,
                         )
                     )
+                    continue
+                if (
+                    _top
+                    and _skip_top_state
+                    and _is_top_state_entry(element)
+                ):
                     continue
                 if (
                     ((_top and _skip_top_state) or _nested_top)
