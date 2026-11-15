@@ -1945,6 +1945,23 @@ def _is_top_state_entry(element):
     return False
 
 
+def _content_byte_total(content):
+    """Return the total bytes of one gathered content list.
+
+    The total stands in the form exit_scan states for
+    its fail closed floor: a byte form item counts its
+    length, and every other item counts the length of
+    its text form encoded as UTF-8.
+    """
+    total = 0
+    for item in content:
+        if isinstance(item, (bytes, bytearray)):
+            total += len(item)
+        else:
+            total += len(str(item).encode("utf-8"))
+    return total
+
+
 def _top_state_entry_beside_content(element, _path=None):
     """Return the content a top level state entry carries beside it.
 
@@ -1958,7 +1975,22 @@ def _top_state_entry_beside_content(element, _path=None):
     in the same form as a mapping standing at the top
     level itself. A set form element carrying a member
     beyond its pair counts the members it carries
-    beside the state name. An indexable sequence
+    beside the state entry in substance: the set form
+    carries no positional pair read, so the pair, the
+    state name and the state value together, stands
+    separated from the members beyond it by content
+    alone. Where exactly one member beside the state
+    name carries content at nonzero bytes, that member
+    stands as the state value of the pair, a state
+    value standing as a non empty label in every form
+    the state read states, and only the members
+    standing at zero bytes beside it stand counted, so
+    the state value itself stands counted as no floor
+    content. Where two or more members beside the
+    state name carry content at nonzero bytes, content
+    stands beside the pair under every reading of the
+    pair, and every member beside the state name
+    stands counted. An indexable sequence
     element carrying an element beyond its pair counts
     the elements it carries beyond its first two, the
     name and the state value standing as the pair.
@@ -1974,14 +2006,31 @@ def _top_state_entry_beside_content(element, _path=None):
             return []
         if count <= 2:
             return []
-        content = []
+        gathered = []
         for member in element:
             try:
                 if member == "assembly_state":
                     continue
             except Exception:
                 pass
-            content.extend(_assembly_content(member, _path, False))
+            gathered.append(
+                _assembly_content(member, _path, False)
+            )
+        nonzero = [
+            member_content
+            for member_content in gathered
+            if _content_byte_total(member_content) > 0
+        ]
+        if len(nonzero) == 1:
+            return [
+                item
+                for member_content in gathered
+                if _content_byte_total(member_content) == 0
+                for item in member_content
+            ]
+        content = []
+        for member_content in gathered:
+            content.extend(member_content)
         return content
     if _is_indexable_sequence_form(element):
         try:
@@ -2064,7 +2113,10 @@ def _assembly_content(assembly, _path=None, _top=True,
     a mapping form element counts the content it
     carries beside its state entry, a set form element
     carrying a member beyond its pair counts the
-    members it carries beside the state name, and an
+    members it carries beside the state entry in the
+    substance form _top_state_entry_beside_content
+    states, with the state value itself standing
+    counted as no content, and an
     indexable sequence element carrying an element
     beyond its pair counts the elements it carries
     beyond its first two, so an assembly carrying

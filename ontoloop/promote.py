@@ -1225,6 +1225,33 @@ _WRAPPER_ITEM_FIELD_KEYS = (
 )
 
 
+def _is_single_pass_iterable(value):
+    """Return True where a value stands as a single pass iterable.
+
+    A single pass iterable carries no next method of
+    its own, and its iter act returns one stored
+    iterator, the same object on every call, so the
+    iterable stands listed once only and a listing
+    spent on detection leaves nothing for a later
+    reading. Asking the value for its iterator twice
+    and comparing the two answers by identity detects
+    that form without listing it, because the asking
+    itself spends no element of the stored iterator.
+    A value whose iter act returns a fresh iterator on
+    each call stands re-iterable and stands apart.
+    """
+    if hasattr(value, "__next__"):
+        return False
+    if not hasattr(value, "__iter__"):
+        return False
+    try:
+        first = iter(value)
+        second = iter(value)
+    except Exception:
+        return False
+    return first is second
+
+
 def _wrapper_subtree_has_iterator(value, ancestors):
     """Return True where a value carries an iterator in its subtree.
 
@@ -1236,7 +1263,13 @@ def _wrapper_subtree_has_iterator(value, ancestors):
     itself, and any mapping value, view entry,
     container element, or indexed access element
     standing as one or carrying one in its subtree,
-    stands detected in the same way.
+    stands detected in the same way. A single pass
+    iterable, a container carrying no next method of
+    its own whose iter act returns one stored
+    iterator, stands detected in the same way and
+    stands never listed by this act, so the one
+    listing it carries stands carried to the
+    materialisation act that reads it in full.
     """
     import array as _array_module
     import collections as _collections_module
@@ -1267,6 +1300,8 @@ def _wrapper_subtree_has_iterator(value, ancestors):
             for inner in value.values()
         )
     if hasattr(value, "__iter__"):
+        if _is_single_pass_iterable(value):
+            return True
         try:
             elements = list(value)
         except Exception:
@@ -1313,9 +1348,16 @@ def _wrapper_materialise(value, shared_module, ancestors):
     carrying no item field of its own, where it stands
     as a one element tuple, the wrapped form the
     direct act reads for a nested mapping position.
-    A value standing in any other container form
-    stands materialised through the shared act
-    _materialise_iterators, in its standing form.
+    A single pass iterable standing in any position
+    stands listed once here, at its one listing, and
+    stands rebuilt in the re-iterable form the
+    iterator limb above states, the list of its
+    materialised items, save where it yields the one
+    nested mapping, where it stands as a one element
+    tuple in the same form. A value standing in any
+    other container form stands materialised through
+    the shared act _materialise_iterators, in its
+    standing form.
     """
     import collections as _collections_module
 
@@ -1409,6 +1451,19 @@ def _wrapper_materialise(value, shared_module, ancestors):
             )
         except TypeError:
             return shared_module._materialise_iterators(value)
+    if _is_single_pass_iterable(value):
+        materialised = [
+            _wrapper_materialise(element, shared_module, ancestors)
+            for element in list(value)
+        ]
+        if len(materialised) == 1 and isinstance(
+            materialised[0], _Mapping
+        ) and not any(
+            key in materialised[0]
+            for key in _WRAPPER_ITEM_FIELD_KEYS
+        ):
+            return tuple(materialised)
+        return materialised
     return shared_module._materialise_iterators(value)
 
 
