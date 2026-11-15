@@ -1715,6 +1715,42 @@ def append_record(store, content, record_type="record"):
                         "appended": False,
                         "reported_appended": False,
                     }
+                # Fix round 15, ruling 536: an append over a
+                # last record whose content, record_type,
+                # predecessor_hash, or store_sequence field
+                # stands in a wrong value form stands refused
+                # in the same governed refusal form, with no
+                # record built and no heads signed. A standing
+                # field set stands defined by the canonical
+                # bytes of the last record: the four fields in
+                # their standing values recompute to those
+                # bytes under the journal record kind, and any
+                # other value in any of the four fields, or a
+                # value the canonical layer refuses, does not.
+                standing_fields = {
+                    "content": last_record.get("content"),
+                    "predecessor_hash": last_record.get(
+                        "predecessor_hash"
+                    ),
+                    "store_sequence": last_record.get(
+                        "store_sequence"
+                    ),
+                    "record_type": last_record.get("record_type"),
+                }
+                try:
+                    standing_canonical = _sealing_canonical_bytes(
+                        standing_fields, _JOURNAL_RECORD_KIND
+                    )
+                except Exception:
+                    standing_canonical = None
+                if standing_canonical is None or (
+                    standing_canonical != bytes(canonical_value)
+                ):
+                    return {
+                        "error": "last record field not standing",
+                        "appended": False,
+                        "reported_appended": False,
+                    }
         old_manifest = store.get("manifest")
         old_signature = store.get("signature_object")
         old_anchor = store.get("anchor_staging_copy")
