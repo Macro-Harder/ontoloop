@@ -1173,6 +1173,34 @@ _CLAIM_CONCEPT_ROOTS = (
     "sovereign",
     "autonom",
     "selfcontain",
+    "knifeproof",
+    "gasproof",
+    "unedit",
+    "undisput",
+    "crashproof",
+    "smashproof",
+    "windproof",
+    "rainproof",
+    "snowproof",
+    "microwaveproof",
+    "grinderproof",
+    "torchproof",
+    "uninjur",
+    "unhurt",
+    "rocksolid",
+    "almighty",
+    "selfsufficient",
+    "selfsustain",
+    "standalone",
+    "allpowerful",
+    "godlike",
+    "superhuman",
+    "undeniab",
+    "resist",
+    "harden",
+    "reinforc",
+    "safe",
+    "sound",
 )
 
 # The exact assertion words, beside the assertion roots
@@ -1292,6 +1320,25 @@ _ASSERTION_WORDS = (
     "states",
     "reports",
     "notes",
+    "touts",
+    "vaunts",
+    "exalts",
+    "lauds",
+    "extols",
+    "plugs",
+    "celebrates",
+    "honours",
+    "honors",
+    "praises",
+    "acclaims",
+    "contends",
+    "argues",
+    "insists",
+    "vows",
+    "puts",
+    "sets",
+    "lays",
+    "spells",
 )
 
 # The assertion roots. A word beginning with one of
@@ -1697,6 +1744,31 @@ _GOVERNING_CONDITION_PHRASES = (
     "as spelled out by",
     "as set forth by",
     "in the light of",
+    "under the provisions of",
+    "for the sake of",
+    "in the name of",
+    "on the advice of",
+    "at the instruction of",
+    "under the instruction of",
+    "on the instruction of",
+    "by instruction of",
+    "in discharge of",
+    "in execution of",
+    "by permission of",
+    "on the grounds that",
+    "for the reason that",
+    "through the medium of",
+    "grounded on",
+    "after",
+    "by direction of",
+    "with the permission of",
+    "under authority of",
+    "as instructed by",
+    "on the orders of",
+    "under the orders of",
+    "by the authority of",
+    "with the authority of",
+    "in the face of",
 )
 
 # The wordings that carry a negated form of a claim. A
@@ -1879,6 +1951,12 @@ def _clause_claim(clause):
         "safety", "quality", "compliance", "professional",
         "licensed", "official", "formal", "private", "personal",
         "phone", "password", "eye", "voice", "ill", "mal",
+        "fingerprint", "face", "token", "process", "retina",
+        "iris", "palm", "dna", "username", "login",
+        "account", "address", "photo", "video", "audio",
+        "key", "code", "card", "hardware", "paper",
+        "desktop", "laptop", "ml", "llm", "neural",
+        "two", "foot", "finger", "blood", "law", "top",
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
@@ -1902,7 +1980,13 @@ def _clause_claim(clause):
                 return True
     if "keeps" in words and "out" in words:
         return True
-    for passive in ("marked", "shown", "recorded"):
+    for passive in (
+        "marked", "shown", "recorded", "seen", "heard",
+        "known", "found", "sensed", "detected", "documented",
+        "reported", "spotted", "discerned", "recognised",
+        "recognized", "apprehended", "grasped", "comprehended",
+        "understood", "learned",
+    ):
         if passive in words and "by" in words[
             words.index(passive) + 1:
         ]:
@@ -2299,6 +2383,16 @@ def _clause_inability_form(clause):
         "test", "measur", "count", "weigh", "clear", "check",
         "sampl", "regist", "enroll", "book", "remark",
         "notic", "perceiv",
+        "known", "understood", "learn", "grasp", "comprehend",
+        "recognis", "recogniz", "recall", "fathom", "deduc",
+        "infer", "discern", "distinguish", "detect", "spott",
+        "found", "follow", "sensed", "document", "report",
+        "apprehend", "handl", "process", "sort", "organis",
+        "organiz", "arrang", "classif", "graded", "ranked",
+        "scored", "apprais", "valued", "priced", "timed",
+        "dated", "numbered", "endors", "certif", "validat",
+        "authentic", "approved", "inventoried", "stapled",
+        "folded", "boxed", "labeled",
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -2391,6 +2485,25 @@ def _clause_inability_form(clause):
         "gate", "window", "distance", "volume", "temperature",
         "currency", "length", "warehouse", "wrongfully",
         "fraudulently",
+        "lighthouse", "cathedral", "barn", "garage", "hotel",
+        "cellar", "monastery", "chapel", "convent", "shed",
+        "loft", "dungeon", "motel", "inn", "mansion",
+        "villa", "bungalow", "courthouse", "embassy", "silo",
+        "depot", "hangar", "pavilion", "shrine", "hut",
+        "dormitory", "barracks", "basilica", "pagoda", "yurt",
+        "igloo", "tepee", "lodge", "hostel", "tavern",
+        "bakery", "brewery", "distillery", "refinery",
+        "foundry", "mill", "quarry", "dock", "pier",
+        "marina", "abbey", "planetarium", "aquarium",
+        "gymnasium", "citadel", "stronghold", "terminal",
+        "greenhouse", "pharmacy", "clinic", "asylum",
+        "orphanage", "seminary", "dawn", "dusk", "midnight",
+        "noon", "width", "pressure", "rate", "risk",
+        "frequency", "voltage", "density", "humidity",
+        "velocity", "morning", "evening", "weekend",
+        "quickly", "slowly", "negligently", "dishonestly",
+        "clandestinely", "surreptitiously", "deceitfully",
+        "furtively",
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -2608,7 +2721,7 @@ def _seal_claim_scan(assembly_text):
                 and clause_words[len(main_words)] in (
                     "as", "through", "via", "following",
                     "because", "with", "alongside", "due",
-                    "respecting",
+                    "respecting", "after",
                 )
             ):
                 tail = " ".join(clause_words[len(main_words):])
@@ -2620,7 +2733,7 @@ def _seal_claim_scan(assembly_text):
             if (
                 main_words
                 and len(main_words) < len(clause_words)
-                and main_words[-1] == "condition"
+                and main_words[-1] in ("condition", "grounds", "reason")
                 and clause_words[len(main_words)] == "that"
             ):
                 complement = " ".join(clause_words[len(main_words) + 1:])
