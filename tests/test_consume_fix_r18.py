@@ -397,17 +397,28 @@ class TestConsumeFixR18AddressStringForms(unittest.TestCase):
             _CoveredAddressProbe,
         ):
             for _ in range(2):
-                with self.assertRaises(
-                    ValueError, msg=probe.__name__
-                ):
+                with self.assertRaises(ValueError) as caught:
                     module.load_with_hash_check(probe())
+                self.assertEqual(
+                    str(caught.exception),
+                    "digest cannot read material of type "
+                    + probe.__name__,
+                )
 
     def test_ruling_672_address_form_nested_refused(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check([_NoAtProbe()])
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _NoAtProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check({"k": _DecimalAddressProbe()})
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _DecimalAddressProbe",
+        )
 
     def test_ruling_672_covered_dress_still_refused(self):
         module = require("ontoloop.consumption")
