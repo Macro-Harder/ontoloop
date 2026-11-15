@@ -1946,7 +1946,7 @@ def _is_top_state_entry(element):
 
 
 def _assembly_content(assembly, _path=None, _top=True,
-                      _skip_top_state=False):
+                      _skip_top_state=False, _nested_top=False):
     """Return the scannable content items of an assembly.
 
     The content of an assembly stands as every string
@@ -1986,7 +1986,22 @@ def _assembly_content(assembly, _path=None, _top=True,
     carries stands passed over as the state entry
     itself for the floor decision, and content the
     view carries beside that entry still stands
-    counted in the same way. An assembly in string or
+    counted in the same way. A view element standing
+    inside a container element at the top level, in a
+    sequence or set element the gathering walks at
+    the top level, stands read under that same flag
+    in the same form, through the container elements
+    that carry it, so a keys view, a values view, or
+    an items view element of the state only mapping
+    in that position stands as the state entry itself
+    for the floor decision, and content the view
+    carries beside that entry still stands counted in
+    the same way. That nested reading reaches view
+    elements alone: a state entry standing in pair
+    form below the top level stands gathered as
+    content in its standing form, and a view standing
+    as a mapping value below the top level stands
+    gathered as content in its standing form. An assembly in string or
     byte form carries itself as its content. A value in
     no such form carries no scannable content. A mapping
     or sequence that stands on its own gathering path
@@ -2123,8 +2138,7 @@ def _assembly_content(assembly, _path=None, _top=True,
                 ):
                     continue
                 if (
-                    _top
-                    and _skip_top_state
+                    ((_top and _skip_top_state) or _nested_top)
                     and _is_view_form(element)
                 ):
                     content.extend(
@@ -2133,6 +2147,22 @@ def _assembly_content(assembly, _path=None, _top=True,
                             _path,
                             True,
                             _skip_top_state=True,
+                        )
+                    )
+                    continue
+                if (
+                    ((_top and _skip_top_state) or _nested_top)
+                    and (
+                        _is_sequence_form(element)
+                        or _is_set_form(element)
+                    )
+                ):
+                    content.extend(
+                        _assembly_content(
+                            element,
+                            _path,
+                            False,
+                            _nested_top=True,
                         )
                     )
                     continue

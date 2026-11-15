@@ -712,7 +712,12 @@ def _value_byte_form(value, _path=None):
     iterates by indexed access without a length act
     stands read in substance in the same way, listed
     by indexed access alone, index by index until the
-    access itself ends the listing, under the same
+    access itself ends the listing, the listing
+    ending on the IndexError form and on the
+    StopIteration end signal of its container alike,
+    in parity with list() and with the cross split
+    acts of the same system, which read that signal
+    as the end of a listing, under the same
     cycle guard discipline.
     A ChainMap value stands read through the pairs of
     every map it chains, in chain order, in parity
@@ -762,7 +767,7 @@ def _value_byte_form(value, _path=None):
                 while True:
                     try:
                         element = value[index]
-                    except IndexError:
+                    except (IndexError, StopIteration):
                         break
                     parts.append(_value_byte_form(element, _path))
                     index += 1
