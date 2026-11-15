@@ -427,7 +427,44 @@ def _bundle_copy(bundle):
     that added state, in each position the instance
     stands in, while an instance carrying no added
     state or only immutable added state stands in its
-    standing form. A dictionary view standing at
+    standing form. A dictionary view or a mapping
+    proxy captured in a closure cell of a function
+    copies in the same form, the function standing
+    rebuilt over closure cells holding copies of the
+    replaced forms, and a dictionary view or a
+    mapping proxy standing in the attribute mapping
+    of a function copies in the same form, the
+    function standing rebuilt with that mapping
+    copied apart. The rebuild landing carries the
+    sharing of the caller bundle: a rebuilt bound
+    method wraps the bound object copy the landing
+    itself carries for that object elsewhere in the
+    bundle, and two rebuilt functions sharing one
+    globals mapping stand over one copied globals
+    mapping. A property carrying a clean accessor
+    beside a rebuilt accessor stands recorded over
+    the rebuilt form of each accessor that stands
+    rebuilt and the caller form of each present
+    accessor that does not. The shape subclass
+    refusal reaches a subclass instance of any
+    accepted shape family the immutability reading
+    names, a date, a time, a timedelta, a range, a
+    UUID, a timezone or tzinfo, an IPv6Address, an
+    IPv4Network, an IPv6Network, an IPv4Interface,
+    an IPv6Interface, a compiled pattern, or a pure
+    path among them, carrying mutable added state,
+    in each position the instance stands in, while
+    a concrete path instance stands outside that
+    reading. A file object of the io module other
+    than an in memory stream, a thread local object,
+    a database connection of the sqlite3 module, a
+    memoryview standing inside such a fallback
+    value, an mmap object, a context object of the
+    contextvars module, a secure socket context of
+    the ssl module, or an epoll object of the select
+    module standing inside such a value stands
+    refused in the same form as the generator and
+    the lock. A dictionary view standing at
     any position copies as a fresh list of copies of
     the material it carries, an items view as a fresh
     list of copies of its pairs, and a mapping proxy
@@ -482,16 +519,22 @@ def _bundle_copy(bundle):
     import array as _array_module
     import collections as _collections
     import collections.abc as _abc_module
+    import contextvars as _contextvars_module
     import copy as _copy_module
     import datetime as _datetime_module
     import decimal as _decimal_module
     import enum as _enum_module
     import fractions as _fractions_module
     import functools as _functools_module
+    import io as _io_module
     import ipaddress as _ipaddress_module
+    import mmap as _mmap_module
     import pathlib as _pathlib_module
     import re as _re_module
+    import select as _select_module
     import socket as _socket_module
+    import sqlite3 as _sqlite3_module
+    import ssl as _ssl_module
     import sys as _sys_module
     import threading as _threading_module
     import types as _types_module
@@ -1119,6 +1162,14 @@ def _bundle_copy(bundle):
                 defaults.extend(node.__kwdefaults__.values())
             if node.__annotations__:
                 defaults.extend(node.__annotations__.values())
+            if node.__closure__:
+                for cell in node.__closure__:
+                    try:
+                        defaults.append(cell.cell_contents)
+                    except Exception:
+                        continue
+            if node.__dict__:
+                defaults.extend(node.__dict__.values())
             defaults.extend(_globals_walk_values(node))
             for default in defaults:
                 if any(
@@ -1129,10 +1180,12 @@ def _bundle_copy(bundle):
                     break
         return marked
 
-    def _copied_globals(func, replacements):
+    def _copied_globals(func, replacements, cache=None):
         globals_map = func.__globals__
         if not isinstance(globals_map, dict):
             return None
+        if cache is not None and id(globals_map) in cache:
+            return cache[id(globals_map)]
         changed = False
         new_globals = dict(globals_map)
         for key in globals_map:
@@ -1145,9 +1198,10 @@ def _bundle_copy(bundle):
             ):
                 new_globals[key] = _bundle_copy(value)
                 changed = True
-        if changed:
-            return new_globals
-        return None
+        result = new_globals if changed else None
+        if cache is not None:
+            cache[id(globals_map)] = result
+        return result
 
     def _function_with_copied_defaults(
         func, replacements=None, new_globals=None
@@ -1158,13 +1212,35 @@ def _bundle_copy(bundle):
             )
         else:
             new_defaults = None
+        new_closure = func.__closure__
+        if func.__closure__:
+            cells = []
+            for cell in func.__closure__:
+                try:
+                    contents = cell.cell_contents
+                except Exception:
+                    cells.append(cell)
+                    continue
+                if contents is func:
+                    cells.append(cell)
+                    continue
+                if replacements and any(
+                    id(part) in replacements
+                    for part in _walk_nodes(contents)
+                ):
+                    cells.append(
+                        _types_module.CellType(_bundle_copy(contents))
+                    )
+                else:
+                    cells.append(cell)
+            new_closure = tuple(cells)
         built = _types_module.FunctionType(
             func.__code__,
             new_globals if new_globals is not None
             else func.__globals__,
             func.__name__,
             new_defaults,
-            func.__closure__,
+            new_closure,
         )
         if func.__kwdefaults__:
             built.__kwdefaults__ = {
@@ -1205,13 +1281,29 @@ def _bundle_copy(bundle):
     def _shape_subclass_carries_mutable_added(value):
         if type(value) in _accepted_bases:
             return False
+        if isinstance(value, _pathlib_module.Path):
+            return False
         if not isinstance(
             value,
             (
                 _decimal_module.Decimal,
                 _fractions_module.Fraction,
                 _datetime_module.datetime,
+                _datetime_module.date,
+                _datetime_module.time,
+                _datetime_module.timedelta,
+                range,
+                _uuid_module.UUID,
+                _datetime_module.timezone,
+                _datetime_module.tzinfo,
                 _ipaddress_module.IPv4Address,
+                _ipaddress_module.IPv6Address,
+                _ipaddress_module.IPv4Network,
+                _ipaddress_module.IPv6Network,
+                _ipaddress_module.IPv4Interface,
+                _ipaddress_module.IPv6Interface,
+                _re_module.Pattern,
+                _pathlib_module.PurePath,
             ),
         ):
             return False
@@ -1226,6 +1318,8 @@ def _bundle_copy(bundle):
     _lock_type = type(_threading_module.Lock())
     _rlock_type = type(_threading_module.RLock())
     _condition_type = type(_threading_module.Condition())
+    _thread_local_type = type(_threading_module.local())
+    _epoll_type = getattr(_select_module, "epoll", None)
 
     def _fallback_holds_uncopyable(value):
         pending = [value]
@@ -1247,9 +1341,23 @@ def _bundle_copy(bundle):
                     _types_module.CoroutineType,
                     _types_module.AsyncGeneratorType,
                     _socket_module.socket,
+                    _thread_local_type,
+                    _sqlite3_module.Connection,
+                    memoryview,
+                    _mmap_module.mmap,
+                    _contextvars_module.Context,
+                    _ssl_module.SSLContext,
                     classmethod,
                     staticmethod,
                 ),
+            ):
+                return True
+            if _epoll_type is not None and isinstance(
+                item, _epoll_type
+            ):
+                return True
+            if isinstance(item, _io_module.IOBase) and not isinstance(
+                item, (_io_module.BytesIO, _io_module.StringIO)
             ):
                 return True
             if isinstance(item, _enum_module.Enum):
@@ -1715,6 +1823,7 @@ def _bundle_copy(bundle):
             for marker, part in replacements.items():
                 deep_memo[marker] = _bundle_copy(part)
             built_functions = {}
+            globals_cache = {}
             for func in _functions_with_replacement_defaults(
                 current, replacements
             ):
@@ -1722,7 +1831,9 @@ def _bundle_copy(bundle):
                     _function_with_copied_defaults(
                         func,
                         replacements,
-                        _copied_globals(func, replacements),
+                        _copied_globals(
+                            func, replacements, globals_cache
+                        ),
                     )
                 )
                 deep_memo[id(func)] = built_functions[id(func)]
@@ -1747,17 +1858,18 @@ def _bundle_copy(bundle):
                     copied_self = first_memo.get(
                         id(node.__self__), node.__self__
                     )
+                    deep_memo[id(node.__self__)] = copied_self
                     deep_memo[id(node)] = _types_module.MethodType(
                         built_functions[id(node.__func__)],
                         copied_self,
                     )
                 for node in property_nodes:
                     deep_memo[id(node)] = property(
-                        built_functions[id(node.fget)]
+                        built_functions.get(id(node.fget), node.fget)
                         if node.fget is not None else None,
-                        built_functions[id(node.fset)]
+                        built_functions.get(id(node.fset), node.fset)
                         if node.fset is not None else None,
-                        built_functions[id(node.fdel)]
+                        built_functions.get(id(node.fdel), node.fdel)
                         if node.fdel is not None else None,
                         node.__doc__,
                     )
