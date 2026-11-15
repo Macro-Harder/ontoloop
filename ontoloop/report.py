@@ -1368,6 +1368,30 @@ _CLAIM_CONCEPT_ROOTS = (
     "unstor",
     "unsav",
     "unback",
+    "abrasionproof", "allergenproof", "alphabetis", "alphabetiz", 
+    "ashproof", "asteroidproof", "bacteriaproof", "basaltproof", 
+    "batproof", "bedbugproof", "blueprint", "brickproof", "burstproof", 
+    "butterflyproof", "categoris", "categoriz", "cinderproof", 
+    "cockroachproof", "collat", "cometproof", "concreteproof", "confiscat", 
+    "cottonproof", "crat", "crowproof", "cyberproof", "devis", 
+    "emberproof", "envelop", "envision", "erosionproof", "farmerproof", 
+    "firestormproof", "fleaproof", "foxproof", "fram", "fumeproof", 
+    "fungusproof", "gild", "glareproof", "glu", "gooseproof", "ivoryproof", 
+    "lacquer", "latch", "lavaproof", "limestoneproof", "malwareproof", 
+    "meteorproof", "microfich", "miteproof", "moonproof", "nurseproof", 
+    "nylonproof", "outlin", "padlock", "past", "pathogenproof", 
+    "phishingproof", "pictur", "pirateproof", "pollenproof", "quartzproof", 
+    "raccoonproof", "ransomwareproof", "reword", "ripproof", 
+    "sandstoneproof", "scamproof", "scorpionproof", "shelv", "shrinkproof", 
+    "silkproof", "skunkproof", "slateproof", "slugproof", "snailproof", 
+    "sootproof", "spamproof", "sunproof", "tempestproof", "tickproof", 
+    "toxinproof", "transform", "unarchiv", "unbroadcast", "unclon", 
+    "uncopi", "undisclos", "unduplicat", "unemail", "unexport", "unfax", 
+    "unforward", "unhash", "unindex", "unlabel", "unlist", "unmirror", 
+    "unphotocopi", "unprint", "unpublish", "unreplicat", "unsalt", 
+    "unscann", "unshar", "unstamp", "unstream", "unsync", "untagg", 
+    "untranscrib", "untranslat", "unupload", "unview", "unxerox", 
+    "varnish", "velvetproof", "venomproof", "wolfproof", 
     "infrangib",
 )
 
@@ -1621,6 +1645,16 @@ _ASSERTION_WORDS = (
     "surmises",
     "undertakes",
     "venerates",
+    "acknowledges", "admits", "bellows", "blurts", "calculates", "chants", 
+    "cheers", "computes", "concedes", "concludes", "declaims", "deems", 
+    "derives", "determines", "directs", "discerns", "emits", "enjoins", 
+    "estimates", "exclaims", "figures", "finds", "gathers", "gauges", 
+    "hints", "hypothesises", "hypothesizes", "instructs", "intones", 
+    "issues", "judges", "legislates", "moots", "murmurs", "mutters", 
+    "observes", "opines", "perceives", "proscribes", "reads", "recites", 
+    "reckons", "recognises", "recognizes", "rehearses", "releases", 
+    "retells", "roars", "rules", "screams", "syndicates", "theorises", 
+    "theorizes", "toasts", "utters", "whispers", "works", "yells", 
     "ventures",
 )
 
@@ -1775,6 +1809,9 @@ _UNCONDITIONAL_MARKERS = (
     "all actors",
     "every actor",
     "all surfaces",
+    "without any exception", "in all circumstances", 
+    "under all circumstances", "without qualification", 
+    "without reservation", "without limitation", "in every circumstance", 
     "every surface",
 )
 
@@ -2166,6 +2203,32 @@ _GOVERNING_CONDITION_PHRASES = (
     "in memory of",
     "in celebration of",
     "in defiance of",
+    "by virtue of the terms of", "under the sanction of", 
+    "at the sanction of", "on the sanction of", "under the approval of", 
+    "at the approval of", "on the approval of", "under the consent of", 
+    "at the consent of", "on the consent of", "under the request of", 
+    "on the recommendation of", "at the suggestion of", 
+    "on the proposal of", "at the invitation of", 
+    "under the sponsorship of", "under the tutelage of", 
+    "at the pleasure of", "by the will of", "on the motion of", 
+    "on the word of", "on the testimony of", "on the evidence of", 
+    "on the assurance of", "at the say of", "by the word of", 
+    "under the thumb of", "at the whim of", "on the whim of", 
+    "under the will of", "in subservience to", "by fiat of", "by edict of", 
+    "under edict of", "on pain of", "under penalty of", "in the gift of", 
+    "within the gift of", "at the gift of", "in the power of", 
+    "within the power of", "under the power of", "in the shadow of", 
+    "under the shadow of", "in the wake of", "on the heels of", 
+    "in the aftermath of", "at the feet of", "in the pay of", 
+    "under the heel of", "at the beck of", "at the call of", 
+    "on the call of", "by the hand of", "through the hand of", 
+    "in the sight of", "under the eye of", "beneath the eye of", 
+    "under the watch of", "in the keeping of", "in the care of", 
+    "under the care of", "in the charge of", "under the charge of", 
+    "in the custody of", "under the custody of", "in the possession of", 
+    "by the leave of", "with the leave of", "at the leave of", 
+    "at the say so of", 
+    "with the authority given by",
     "in spite of",
 )
 
@@ -2383,6 +2446,27 @@ def _clause_claim(clause):
         "knuckle", "lip", "mechanical", "mri", "neck",
         "neutron", "nostril", "photon", "pneumatic", "robotic",
         "shoulder", "toe", "ultrasound", "ultraviolet", "wrist",
+        "aluminium", "aluminum", "bionic", "bios", "bloodsample", 
+        "bluetoothbeacon", "brainwave", "breathalyser", "breathalyzer", 
+        "bronze", "brow", "carbon", "celltower", "ceramic", "chin", 
+        "chipcard", "copper", "ctscan", "dnasample", "ecg", "eeg", "ekg", 
+        "endoscopic", "esim", "eyebrow", "eyelash", "faceprint", 
+        "fingernail", "fingervein", "firmware", "fmri", "forearm", 
+        "gaitanalysis", "geolocation", "gpscoordinate", "hairsample", 
+        "heartbeat", "hologram", "hsm", "imei", "implant", "imsi", 
+        "ipaddress", "irisscan", "isotope", "kernel", "kevlar", "keyfob", 
+        "leather", "lidarpoint", "lie", "macaddress", "magstripe", 
+        "marble", "microchip", "microscope", "microscopic", 
+        "mousedynamics", "muon", "neutrino", "nfccard", "nightvision", 
+        "otp", "palmvein", "passcode", "petscan", "plastic", "platinum", 
+        "polygraph", "qrcode", "radarreturn", "retinascan", "rfidtag", 
+        "rubber", "salivasample", "scalp", "silver", "simcard", "skeleton", 
+        "smarttoken", "sonarecho", "spectroscopic", "stencil", 
+        "stethoscope", "stress", "tap", "telescope", "telescopic", 
+        "temple", "thermalimage", "thermometer", "thumbprint", "titanium", 
+        "toenail", "totp", "tpm", "truth", "uefi", "ultrasonic", 
+        "urinesample", "uwb", "wearable", "wifitriangulation", "xrayimage", 
+        "yubikey", 
         "xray",
     )
     verification_roots = (
@@ -2419,6 +2503,12 @@ def _clause_claim(clause):
         "fathomed", "recalled", "remembered", "recollected",
         "vouched", "guaranteed", "warranted", "mimeographed",
         "laminated", "imaged", "licked",
+        "alphabetised", "alphabetized", "blueprinted", "categorised", 
+        "categorized", "collated", "confiscated", "crated", "devised", 
+        "enveloped", "envisioned", "framed", "gilded", "glued", 
+        "lacquered", "latched", "microfiched", "outlined", "padlocked", 
+        "pasted", "pictured", "reworded", "shelved", "transformed", 
+        "varnished",
     ):
         if passive in words and "by" in words[
             words.index(passive) + 1:
@@ -2853,6 +2943,22 @@ def _clause_inability_form(clause):
         "discharg", "suspend", "revok", "cancell", "terminat",
         "invent", "dream", "hallucinat", "envision", "visualis",
         "visualiz",
+    "acquitt", "adjudicat", "admonish", "alphabetis", "alphabetiz", 
+    "anathematis", "anathematiz", "aped", "appropriat", "arraign", 
+    "belittl", "berat", "blackball", "boycott", "brand", "burlesqu", 
+    "calumniat", "caricatur", "castigat", "categoris", "categoriz", 
+    "censur", "chastis", "collat", "commandeer", "concoct", "convict", 
+    "copyright", "crat", "debarr", "decri", "defam", "defrock", "denigrat", 
+    "deport", "depos", "deprecat", "derid", "disbarr", "disparag", "echo", 
+    "emboss", "emulat", "envelop", "excommunicat", "exil", "extradit", 
+    "fram", "gazed", "gild", "glanc", "glued", "hallmark", "imitat", 
+    "impeach", "imprint", "impugn", "lacquer", "lampoon", "latch", "libel", 
+    "libell", "litigat", "microfich", "mimick", "misappropriat", "mock", 
+    "ostracis", "ostraciz", "padlock", "pardon", "parodi", "past", 
+    "patent", "peer", "pirat", "rebuk", "repossess", "reprimand", 
+    "reproach", "revil", "ridicul", "satiris", "satiriz", "scold", 
+    "sequester", "shelv", "simulat", "slander", "star", "trademark", 
+    "traduc", "unfrock", "upbraid", "varnish", "vilifi", "watermark", 
         "pictur", "outlin", "blueprint",
     )
     fillers = (
@@ -3031,6 +3137,33 @@ def _clause_inability_form(clause):
         "accurately", "precisely", "exactly", "genuinely",
         "sincerely", "brazenly", "flagrantly", "shamelessly",
         "blatantly", "immorally", "sneakily", "unethically",
+    "absorptivity", "acropolis", "allegedly", "angrily", "anxiously", 
+    "apparently", "arboretum", "audaciously", "ballroom", "baptistery", 
+    "barnyard", "belvedere", "boardroom", "boatyard", "brutally", 
+    "callously", "calmly", "candidly", "cheerfully", "chromaticity", 
+    "classroom", "coercivity", "coldly", "coliseum", "contemptuously", 
+    "courageously", "courtroom", "dauntlessly", "deanery", "defiantly", 
+    "diffusivity", "disdainfully", "dockyard", "dolphinarium", "donjon", 
+    "eagerly", "eclipse", "emissivity", "enthusiastically", "evidently", 
+    "expansivity", "farmyard", "fearlessly", "ferociously", "fiercely", 
+    "foolhardily", "forthrightly", "gallantly", "gleefully", "graveyard", 
+    "gristmill", "happily", "heedlessly", "herbarium", "heroically", 
+    "honorably", "hothouse", "hygroscopicity", "hysteresis", "impudently", 
+    "insectarium", "insolently", "intrepidly", "ironworks", "junkyard", 
+    "keep", "linearity", "lumberyard", "luminance", "magnetization", 
+    "malevolently", "malignantly", "mercilessly", "mint", "nervously", 
+    "newsroom", "nobly", "oceanarium", "orangery", "ossuary", "ostensibly", 
+    "ostentatiously", "panopticon", "papermill", "parsonage", "pergola", 
+    "permeance", "pinery", "pitilessly", "plasticity", "presumably", 
+    "purportedly", "railyard", "rancorously", "rashly", "rebelliously", 
+    "refractivity", "reliquary", "reluctivity", "remanence", 
+    "remorselessly", "salvageyard", "saturation", "savagely", "scornfully", 
+    "selectivity", "sensitivity", "serpentarium", "sinisterly", 
+    "specificity", "steelworks", "stockyard", "storeroom", "strongroom", 
+    "supposedly", "susceptibility", "switchyard", "tenderly", "timidly", 
+    "unabashedly", "unapologetically", "unashamedly", "unreservedly", 
+    "valiantly", "vengefully", "viciously", "vinery", "washroom", 
+    "wholeheartedly", 
         "unscrupulously", "vindictively", "wantonly",
     )
     modals = (
@@ -3233,6 +3366,9 @@ def _seal_claim_scan(assembly_text):
                 and len(main_words) < len(clause_words)
                 and main_words[-1] in (
                     "direction", "advice", "instruction", "authority",
+                    "guidance", "behest", "permission", "consent",
+                    "command", "request", "sanction", "approval",
+                    "endorsement", "blessing", "urging",
                 )
                 and clause_words[len(main_words)] == "given"
                 and len(main_words) + 1 < len(clause_words)
@@ -3249,6 +3385,18 @@ def _seal_claim_scan(assembly_text):
                 and clause_words[len(main_words)] == "keeping"
                 and len(main_words) + 1 < len(clause_words)
                 and clause_words[len(main_words) + 1] == "with"
+            ):
+                complement = " ".join(clause_words[len(main_words) + 2:])
+                if _governing_condition_holds(
+                    "conditional on " + complement
+                ):
+                    continue
+            if (
+                main_words
+                and len(main_words) < len(clause_words)
+                and clause_words[len(main_words)] == "keeping"
+                and len(main_words) + 1 < len(clause_words)
+                and clause_words[len(main_words) + 1] == "of"
             ):
                 complement = " ".join(clause_words[len(main_words) + 2:])
                 if _governing_condition_holds(
@@ -3288,7 +3436,11 @@ def _seal_claim_scan(assembly_text):
                     "keeping", "line",
                     "accord", "consistent", "consonant", "agreement",
                     "step", "conjunction", "concert", "tandem",
-                    "league", "concurrence",
+                    "league", "concurrence", "partnership",
+                    "collaboration", "association", "alliance",
+                    "cooperation", "coordination", "union",
+                    "combination", "consultation", "harmony",
+                    "unison", "sync",
                 )
                 and clause_words[len(main_words)] == "with"
             ):
@@ -3315,7 +3467,10 @@ def _seal_claim_scan(assembly_text):
             if (
                 main_words
                 and len(main_words) < len(clause_words)
-                and main_words[-1] in ("condition", "grounds", "reason", "footing")
+                and main_words[-1] in (
+                    "condition", "grounds", "reason", "footing",
+                    "basis", "ground",
+                )
                 and clause_words[len(main_words)] == "that"
             ):
                 complement = " ".join(clause_words[len(main_words) + 1:])
