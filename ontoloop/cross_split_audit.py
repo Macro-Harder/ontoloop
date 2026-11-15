@@ -219,7 +219,11 @@ def _materialise_iterators(value, depth=0):
     a key standing in an earlier map standing before a
     key standing in a later map and standing for the
     entry that map presents where a later map carries
-    the same key. A deque, a UserList, and a
+    the same key. A keys view or a values view standing
+    over a ChainMap stands rebuilt in the order of its
+    maps in the same way, a key standing in an earlier
+    map standing before a key standing in a later map.
+    A deque, a UserList, and a
     dictionary view stand rebuilt in that same form,
     an items view holding its pairs as tuples, so an
     iterator inside any of them stands listed once in
@@ -298,6 +302,33 @@ def _materialise_iterators(value, depth=0):
         ):
             keys = [key for key, _inner in current]
             children = [inner for _key, inner in current]
+        elif current_kind == "dictionary view" and isinstance(
+            current, (_KeysView, _ValuesView)
+        ):
+            underlying = getattr(current, "_mapping", None)
+            if isinstance(
+                underlying, _collections_module.ChainMap
+            ):
+                keys = None
+                children = []
+                seen_keys = set()
+                if isinstance(current, _KeysView):
+                    for chained in underlying.maps:
+                        for chained_key in chained:
+                            if chained_key in seen_keys:
+                                continue
+                            seen_keys.add(chained_key)
+                            children.append(chained_key)
+                else:
+                    for chained in underlying.maps:
+                        for chained_key, inner in chained.items():
+                            if chained_key in seen_keys:
+                                continue
+                            seen_keys.add(chained_key)
+                            children.append(inner)
+            else:
+                keys = None
+                children = list(current)
         else:
             keys = None
             children = list(current)
@@ -847,6 +878,10 @@ def _pairs_position_elements(value):
     stands listed in the standing position reading, and
     a value standing in no such form returns None.
     """
+    if isinstance(value, _ValuesView):
+        key_sides = _values_view_key_sides(value)
+        if key_sides is not None:
+            return [[key_sides[0], key_sides[1]]]
     if isinstance(value, enumerate):
         listed = [
             _enumerate_carried(element) for element in list(value)
@@ -1038,6 +1073,12 @@ def _split_items(material):
             elements = _position_elements(material.get(key))
             if elements is not None:
                 for element in elements:
+                    holdout.extend(_unwrapped_items(element))
+            side_value = material.get(key)
+            if isinstance(side_value, _ValuesView):
+                for element in _mapping_position_material(
+                    _values_view_key_holdout(side_value)
+                ):
                     holdout.extend(_unwrapped_items(element))
         items = _position_elements(material.get("items"))
         if items is not None:
@@ -1306,7 +1347,14 @@ def _materialised_pairs_material(material):
     tuple it yields standing carried through the
     enumerate carried reading, so a single pass iterable
     standing inside that tuple stands listed once only
-    and carried within the act. A bundle carrying no
+    and carried within the act. A pair standing as a plain
+    iterator whose one carried element stands as a list or
+    a tuple holding a single pass iterable stands listed
+    once in the same way, the carried element standing
+    read through the enumerate carried reading, so the
+    single pass iterable stands listed once only and its
+    listed form stands carried within the act. A bundle
+    carrying no
     iterator at its pairs position stands as it stands.
     """
     if not isinstance(material, _Mapping):
@@ -1360,6 +1408,12 @@ def _materialised_pairs_material(material):
                     _enumerate_carried(listed_once[0])
                 )
             elif len(listed_once) == 1 and _is_index_pair_form(
+                listed_once[0]
+            ):
+                new_pairs.append(
+                    _enumerate_carried(listed_once[0])
+                )
+            elif len(listed_once) == 1 and _contains_single_use(
                 listed_once[0]
             ):
                 new_pairs.append(
@@ -1996,6 +2050,72 @@ def _mapping_key_sides(value):
     return listed[0], listed[1]
 
 
+def _values_view_key_sides(value):
+    """Return the pair sides a values view key carries.
+
+    A values view carries the values of its mapping and
+    reaches no key in its own listing. A key of the
+    underlying mapping standing in a container form
+    holding the two sides of a pair stands read here
+    for those sides, in parity with the items view and
+    keys view forms of the same mapping, which reach
+    the key in full. A view over any other mapping, and
+    a key standing in no such form, stands in no form
+    here and returns None.
+    """
+    underlying = getattr(value, "mapping", None)
+    if underlying is None:
+        underlying = getattr(value, "_mapping", None)
+    if not isinstance(underlying, _Mapping):
+        return None
+    for key in underlying.keys():
+        if isinstance(key, _Mapping):
+            continue
+        if isinstance(
+            key,
+            (
+                list,
+                tuple,
+                set,
+                frozenset,
+                _collections_module.deque,
+                _collections_module.UserList,
+            ),
+        ) or isinstance(key, _Sequence):
+            sides = _pair_elements(key)
+            if sides is not None and all(
+                _is_pair_side_item(side) for side in sides
+            ):
+                return sides
+    return None
+
+
+def _values_view_key_holdout(value):
+    """Return the holdout material a values view key carries.
+
+    A key of the underlying mapping standing as a
+    wrapped key or as a container formed key stands
+    read here for the holdout material it carries,
+    through the wrapped key reading, in parity with
+    the keys view form of the same mapping. A view over
+    any other mapping, and a key standing in no such
+    form, carries no material here.
+    """
+    underlying = getattr(value, "mapping", None)
+    if underlying is None:
+        underlying = getattr(value, "_mapping", None)
+    if not isinstance(underlying, _Mapping):
+        return []
+    carried = []
+    for key in underlying.keys():
+        if isinstance(key, _Mapping):
+            continue
+        wrapped = _wrapped_key_holdout(key)
+        if wrapped:
+            carried.extend(wrapped)
+    return carried
+
+
 def _single_pair_sides(value):
     """Return the two sides a single pair position value carries.
 
@@ -2059,6 +2179,9 @@ def _single_pair_sides(value):
         listed = list(value)
         if len(listed) == 2:
             return listed[0], listed[1]
+        key_sides = _values_view_key_sides(value)
+        if key_sides is not None:
+            return key_sides
         if len(listed) == 1:
             return _single_pair_sides(listed[0])
         return None
@@ -2101,6 +2224,36 @@ def _single_pair_sides(value):
     return _pair_elements(value)
 
 
+def _mappings_within(value):
+    """Yield the mappings a value stands as or carries.
+
+    A mapping stands yielded as it stands, and a value
+    standing in a re-iterable container form, a list, a
+    tuple, a set, a frozenset, a deque, or a UserList,
+    stands read for the mappings its elements stand as
+    or carry in the same way, at any depth the
+    presentation nests them. Any other value yields
+    nothing here, and no iterator stands listed by this
+    reading.
+    """
+    if isinstance(value, _Mapping):
+        yield value
+        return
+    if isinstance(
+        value,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ):
+        for element in value:
+            yield from _mappings_within(element)
+
+
 def _direct_bundle_extra_holdout(bundle):
     """Return holdout items from bundle positions in no read form.
 
@@ -2137,7 +2290,14 @@ def _direct_bundle_extra_holdout(bundle):
     as an entry key of an items view at the pairs
     position, stands read here in the same way, in
     parity with its keys view forms, through the
-    wrapped key reading.
+    wrapped key reading. Material standing as a wrapped
+    key at the items position stands read here in the
+    same way, in parity with its holdout side, pairs,
+    and holdout forms, and material standing as a
+    container formed key of a mapping presented through
+    its values view at a holdout side position stands
+    read in the partitioning act through the values
+    view key reading.
     """
     extra = []
     for key in ("holdout_items", "holdout"):
@@ -2167,6 +2327,7 @@ def _direct_bundle_extra_holdout(bundle):
                 extra.extend(_unwrapped_items(element))
     if "items" in bundle:
         value = bundle["items"]
+        items_start = len(extra)
         if isinstance(value, _ItemsView):
             collected = []
             for entry_key, _inner in value:
@@ -2196,6 +2357,35 @@ def _direct_bundle_extra_holdout(bundle):
                         side = item.get("split") or item.get("side")
                     if side in ("holdout", "sealed holdout"):
                         extra.append(item)
+        wrapped_keys = []
+        if isinstance(value, _ItemsView):
+            wrapped_keys = [
+                entry_key for entry_key, _inner in value
+            ]
+        elif isinstance(value, _Mapping):
+            wrapped_keys = list(value.keys())
+        wrapped_material = []
+        for wrapped_key in wrapped_keys:
+            if isinstance(wrapped_key, _Mapping):
+                continue
+            wrapped = _wrapped_key_holdout(wrapped_key)
+            if wrapped:
+                wrapped_material.extend(wrapped)
+        if wrapped_material:
+            held_ids = {id(item) for item in extra[items_start:]}
+            for element in _mapping_position_material(
+                wrapped_material
+            ):
+                for item in _unwrapped_items(element):
+                    side = None
+                    if isinstance(item, _Mapping):
+                        side = item.get("split") or item.get("side")
+                    if side in ("candidate",):
+                        continue
+                    if id(item) in held_ids:
+                        continue
+                    held_ids.add(id(item))
+                    extra.append(item)
     if "pairs" in bundle:
         value = bundle["pairs"]
         if value is not None:
@@ -2282,14 +2472,38 @@ def _direct_bundle_extra_holdout(bundle):
                         _unwrapped_items(view_sides[1])
                     )
                 else:
+                    carrier_start = len(extra)
+                    carrier_material = []
+                    for element in values:
+                        for mapping in _mappings_within(element):
+                            for carrier_key in mapping.keys():
+                                if isinstance(
+                                    carrier_key, _Mapping
+                                ):
+                                    continue
+                                wrapped = _wrapped_key_holdout(
+                                    carrier_key
+                                )
+                                if wrapped:
+                                    carrier_material.extend(wrapped)
+                    if carrier_material:
+                        for element in _mapping_position_material(
+                            carrier_material
+                        ):
+                            extra.extend(_unwrapped_items(element))
+                    held_ids = {
+                        id(item) for item in extra[carrier_start:]
+                    }
                     for element in _mapping_position_material(
                         values
                     ):
                         sides = _pair_elements(element)
                         if sides is not None:
-                            extra.extend(
-                                _unwrapped_items(sides[1])
-                            )
+                            for item in _unwrapped_items(sides[1]):
+                                if id(item) in held_ids:
+                                    continue
+                                held_ids.add(id(item))
+                                extra.append(item)
             elif not _is_partitionable_form(value):
                 for element in _unread_position_items(value):
                     sides = _pair_elements(element)
