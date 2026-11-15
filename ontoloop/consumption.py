@@ -374,13 +374,21 @@ def _bundle_copy(bundle):
     inside a WeakSet, a WeakKeyDictionary, a
     WeakValueDictionary, a weak reference, a partial
     application, a function closure cell, a function
-    default value, a bound method, or a property
-    accessor function, stands
+    default value, a function annotation, the globals
+    mapping a function reads, a bound method, or a
+    property accessor function, stands
     under the same refusal as a member standing in a
-    walked position. A generator or a threading lock
-    standing inside such a value stands refused with
+    walked position. A generator, a threading lock in
+    plain or reentrant form, a threading condition, a
+    cell object, a classmethod object, a staticmethod
+    object, or a module object standing inside such a
+    value stands refused with
     a ValueError, in place of the exception the deep
     copy act raises on a value it cannot copy, and a
+    generator or a lock standing in a function closure
+    cell, in a function default value, or in the
+    closure or default state of a property accessor
+    function stands refused in the same form, and a
     dictionary view or a mapping proxy standing in a
     function default value copies in the form its
     walked position gives it, the function standing
@@ -729,6 +737,25 @@ def _bundle_copy(bundle):
                         pending.extend(item.__defaults__)
                     if item.__kwdefaults__:
                         pending.extend(item.__kwdefaults__.values())
+                    if item.__annotations__:
+                        pending.extend(
+                            item.__annotations__.values()
+                        )
+                    globals_map = item.__globals__
+                    if (
+                        isinstance(globals_map, dict)
+                        and id(globals_map) not in seen
+                    ):
+                        seen.add(id(globals_map))
+                        for global_value in list(
+                            globals_map.values()
+                        ):
+                            if isinstance(
+                                global_value,
+                                _types_module.ModuleType,
+                            ):
+                                seen.add(id(global_value))
+                            pending.append(global_value)
                 elif isinstance(item, _types_module.MethodType):
                     pending.append(item.__self__)
                     pending.append(item.__func__)
@@ -837,6 +864,10 @@ def _bundle_copy(bundle):
                         pending.extend(item.__defaults__)
                     if item.__kwdefaults__:
                         pending.extend(item.__kwdefaults__.values())
+                    if item.__annotations__:
+                        pending.extend(
+                            item.__annotations__.values()
+                        )
                 elif isinstance(item, _types_module.MethodType):
                     pending.append(item.__self__)
                     pending.append(item.__func__)
@@ -940,6 +971,10 @@ def _bundle_copy(bundle):
                         pending.extend(item.__defaults__)
                     if item.__kwdefaults__:
                         pending.extend(item.__kwdefaults__.values())
+                    if item.__annotations__:
+                        pending.extend(
+                            item.__annotations__.values()
+                        )
                 elif isinstance(item, _types_module.MethodType):
                     pending.append(item.__self__)
                     pending.append(item.__func__)
@@ -987,6 +1022,8 @@ def _bundle_copy(bundle):
             defaults = list(node.__defaults__ or ())
             if node.__kwdefaults__:
                 defaults.extend(node.__kwdefaults__.values())
+            if node.__annotations__:
+                defaults.extend(node.__annotations__.values())
             for default in defaults:
                 if any(
                     id(part) in replacements
@@ -996,7 +1033,7 @@ def _bundle_copy(bundle):
                     break
         return marked
 
-    def _function_with_copied_defaults(func):
+    def _function_with_copied_defaults(func, replacements=None):
         if func.__defaults__:
             new_defaults = tuple(
                 _bundle_copy(part) for part in func.__defaults__
@@ -1027,19 +1064,47 @@ def _bundle_copy(bundle):
             pass
         try:
             if func.__annotations__:
-                built.__annotations__ = dict(func.__annotations__)
+                if replacements:
+                    copied_annotations = {}
+                    for key, part in func.__annotations__.items():
+                        if any(
+                            id(node) in replacements
+                            for node in _walk_nodes(part)
+                        ):
+                            copied_annotations[key] = _bundle_copy(
+                                part
+                            )
+                        else:
+                            copied_annotations[key] = part
+                    built.__annotations__ = copied_annotations
+                else:
+                    built.__annotations__ = dict(func.__annotations__)
         except Exception:
             pass
         return built
 
     _lock_type = type(_threading_module.Lock())
+    _rlock_type = type(_threading_module.RLock())
+    _condition_type = type(_threading_module.Condition())
 
     def _fallback_holds_uncopyable(value):
         pending = [value]
         seen = set()
         while pending:
             item = pending.pop()
-            if isinstance(item, (_types_module.GeneratorType, _lock_type)):
+            if isinstance(
+                item,
+                (
+                    _types_module.GeneratorType,
+                    _lock_type,
+                    _rlock_type,
+                    _condition_type,
+                    _types_module.CellType,
+                    _types_module.ModuleType,
+                    classmethod,
+                    staticmethod,
+                ),
+            ):
                 return True
             if isinstance(item, _enum_module.Enum):
                 continue
@@ -1090,8 +1155,25 @@ def _bundle_copy(bundle):
                     pending.extend(item.args)
                     if item.keywords:
                         pending.append(dict(item.keywords))
+                elif isinstance(item, _types_module.FunctionType):
+                    closure = item.__closure__
+                    if closure:
+                        for cell in closure:
+                            try:
+                                pending.append(cell.cell_contents)
+                            except Exception:
+                                continue
+                    if item.__defaults__:
+                        pending.extend(item.__defaults__)
+                    if item.__kwdefaults__:
+                        pending.extend(item.__kwdefaults__.values())
                 elif isinstance(item, _types_module.MethodType):
                     pending.append(item.__self__)
+                    pending.append(item.__func__)
+                elif isinstance(item, property):
+                    for accessor in (item.fget, item.fset, item.fdel):
+                        if accessor is not None:
+                            pending.append(accessor)
                 elif isinstance(
                     item,
                     (
@@ -1469,7 +1551,9 @@ def _bundle_copy(bundle):
             for func in _functions_with_replacement_defaults(
                 current, replacements
             ):
-                deep_memo[id(func)] = _function_with_copied_defaults(func)
+                deep_memo[id(func)] = _function_with_copied_defaults(
+                    func, replacements
+                )
             built = _copy_module.deepcopy(current, deep_memo)
         else:
             built = _copy_module.deepcopy(current)
