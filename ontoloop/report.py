@@ -1393,6 +1393,49 @@ _CLAIM_CONCEPT_ROOTS = (
     "untranscrib", "untranslat", "unupload", "unview", "unxerox", 
     "varnish", "velvetproof", "venomproof", "wolfproof", 
     "infrangib",
+    "subpoena", "impound", "fingerprint", 
+    "garnish", "probat", "annul", 
+    "expung", "redact", "incinerat", 
+    "embargo", "swabb", "imprison", 
+    "jaile", "taxe", "levi", 
+    "foreclos", "demolish", "intern", 
+    "droneproof", "laserproof", "empproof", 
+    "landslideproof", "sinkholeproof", "locustproof", 
+    "rodentproof", "tarnishproof", "gnatproof", 
+    "aphidproof", "cricketproof", "weevilproof", 
+    "opossumproof", "porcupineproof", "badgerproof", 
+    "otterproof", "beaverproof", "moleproof", 
+    "voleproof", "shrewproof", "hedgehogproof", 
+    "tortoiseproof", "lizardproof", "geckoproof", 
+    "frogproof", "toadproof", "newtproof", 
+    "jadeproof", "emeraldproof", "rubyproof", 
+    "sapphireproof", "opalproof", "pearlproof", 
+    "amberproof", "coralproof", "linenproof", 
+    "denimproof", "canvasproof", "hempproof", 
+    "woolproof", "cashmereproof", "polyesterproof", 
+    "rayonproof", "spandexproof", "vinylproof", 
+    "trojanproof", "wormproof", "spywareproof", 
+    "adwareproof", "rootkitproof", "botnetproof", 
+    "heatwaveproof", "downpourproof", "delugeproof", 
+    "sandroof", "travertineproof", "unregist", 
+    "uncatalog", "undat", "unnumber", 
+    "unpaginat", "unlaminat", "unencod", 
+    "uncompress", "unzipp", "unredact", 
+    "unmask", "unsanitiz", "unmoderat", 
+    "untrac", "unauthoriz", 
+    "stapl", "rivet", "pinn", 
+    "tacke", "stitch", "sewn", 
+    "clasp", "buckl", "zipp", 
+    "button", "hooke", "tether", 
+    "moore", "docket", "typeset", 
+    "lettere", "toole", "gilt", 
+    "wrapp", "boxe", "bagg", 
+    "jarr", "bottl", "cann", 
+    "tinn", "waxe", "corke", 
+    "plugg", "stopper", "screwe", 
+    "naile", "bolte", "clampe", 
+    "clipp", "lashe", "knott", 
+    "plaite", "braide", "woven", 
 )
 
 # The exact assertion words, beside the assertion roots
@@ -1656,6 +1699,18 @@ _ASSERTION_WORDS = (
     "retells", "roars", "rules", "screams", "syndicates", "theorises", 
     "theorizes", "toasts", "utters", "whispers", "works", "yells", 
     "ventures",
+    "croons", "hums", "orates", 
+    "perorates", "soliloquizes", "pontificates", 
+    "sermonizes", "lectures", "preaches", 
+    "reasons", "burbles", "gushes", 
+    "warbles", "greets", "welcomes", 
+    "bids", "beckons", "summons", 
+    "orders", "charges", "beseeches", 
+    "implores", "entreats", "obliges", 
+    "compels", "forces", "drives", 
+    "powers", "fuels", "enables", 
+    "empowers", "authorizes", "entitles", 
+    "qualifies", 
 )
 
 # The assertion roots. A word beginning with one of
@@ -1813,6 +1868,16 @@ _UNCONDITIONAL_MARKERS = (
     "under all circumstances", "without qualification", 
     "without reservation", "without limitation", "in every circumstance", 
     "every surface",
+    "for all time", "in perpetuity", 
+    "regardless of circumstance", "without fail", 
+    "absolutely", "in every respect", 
+    "at every turn", "come what may", 
+    "no matter what", "in all events", 
+    "at all costs", "under all conditions", 
+    "at any rate", "without limit", 
+    "without reserve", "for ever", 
+    "forever", "eternally", 
+    "permanently", "irrevocably", 
 )
 
 # The wordings that carry the governed conditional form
@@ -2229,6 +2294,11 @@ _GOVERNING_CONDITION_PHRASES = (
     "by the leave of", "with the leave of", "at the leave of", 
     "at the say so of", 
     "with the authority given by",
+    "in subordination to", "in homage to", "in bondage to", 
+    "through the offices of", "at the word of", "upon the word of", 
+    "by the permission of", "on the endorsement of", "on the counsel of", 
+    "in the grip of", "under the boot of", "in servitude to", 
+    "under the yoke of", "in the clutches of", "in the pocket of", 
     "in spite of",
 )
 
@@ -2468,6 +2538,19 @@ def _clause_claim(clause):
         "urinesample", "uwb", "wearable", "wifitriangulation", "xrayimage", 
         "yubikey", 
         "xray",
+        "obsidian", "basalt", "quartz", 
+        "onyx", "jade", "ivory", 
+        "ebony", "mahogany", "bamboo", 
+        "silk", "velvet", "tungsten", 
+        "cobalt", "analog", "analogue", 
+        "proton", "radio", "palmprint", 
+        "retinaprint", "voiceid", "faceid", 
+        "tongueprint", "earprint", "lipprint", 
+        "dentalrecord", "medicalrecord", "genesequence", 
+        "bloodtype", "heartrate", "bloodpressure", 
+        "pupildilation", "serialnumber", "uuid", 
+        "deviceid", "hardwareid", "browserprint", 
+        "canvasprint", 
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
@@ -2508,7 +2591,20 @@ def _clause_claim(clause):
         "enveloped", "envisioned", "framed", "gilded", "glued", 
         "lacquered", "latched", "microfiched", "outlined", "padlocked", 
         "pasted", "pictured", "reworded", "shelved", "transformed", 
-        "varnished",
+        "varnished", "subpoenaed", "impounded",
+        "stapled", "riveted", "pinned", 
+        "tacked", "stitched", "sewn", 
+        "clasped", "buckled", "zipped", 
+        "buttoned", "hooked", "tethered", 
+        "moored", "docketed", "typeset", 
+        "lettered", "tooled", "gilt", 
+        "wrapped", "boxed", "bagged", 
+        "jarred", "bottled", "canned", 
+        "tinned", "waxed", "corked", 
+        "plugged", "stoppered", "screwed", 
+        "nailed", "clamped", "clipped", 
+        "lashed", "knotted", "plaited", 
+        "braided", "woven", 
     ):
         if passive in words and "by" in words[
             words.index(passive) + 1:
@@ -2960,6 +3056,26 @@ def _clause_inability_form(clause):
     "sequester", "shelv", "simulat", "slander", "star", "trademark", 
     "traduc", "unfrock", "upbraid", "varnish", "vilifi", "watermark", 
         "pictur", "outlin", "blueprint",
+    "fingerprint", "garnish", "probat", 
+    "annul", "expung", "redact", 
+    "incinerat", "embargo", "swabb", 
+    "imprison", "jaile", "taxe", 
+    "levi", "foreclos", "demolish", 
+    "interned", "rivet", "pinn", 
+    "tacke", "stitch", "sewn", 
+    "clasp", "buckl", "zipp", 
+    "button", "hooke", "tether", 
+    "moore", "docket", "typeset", 
+    "lettere", "toole", "gilt", 
+    "bound", "wrapp", "bagg", 
+    "jarr", "bottl", "cann", 
+    "tinn", "waxe", "corke", 
+    "plugg", "stopper", "screwe", 
+    "naile", "bolte", "clampe", 
+    "clipp", "fastene", "lashe", 
+    "knott", "plaite", "braide", 
+    "woven", "quarantin", "segregat", 
+    "chaine", 
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -3165,6 +3281,12 @@ def _clause_inability_form(clause):
     "valiantly", "vengefully", "viciously", "vinery", "washroom", 
     "wholeheartedly", 
         "unscrupulously", "vindictively", "wantonly",
+    "serenely", "briskly", "pantry", 
+    "sepulchre", "charnel", "house", 
+    "vestibule", "chapter", "bullion", 
+    "athenaeum", "lyceum", "unflinchingly", 
+    "brazenfacedly", "impenitently", "unrepentantly", 
+    "coldheartedly", "unfeelingly", 
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -3353,6 +3475,17 @@ def _seal_claim_scan(assembly_text):
             if (
                 main_words
                 and len(main_words) < len(clause_words)
+                and main_words[-1] == "case"
+                and clause_words[len(main_words)] == "that"
+            ):
+                complement = " ".join(clause_words[len(main_words) + 1:])
+                if _governing_condition_holds(
+                    "conditional on " + complement
+                ):
+                    continue
+            if (
+                main_words
+                and len(main_words) < len(clause_words)
                 and main_words[-1] == "long"
                 and clause_words[len(main_words)] == "as"
             ):
@@ -3440,7 +3573,8 @@ def _seal_claim_scan(assembly_text):
                     "collaboration", "association", "alliance",
                     "cooperation", "coordination", "union",
                     "combination", "consultation", "harmony",
-                    "unison", "sync",
+                    "unison", "sync", "together", "along",
+                    "collusion", "cahoots", "glove",
                 )
                 and clause_words[len(main_words)] == "with"
             ):
