@@ -985,22 +985,33 @@ def _bundle_copy(bundle):
     decompressor object of the bz2 or lzma module,
     a Struct object of the struct module, a Row
     object of the sqlite3 module, a cache wrapper
-    object of the functools module, or a library
-    object of the ctypes module standing inside
+    object of the functools module, a library
+    object of the ctypes module, or a PickleBuffer
+    object of the pickle module standing inside
     such a value stands refused in the same form,
     and an uncopyable value standing in the
     attributes or children of a tree element, in
-    an operator call specification, in the cause
+    the text, tail, or tag of a tree element, in
+    an operator call specification, in a keyword
+    argument of an operator methodcaller
+    specification, in the cause
     or context chain an exception object carries,
     or standing as the callable a callable iterator
-    or a filter object carries, standing inside
+    or a filter object carries, or standing as the
+    callable, predicate, key function, or function
+    a wider callable iterator form carries, a map,
+    starmap, takewhile, dropwhile, filterfalse,
+    groupby, or accumulate form among them, standing inside
     such a value stands refused in the same form,
     a chain carrying copyable material standing
     carried into the copy in a form standing apart,
     and a function standing over a globals mapping
     carrying a view of that same mapping standing
     refused in the same form in place of unbounded
-    recursion in the replacements limb.
+    recursion in the replacements limb, the view
+    standing at a direct value of that mapping or
+    standing inside a container in that mapping in
+    the same refused form.
     A dictionary view standing at
     any position copies as a fresh list of copies of
     the material it carries, an items view as a fresh
@@ -1071,6 +1082,7 @@ def _bundle_copy(bundle):
     import hmac as _hmac_module
     import io as _io_module
     import ipaddress as _ipaddress_module
+    import itertools as _itertools_module
     import json as _json_module
     import logging as _logging_module
     import lzma as _lzma_module
@@ -1934,6 +1946,19 @@ def _bundle_copy(bundle):
         _functools_module.lru_cache(maxsize=None)(lambda: None)
     )
     _callable_iterator_type = type(iter(lambda: None, None))
+    _wider_callable_iterator_types = (
+        map,
+        _itertools_module.starmap,
+        _itertools_module.takewhile,
+        _itertools_module.dropwhile,
+        _itertools_module.filterfalse,
+        _itertools_module.groupby,
+        _itertools_module.accumulate,
+    )
+    _wider_callable_second_types = (
+        _itertools_module.groupby,
+        _itertools_module.accumulate,
+    )
     _semlock_type = (
         getattr(
             _multiprocessing_private_module, "SemLock", None
@@ -1973,6 +1998,7 @@ def _bundle_copy(bundle):
             _sqlite3_module.Row,
             _lru_cache_wrapper_type,
             _ctypes_module.CDLL,
+            _pickle_module.PickleBuffer,
         )
         if kind is not None
     )
@@ -2075,18 +2101,53 @@ def _bundle_copy(bundle):
             mapping = getattr(view, "_mapping", None)
         if mapping is None:
             return False
-        try:
-            for key in list(mapping):
-                if key is view:
-                    return True
-                try:
-                    carried = mapping[key]
-                except Exception:
-                    continue
-                if carried is view:
-                    return True
-        except Exception:
-            return False
+        pending = [mapping]
+        seen = set()
+        while pending:
+            item = pending.pop()
+            if item is view:
+                return True
+            if _is_atom(item):
+                continue
+            if id(item) in seen:
+                continue
+            seen.add(id(item))
+            try:
+                if isinstance(item, dict):
+                    pending.extend(item.keys())
+                    pending.extend(item.values())
+                elif isinstance(item, _collections.ChainMap):
+                    pending.extend(item.maps)
+                elif isinstance(item, _collections.UserDict):
+                    pending.append(item.data)
+                elif isinstance(
+                    item, _types_module.MappingProxyType
+                ):
+                    pending.extend(list(item.keys()))
+                    pending.extend(list(item.values()))
+                elif isinstance(
+                    item,
+                    (
+                        _abc_module.KeysView,
+                        _abc_module.ValuesView,
+                        _abc_module.ItemsView,
+                    ),
+                ):
+                    pending.extend(list(item))
+                elif isinstance(
+                    item,
+                    (
+                        list,
+                        tuple,
+                        set,
+                        frozenset,
+                        _collections.deque,
+                        _collections.UserList,
+                    ),
+                ):
+                    pending.extend(item)
+            except Exception:
+                pass
         return False
 
     def _reduce_carried(item):
@@ -2101,6 +2162,15 @@ def _bundle_copy(bundle):
         ):
             return reduced[1]
         return ()
+
+    def _reduce_head(item):
+        try:
+            reduced = item.__reduce_ex__(4)
+        except Exception:
+            return None
+        if isinstance(reduced, tuple) and reduced:
+            return reduced[0]
+        return None
 
     def _fallback_holds_uncopyable(value):
         pending = [value]
@@ -2204,6 +2274,9 @@ def _bundle_copy(bundle):
                     pending.extend(list(item.attrib.keys()))
                     pending.extend(list(item.attrib.values()))
                     pending.extend(list(item))
+                    for carried in (item.text, item.tail, item.tag):
+                        if carried is not None:
+                            pending.append(carried)
                 except Exception:
                     pass
             if isinstance(item, _xml_module.ElementTree):
@@ -2214,7 +2287,15 @@ def _bundle_copy(bundle):
                 except Exception:
                     pass
             if isinstance(item, _operator_module.methodcaller):
-                pending.extend(_reduce_carried(item)[1:])
+                carried = _reduce_carried(item)
+                head = _reduce_head(item)
+                if isinstance(head, _functools_module.partial):
+                    pending.extend(carried)
+                    pending.extend(head.args[1:])
+                    if head.keywords:
+                        pending.extend(list(head.keywords.values()))
+                else:
+                    pending.extend(carried[1:])
             if isinstance(item, _operator_module.itemgetter):
                 pending.extend(_reduce_carried(item))
             if isinstance(item, filter) or isinstance(
@@ -2231,6 +2312,17 @@ def _bundle_copy(bundle):
                     and len(carried) > 1
                 ):
                     pending.append(carried[1])
+            if isinstance(item, _wider_callable_iterator_types):
+                carried = _reduce_carried(item)
+                if isinstance(item, _wider_callable_second_types):
+                    index = 1
+                else:
+                    index = 0
+                if len(carried) > index and carried[index] is not None:
+                    pending.append(carried[index])
+                    bound = getattr(carried[index], "__self__", None)
+                    if bound is not None:
+                        pending.append(bound)
             try:
                 if isinstance(item, dict):
                     pending.extend(item.keys())
