@@ -1241,11 +1241,19 @@ def indexed_comparisons(material):
     interpreter limit, and a group or signature value
     standing in no hashable form, each meet the stated
     no count form of this surface, with no exception
-    escaping.
+    escaping. The count stands over the pairs material
+    in its materialised form, in parity with the bundle
+    surfaces, so a pair standing inside two plain
+    iterators at the pairs position, its single pass
+    forms listed once only and carried within the act,
+    stands counted in the same form the bundle surfaces
+    count it.
     """
     if _is_bundle(material):
         try:
-            bundle = _audit_bundle(material)
+            bundle = _audit_bundle(
+                _materialised_pairs_material(material)
+            )
         except (RecursionError, _UnhashableIndexValue):
             bundle = {"comparisons": 0}
         comparisons = bundle["comparisons"]
@@ -2254,6 +2262,53 @@ def _mappings_within(value):
             yield from _mappings_within(element)
 
 
+def _mappings_within_deep(value, seen=None):
+    """Yield the mappings a value stands as or carries deep.
+
+    A mapping stands yielded as it stands, and stands
+    read in the same way for the mappings its own values
+    stand as or carry, so a mapping standing at a second
+    or a third mapping value depth stands yielded in the
+    same form as a mapping standing at the first depth.
+    A value standing in a re-iterable container form, a
+    list, a tuple, a set, a frozenset, a deque, or a
+    UserList, stands read for the mappings its elements
+    stand as or carry in the same way, at any depth the
+    presentation nests them. A mapping or a container
+    already yielded on this walk stands yielded once
+    only, so a cyclic presentation stands bounded and no
+    mapping stands counted twice. Any other value yields
+    nothing here, and no iterator stands listed by this
+    reading.
+    """
+    if seen is None:
+        seen = set()
+    if isinstance(value, _Mapping):
+        if id(value) in seen:
+            return
+        seen.add(id(value))
+        yield value
+        for inner in value.values():
+            yield from _mappings_within_deep(inner, seen)
+        return
+    if isinstance(
+        value,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ):
+        if id(value) in seen:
+            return
+        seen.add(id(value))
+        for element in value:
+            yield from _mappings_within_deep(element, seen)
+
+
 def _direct_bundle_extra_holdout(bundle):
     """Return holdout items from bundle positions in no read form.
 
@@ -2297,7 +2352,17 @@ def _direct_bundle_extra_holdout(bundle):
     container formed key of a mapping presented through
     its values view at a holdout side position stands
     read in the partitioning act through the values
-    view key reading.
+    view key reading. Material standing as a key of a
+    mapping standing two or three mapping values deep
+    at the pairs position stands read here in the same
+    way, through the deep mapping reading, in parity
+    with its one mapping value form, and material
+    standing as a key of a mapping presented through a
+    keys view or a values view standing at the items
+    position stands read here in the same way, through
+    the keys of the mapping the view stands over, in
+    parity with its plain mapping and items view forms
+    at that position.
     """
     extra = []
     for key in ("holdout_items", "holdout"):
@@ -2362,6 +2427,12 @@ def _direct_bundle_extra_holdout(bundle):
             wrapped_keys = [
                 entry_key for entry_key, _inner in value
             ]
+        elif isinstance(value, (_KeysView, _ValuesView)):
+            underlying = getattr(value, "mapping", None)
+            if underlying is None:
+                underlying = getattr(value, "_mapping", None)
+            if isinstance(underlying, _Mapping):
+                wrapped_keys = list(underlying.keys())
         elif isinstance(value, _Mapping):
             wrapped_keys = list(value.keys())
         wrapped_material = []
@@ -2373,6 +2444,23 @@ def _direct_bundle_extra_holdout(bundle):
                 wrapped_material.extend(wrapped)
         if wrapped_material:
             held_ids = {id(item) for item in extra[items_start:]}
+            if isinstance(value, _KeysView):
+                split_elements = _position_elements(value)
+                if split_elements is not None:
+                    for split_element in split_elements:
+                        for split_item in _unwrapped_items(
+                            split_element
+                        ):
+                            if isinstance(split_item, _Mapping):
+                                split_side = (
+                                    split_item.get("split")
+                                    or split_item.get("side")
+                                )
+                                if split_side in (
+                                    "holdout",
+                                    "sealed holdout",
+                                ):
+                                    held_ids.add(id(split_item))
             for element in _mapping_position_material(
                 wrapped_material
             ):
@@ -2475,7 +2563,7 @@ def _direct_bundle_extra_holdout(bundle):
                     carrier_start = len(extra)
                     carrier_material = []
                     for element in values:
-                        for mapping in _mappings_within(element):
+                        for mapping in _mappings_within_deep(element):
                             for carrier_key in mapping.keys():
                                 if isinstance(
                                     carrier_key, _Mapping
@@ -2762,7 +2850,21 @@ def _wrapped_nested_position_material(material):
                 list(value)
             )
             multi = _multi_nested_replacement(relisted)
-            if nested is not None:
+            if key == "items" and (
+                nested is not None or multi is not None
+            ):
+                underlying = getattr(value, "mapping", None)
+                if underlying is None:
+                    underlying = getattr(
+                        value, "_mapping", None
+                    )
+                if isinstance(underlying, _Mapping):
+                    replacement = dict(underlying)
+                elif nested is not None:
+                    replacement = nested
+                else:
+                    replacement = multi
+            elif nested is not None:
                 replacement = nested
             elif multi is not None:
                 replacement = multi
