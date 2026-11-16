@@ -1511,6 +1511,71 @@ def _wrapper_subtree_has_iterator(value, ancestors):
     return False
 
 
+def _wrapper_materialise_chainmap_item(element, shared_module,
+                                       ancestors, depth):
+    """Materialise one item of a delegating ChainMap subclass.
+
+    The iteration of a ChainMap form presents its items
+    in key position, and the direct act decides key
+    position and element position by different readings,
+    so an item of a delegating ChainMap subclass standing
+    listed by the ChainMap limb stands materialised in
+    the form the direct act reading of its key position
+    governs, not in the element position form a listing
+    alone would hand it. A delegating container subclass
+    standing in a form the wrapped key reading reaches,
+    a concrete container form or an abstract Sequence
+    form, stands listed once here in the mapping
+    presented form, in parity with that reading reaching
+    the nested mapping it carries, and a delegating
+    container subclass standing in an abstract Set form
+    alone, a form that reading does not reach, stands as
+    it stands, unlisted, in parity with both readings of
+    that position. A single pass iterable, an iterator
+    or a general iterable standing listed once only,
+    stands carried as the key of a one entry mapping
+    carrying an empty mapping as its value, unlisted, so
+    the direct act reads it in the key position the
+    presentation presents it in, a position that act does
+    not list, and an item standing unhashable in that
+    form stands materialised in its standing element
+    form. Any other item stands materialised in its
+    standing element form.
+    """
+    import collections as _collections_module
+
+    from collections.abc import Sequence as _Sequence
+
+    if _is_delegating_container_subclass(element):
+        if isinstance(
+            element,
+            (
+                list,
+                tuple,
+                set,
+                frozenset,
+                _collections_module.deque,
+                _collections_module.UserList,
+            ),
+        ) or isinstance(element, _Sequence):
+            return _wrapper_materialise(
+                element, shared_module, ancestors, depth, "mapping"
+            )
+        return element
+    if (
+        hasattr(element, "__next__") and hasattr(element, "__iter__")
+    ) or _is_single_pass_iterable(element):
+        try:
+            return {element: {}}
+        except TypeError:
+            return _wrapper_materialise(
+                element, shared_module, ancestors, depth, "other"
+            )
+    return _wrapper_materialise(
+        element, shared_module, ancestors, depth, "other"
+    )
+
+
 def _wrapper_materialise(value, shared_module, ancestors, depth=0,
                          path_state="top"):
     """Materialise one iterator carrying subtree for the wrapper.
@@ -1580,7 +1645,12 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0,
     it stands at a mapping presented position, and
     stands as it stands, unlisted, at a position
     inside a container, in parity with the direct
-    act reading of that position. A set or frozenset
+    act reading of that position, and each item the
+    listing yields stands materialised in the form
+    _wrapper_materialise_chainmap_item states, in
+    parity with the direct act reading of the key
+    position the iteration of a ChainMap form
+    presents its items in. A set or frozenset
     stands rebuilt from its elements materialised
     once and carried in a list, so where the rebuilt
     form stands unhashable and the rebuild fails, the
@@ -1650,9 +1720,9 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0,
             return value
         chainmap_ancestors = ancestors | {id(value)}
         materialised = [
-            _wrapper_materialise(
+            _wrapper_materialise_chainmap_item(
                 element, shared_module, chainmap_ancestors,
-                depth + 1, "other",
+                depth + 1,
             )
             for element in list(value)
         ]
