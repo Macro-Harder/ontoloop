@@ -129,7 +129,12 @@ def _residual_content_mapping(value):
     name as a prefix, and the act reads that slot
     under its storage name beside the raw name, so
     its content stands in the mapping in the same
-    form as any other slot content. Where the value
+    form as any other slot content. Where a subclass
+    states a slot under the same stated name as a
+    base class, the slot of each stating class
+    stands read under its own storage name, so the
+    content of every stating class stands in the
+    mapping. Where the value
     carries
     no such content, the act returns None, and the
     encoding states its governed no content form or
@@ -153,6 +158,13 @@ def _residual_content_mapping(value):
             if name in ("__dict__", "__weakref__"):
                 continue
             if name in mapping:
+                if name.startswith("__") and not name.endswith("__"):
+                    storage = "_" + cls.__name__.lstrip("_") + name
+                    if storage != name and storage not in mapping:
+                        try:
+                            mapping[storage] = getattr(value, storage)
+                        except AttributeError:
+                            pass
                 continue
             try:
                 mapping[name] = getattr(value, name)
@@ -229,22 +241,37 @@ def _tagged_digest_form(value):
     beside its argument content in that form, and the
     cause and context channels of an exception
     standing beside its argument content in every
-    exception form, the encoding walk standing over
-    that chaining walk in its cyclic form, and a
-    member of an enum mixing in int, float, str, or
-    bytes carrying added instance content beyond the
+    exception form, the suppression flag channel of
+    an exception, the name and path channels of an
+    ImportError, and the filename, line, offset,
+    text, and end position channels of a SyntaxError
+    standing beside its argument content in every
+    exception form beside them, the encoding walk
+    standing over that chaining walk in its cyclic
+    form, and a
+    member of an enum mixing in int, float, str,
+    bytes, or bytearray carrying added instance
+    content beyond the
     member state its enum class states encodes over
     its intrinsic value and over that added content
     together, a member carrying no such added content
     encoding in its standing form. A defaultdict
     encodes over its entries and over a governed form
     of its default factory together, a factory stating
-    no such form standing refused, and a function
+    no such form standing refused, a type factory
+    standing in a local scope, whose module and
+    qualified name state no distinction from a second
+    such type, standing refused in the same form, and
+    a function
     carrying added instance content stands refused in
     the form its plain form stands refused, the
     function channel standing decided before the
     attribute reading in the same form as the stream
-    and iterator positions. An in memory stream encodes
+    and iterator positions, and a partial application
+    carrying added instance content standing refused
+    in the form its plain form stands refused, its
+    channel standing decided before the attribute
+    reading in the same form. An in memory stream encodes
     over the content it holds, read through its
     getvalue act without consumption, and a stream
     subclass instance carrying added instance content
@@ -266,7 +293,8 @@ def _tagged_digest_form(value):
     parentheses, behind an equals sign, a semicolon,
     or a slash, attached to its introducer, or at the
     head of the form, or standing separated into
-    groups by one separator character, as grouped
+    groups by any single separator character standing
+    outside the letters and the digits, as grouped
     decimal groups or as hexadecimal pairs or groups,
     stand
     refused with a ValueError naming the type of the
@@ -283,6 +311,7 @@ def _tagged_digest_form(value):
     import datetime as _datetime_module
     import decimal as _decimal_module
     import enum as _enum_module
+    import functools as _functools_module
     import io as _io_module
     import re as _re_module
     import types as _types_module
@@ -339,20 +368,20 @@ def _tagged_digest_form(value):
         ):
             return True
         if _re_module.search(
-            r"(?<![0-9])[0-9]{1,3}(?:[,_'.\- ][0-9]{3}){2,}"
+            r"(?<![0-9])[0-9]{1,3}(?:[^0-9A-Za-z][0-9]{3}){2,}"
             r"(?![0-9])",
             text,
         ):
             return True
         if _re_module.search(
-            r"(?<![0-9a-fA-F])[0-9a-fA-F]{2}([\-./:_ ])"
+            r"(?<![0-9a-fA-F])[0-9a-fA-F]{2}([^0-9A-Za-z])"
             r"[0-9a-fA-F]{2}(?:\1[0-9a-fA-F]{2}){4,}"
             r"(?![0-9a-fA-F])",
             text,
         ):
             return True
         for match in _re_module.finditer(
-            r"(?<![0-9a-fA-F])[0-9a-fA-F]{4}([\-./:_ ])"
+            r"(?<![0-9a-fA-F])[0-9a-fA-F]{4}([^0-9A-Za-z])"
             r"[0-9a-fA-F]{4}(?:\1[0-9a-fA-F]{4}){1,}"
             r"(?![0-9a-fA-F])",
             text,
@@ -370,6 +399,11 @@ def _tagged_digest_form(value):
         if factory is None:
             return None
         if isinstance(factory, type):
+            if "<locals>" in factory.__qualname__:
+                raise ValueError(
+                    "digest cannot read material of type "
+                    + type(current).__name__
+                )
             return (
                 "factorytype:"
                 + factory.__module__
@@ -400,6 +434,31 @@ def _tagged_digest_form(value):
             if value is not None:
                 return value
         return None
+
+    def _exception_channels(current):
+        if isinstance(current, ImportError):
+            import_name = getattr(current, "name", None)
+            import_path = getattr(current, "path", None)
+        else:
+            import_name = None
+            import_path = None
+        if isinstance(current, SyntaxError):
+            syntax = (
+                getattr(current, "filename", None),
+                getattr(current, "lineno", None),
+                getattr(current, "offset", None),
+                getattr(current, "text", None),
+                getattr(current, "end_lineno", None),
+                getattr(current, "end_offset", None),
+            )
+        else:
+            syntax = None
+        return (
+            bool(getattr(current, "__suppress_context__", False)),
+            import_name,
+            import_path,
+            syntax,
+        )
 
     results = []
     path = set()
@@ -440,7 +499,7 @@ def _tagged_digest_form(value):
             kind = "value_attrs"
         elif (
             isinstance(current, _enum_module.Enum)
-            and isinstance(current, (int, float, str, bytes))
+            and isinstance(current, (int, float, str, bytes, bytearray))
             and _enum_added_mapping(current) is not None
         ):
             kind = "enum_attrs"
@@ -468,6 +527,8 @@ def _tagged_digest_form(value):
             and (
                 getattr(current, "__cause__", None) is not None
                 or getattr(current, "__context__", None) is not None
+                or getattr(current, "__suppress_context__", False)
+                or isinstance(current, (ImportError, SyntaxError))
             )
         ):
             kind = "exc_chain"
@@ -486,6 +547,14 @@ def _tagged_digest_form(value):
             kind = None
         if isinstance(current, _types_module.FunctionType):
             kind = None
+        if (
+            isinstance(current, _functools_module.partial)
+            and _residual_content_mapping(current) is not None
+        ):
+            raise ValueError(
+                "digest cannot read material of type "
+                + type(current).__name__
+            )
         if kind is None:
             if current is None:
                 results.append(b"none;")
@@ -588,6 +657,7 @@ def _tagged_digest_form(value):
                     _exception_filename(current, "filename2"),
                     getattr(current, "__cause__", None),
                     getattr(current, "__context__", None),
+                    _exception_channels(current),
                 ]
             elif kind == "exc_chain":
                 children = [
@@ -596,6 +666,7 @@ def _tagged_digest_form(value):
                     _exception_filename(current, "filename2"),
                     getattr(current, "__cause__", None),
                     getattr(current, "__context__", None),
+                    _exception_channels(current),
                 ]
             elif kind == "enum_attrs":
                 children = [_enum_added_mapping(current)]
@@ -656,7 +727,8 @@ def _tagged_digest_form(value):
                 + b"+filename=" + parts[2]
                 + b"+filename2=" + parts[3]
                 + b"+cause=" + parts[4]
-                + b"+context=" + parts[5] + b";"
+                + b"+context=" + parts[5]
+                + b"+channels=" + parts[6] + b";"
             )
         elif kind == "exc_chain":
             results.append(
@@ -665,7 +737,8 @@ def _tagged_digest_form(value):
                 + b"+filename=" + parts[1]
                 + b"+filename2=" + parts[2]
                 + b"+cause=" + parts[3]
-                + b"+context=" + parts[4] + b";"
+                + b"+context=" + parts[4]
+                + b"+channels=" + parts[5] + b";"
             )
         elif kind == "value_attrs":
             raw = str(current).encode("utf-8")
