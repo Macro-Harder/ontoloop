@@ -448,36 +448,64 @@ class TestConsumeFixR20AddressStringForms(unittest.TestCase):
 
     def test_ruling_786_address_dress_nested_refused(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check([_SpaceDecProbe()])
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _SpaceDecProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check({"k": _HexHyphenPairsProbe()})
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _HexHyphenPairsProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check([_DecSpaceGroupsProbe()])
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _DecSpaceGroupsProbe",
+        )
 
     def test_ruling_786_hash_check_on_fresh_instance_refused(self):
         module = require("ontoloop.consumption")
         first, second = _SpaceDecProbe(), _SpaceDecProbe()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(first)
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _SpaceDecProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 second, expected_hash="0" * 64
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _SpaceDecProbe",
+        )
         held_first, held_second = (
             _HexHyphenPairsProbe(),
             _HexHyphenPairsProbe(),
         )
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 held_second, expected_hash="0" * 64
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _HexHyphenPairsProbe",
+        )
         self.assertIsNotNone(held_first)
 
     def test_ruling_786_covered_and_r19_dresses_still_refused(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(_CoveredAddressProbe())
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _CoveredAddressProbe",
+        )
 
     def test_ruling_786_content_bearing_string_forms_still_digest(self):
         self.assertNotEqual(_digest(range(3)), _digest(range(4)))
@@ -798,14 +826,22 @@ class TestConsumeFixR20DefaultFactory(unittest.TestCase):
         def _factory():
             return 0
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 collections.defaultdict(_factory, {"a": 1})
             )
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type defaultdict",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 collections.defaultdict(lambda: 0, {"a": 1})
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type defaultdict",
+        )
 
 
 class TestConsumeFixR20FunctionAttributePreemption(unittest.TestCase):
@@ -835,15 +871,27 @@ class TestConsumeFixR20FunctionAttributePreemption(unittest.TestCase):
         _function_one.extra = "x"
         _function_two.extra = "x"
         try:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as caught:
                 module.load_with_hash_check(_function_one)
-            with self.assertRaises(ValueError):
+            self.assertEqual(
+                str(caught.exception),
+                "digest cannot read material of type function",
+            )
+            with self.assertRaises(ValueError) as caught:
                 module.load_with_hash_check(_function_two)
-            with self.assertRaises(ValueError):
+            self.assertEqual(
+                str(caught.exception),
+                "digest cannot read material of type function",
+            )
+            with self.assertRaises(ValueError) as caught:
                 module.load_with_hash_check(
                     _function_two,
                     expected_hash="0" * 64,
                 )
+            self.assertEqual(
+                str(caught.exception),
+                "digest cannot read material of type function",
+            )
         finally:
             del _function_one.extra
             del _function_two.extra
@@ -855,31 +903,51 @@ class TestConsumeFixR20FunctionAttributePreemption(unittest.TestCase):
             return value
 
         _with_default.extra = "x"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(_with_default)
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type function",
+        )
 
         def _with_default(value=2):
             return value
 
         _with_default.extra = "x"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(_with_default)
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type function",
+        )
 
     def test_ruling_790_function_nested_with_attribute_refused(self):
         module = require("ontoloop.consumption")
         _function_one.extra = "x"
         try:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as caught:
                 module.load_with_hash_check([_function_one])
-            with self.assertRaises(ValueError):
+            self.assertEqual(
+                str(caught.exception),
+                "digest cannot read material of type function",
+            )
+            with self.assertRaises(ValueError) as caught:
                 module.load_with_hash_check({"k": _function_one})
+            self.assertEqual(
+                str(caught.exception),
+                "digest cannot read material of type function",
+            )
         finally:
             del _function_one.extra
 
     def test_ruling_790_plain_function_and_iterator_guard_stand(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(_function_one)
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type function",
+        )
 
         class _IteratorWithAttribute:
             def __init__(self):
@@ -891,8 +959,12 @@ class TestConsumeFixR20FunctionAttributePreemption(unittest.TestCase):
             def __next__(self):
                 raise StopIteration
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(_IteratorWithAttribute())
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _IteratorWithAttribute",
+        )
 
     def test_ruling_790_standing_attribute_forms_still_digest(self):
         class _Residual:
@@ -1049,8 +1121,12 @@ class TestConsumeFixR20ExceptionChaining(unittest.TestCase):
         second = ValueError("second")
         first.__cause__ = second
         second.__cause__ = first
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(first)
+        self.assertEqual(
+            str(caught.exception),
+            "cyclic value in canonical form",
+        )
 
     def test_ruling_792_unchained_and_ruling_727_forms_stand(self):
         self.assertNotEqual(

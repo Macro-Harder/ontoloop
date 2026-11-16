@@ -388,7 +388,7 @@ class KeyCarrierMappingValuePairsTests(unittest.TestCase):
                     }},
                     occasion=occasion)
                 self.assertTrue(result["fired"])
-                self.assertGreaterEqual(result["comparisons"], 1)
+                self.assertEqual(result["comparisons"], 2)
 
     def test_wrapped_nested_key_at_mapping_value_fires(self):
         check_fires(self, lambda: {"pairs": {
