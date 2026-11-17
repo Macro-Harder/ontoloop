@@ -1309,7 +1309,32 @@ def _bundle_copy(bundle):
     standing at a direct value of that mapping or
     standing inside a container in that mapping or
     inside object attribute storage in that mapping
-    in the same refused form.
+    in the same refused form, and the same refusal
+    stands where the view stands inside slot storage
+    in that mapping, inside function attribute
+    storage in that mapping, inside the arguments of
+    a partial application in that mapping, inside a
+    closure cell in that mapping, or inside the
+    arguments of an exception in that mapping, beside
+    the cause and context chains that exception
+    carries. A governed uncopyable value standing in
+    the reduce reach or in the state reach of a plain
+    custom carrier standing inside such a value
+    stands refused in the same form. A governed
+    uncopyable callable standing in the namespace of
+    a class standing as a value inside such a value,
+    or in the namespace of the class of an instance
+    standing as a value inside such a value, stands
+    refused in the same form, the method functions
+    and descriptor members of a class namespace
+    standing in no part of that reading, a module
+    standing in a class namespace standing as a
+    binding of that module and not as a value the
+    class carries, and a bound
+    builtin callable read through the object it
+    stands bound to, where that object stands as
+    neither a module nor a type, stands under the
+    same reading in the view holding walk.
     A dictionary view standing at
     any position copies as a fresh list of copies of
     the material it carries, an items view as a fresh
@@ -2444,6 +2469,66 @@ def _bundle_copy(bundle):
                     ),
                 ):
                     pending.extend(item)
+                elif isinstance(item, _types_module.FunctionType):
+                    attribute_map = getattr(
+                        item, "__dict__", None
+                    )
+                    if isinstance(attribute_map, dict):
+                        pending.append(attribute_map)
+                    closure = item.__closure__
+                    if closure:
+                        for cell in closure:
+                            try:
+                                pending.append(cell.cell_contents)
+                            except Exception:
+                                continue
+                    if item.__defaults__:
+                        pending.extend(item.__defaults__)
+                    if item.__kwdefaults__:
+                        pending.extend(item.__kwdefaults__.values())
+                    if item.__annotations__:
+                        pending.extend(
+                            item.__annotations__.values()
+                        )
+                elif isinstance(item, _functools_module.partial):
+                    pending.append(item.func)
+                    pending.extend(item.args)
+                    if item.keywords:
+                        pending.append(dict(item.keywords))
+                elif isinstance(item, BaseException):
+                    pending.extend(item.args)
+                    for chained in (
+                        item.__cause__, item.__context__
+                    ):
+                        if chained is not None:
+                            pending.append(chained)
+                elif isinstance(item, _types_module.MethodType):
+                    pending.append(item.__self__)
+                    pending.append(item.__func__)
+                elif isinstance(
+                    item, _types_module.BuiltinFunctionType
+                ):
+                    bound = getattr(item, "__self__", None)
+                    if (
+                        bound is not None
+                        and not isinstance(
+                            bound, _types_module.ModuleType
+                        )
+                        and not isinstance(bound, type)
+                    ):
+                        pending.append(bound)
+                elif isinstance(item, property):
+                    for accessor in (item.fget, item.fset, item.fdel):
+                        if accessor is not None:
+                            pending.append(accessor)
+                elif isinstance(item, slice):
+                    for component in (item.start, item.stop, item.step):
+                        if component is not None:
+                            pending.append(component)
+                elif isinstance(item, _weakref_module.ReferenceType):
+                    target = item()
+                    if target is not None:
+                        pending.append(target)
                 elif not isinstance(
                     item,
                     (
@@ -2459,6 +2544,25 @@ def _bundle_copy(bundle):
                         pending.append(attribute_map)
             except Exception:
                 pass
+            if not isinstance(
+                item, (_types_module.ModuleType, type)
+            ):
+                for klass in type(item).__mro__:
+                    slots = klass.__dict__.get("__slots__")
+                    if not slots:
+                        continue
+                    if isinstance(slots, str):
+                        slots = (slots,)
+                    for slot in slots:
+                        try:
+                            pending.append(
+                                getattr(
+                                    item,
+                                    _slot_storage_name(klass, slot),
+                                )
+                            )
+                        except Exception:
+                            pass
         return False
 
     def _reduce_carried(item):
@@ -2483,12 +2587,53 @@ def _bundle_copy(bundle):
             return reduced[0]
         return None
 
+    def _type_overrides(value, name):
+        for klass in type(value).__mro__:
+            if klass is object:
+                continue
+            if name in klass.__dict__:
+                return True
+        return False
+
+    def _class_namespace_values(cls):
+        values = []
+        for klass in cls.__mro__:
+            namespace = klass.__dict__
+            for key in namespace:
+                if key in ("__dict__", "__weakref__"):
+                    continue
+                member = namespace[key]
+                if isinstance(
+                    member,
+                    (
+                        _types_module.FunctionType,
+                        _types_module.ModuleType,
+                        classmethod,
+                        staticmethod,
+                        property,
+                    ),
+                ):
+                    continue
+                if type(member).__name__ in (
+                    "getset_descriptor",
+                    "member_descriptor",
+                    "wrapper_descriptor",
+                    "method_descriptor",
+                    "classmethod_descriptor",
+                ):
+                    continue
+                values.append(member)
+        return values
+
     def _fallback_holds_uncopyable(value):
         pending = [value]
         seen = set()
         globals_seen = set()
+        namespace_reach = set()
         while pending:
             item = pending.pop()
+            mark_from = len(pending)
+            in_reach = id(item) in namespace_reach
             if isinstance(
                 item,
                 (
@@ -2697,6 +2842,7 @@ def _bundle_copy(bundle):
                     if (
                         isinstance(globals_map, dict)
                         and id(globals_map) not in globals_seen
+                        and id(item) not in namespace_reach
                     ):
                         globals_seen.add(id(globals_map))
                         pending.extend(_globals_walk_values(item))
@@ -2750,6 +2896,18 @@ def _bundle_copy(bundle):
                             pending.append(chained)
                 except Exception:
                     pass
+            if id(item) not in namespace_reach:
+                if isinstance(item, type):
+                    carried_values = _class_namespace_values(item)
+                elif type(item).__module__ != "builtins":
+                    carried_values = _class_namespace_values(
+                        type(item)
+                    )
+                else:
+                    carried_values = ()
+                for carried in carried_values:
+                    namespace_reach.add(id(carried))
+                    pending.append(carried)
             for klass in type(item).__mro__:
                 slots = klass.__dict__.get("__slots__")
                 if not slots:
@@ -2763,6 +2921,58 @@ def _bundle_copy(bundle):
                         )
                     except Exception:
                         pass
+            if not isinstance(item, type):
+                if _type_overrides(item, "__getstate__"):
+                    try:
+                        state = item.__getstate__()
+                    except Exception:
+                        state = None
+                    if state is not None:
+                        pending.append(state)
+                if (
+                    _type_overrides(item, "__reduce_ex__")
+                    or _type_overrides(item, "__reduce__")
+                ) and not isinstance(
+                    item,
+                    (
+                        dict,
+                        list,
+                        tuple,
+                        set,
+                        frozenset,
+                        _collections.deque,
+                        _collections.UserList,
+                        _collections.UserDict,
+                        _collections.ChainMap,
+                        _collections.UserString,
+                        _types_module.MappingProxyType,
+                        _abc_module.KeysView,
+                        _abc_module.ValuesView,
+                        _abc_module.ItemsView,
+                        _abc_module.Iterator,
+                        _weakref_module.ReferenceType,
+                        _weakref_module.WeakSet,
+                        _weakref_module.WeakKeyDictionary,
+                        _weakref_module.WeakValueDictionary,
+                        _functools_module.partial,
+                        _types_module.FunctionType,
+                        _types_module.MethodType,
+                        _types_module.BuiltinFunctionType,
+                        property,
+                        slice,
+                        BaseException,
+                        _operator_module.methodcaller,
+                        _operator_module.itemgetter,
+                        filter,
+                        _callable_iterator_type,
+                        _xml_module.Element,
+                        _xml_module.ElementTree,
+                    ),
+                ):
+                    pending.extend(_reduce_carried(item))
+            if in_reach:
+                for extra in pending[mark_from:]:
+                    namespace_reach.add(id(extra))
         return False
 
     def _stitch_exception_chains(root, built, memo):
