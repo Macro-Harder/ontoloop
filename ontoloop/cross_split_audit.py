@@ -3058,6 +3058,56 @@ def _view_mapping_form(element):
     return element
 
 
+def _view_mapping_form_deep(element, ancestors=frozenset(), top=True):
+    """Return an element with its deep keys views carried.
+
+    An element standing as a dictionary view stands
+    read in the mapping form the reading above gives
+    it, in its standing form. An element standing in a
+    re-iterable container form standing in its exact
+    form, a list, a tuple, a deque, or a UserList,
+    stands rebuilt in the same form with a keys view
+    standing inside it, at any further container depth
+    the presentation nests it, standing read in that
+    same mapping form, in parity with the same keys
+    view standing as a direct element of the position
+    container. A container standing in a subclass form
+    stands as it stands, its standing readings
+    governing it in the same way as at the first
+    container level. A container standing inside
+    itself stands as it stands at the cyclic position.
+    Any other element stands as it stands, and no
+    iterator stands listed by this reading.
+    """
+    if isinstance(element, (_KeysView, _ValuesView, _ItemsView)):
+        if top or isinstance(element, _KeysView):
+            return _view_mapping_form(element)
+        return element
+    if type(element) in (
+        list,
+        tuple,
+        _collections_module.deque,
+        _collections_module.UserList,
+    ):
+        if id(element) in ancestors:
+            return element
+        child_ancestors = ancestors | {id(element)}
+        rebuilt = [
+            _view_mapping_form_deep(
+                inner, child_ancestors, top=False
+            )
+            for inner in element
+        ]
+        if isinstance(element, tuple):
+            return tuple(rebuilt)
+        if isinstance(element, _collections_module.deque):
+            return _collections_module.deque(rebuilt)
+        if isinstance(element, _collections_module.UserList):
+            return _collections_module.UserList(rebuilt)
+        return rebuilt
+    return element
+
+
 def _wrapped_nested_position_material(material):
     """Return the bundle with a wrapped nested position read.
 
@@ -3084,6 +3134,11 @@ def _wrapped_nested_position_material(material):
     through the nested mapping reading above, a zip
     object standing read for the tuple it yields and an
     enumerate object for the pair it yields.
+    A keys view standing inside two or more containers
+    at a position stands carried in the mapping form of
+    the deep view reading above, in parity with the same
+    keys view standing inside one container at that
+    position.
     A position standing in any other form stands as it
     stands, a generator position standing listed once
     where it stands consumed by this reading and stands
@@ -3207,7 +3262,7 @@ def _wrapped_nested_position_material(material):
             value, (tuple, _collections_module.deque)
         ) or hasattr(value, "__next__"):
             listed = [
-                _view_mapping_form(element)
+                _view_mapping_form_deep(element)
                 for element in list(value)
             ]
             nested, relisted, changed = _wrapped_probe(listed)
@@ -3237,7 +3292,7 @@ def _wrapped_nested_position_material(material):
         ):
             try:
                 listed = [
-                    _view_mapping_form(element)
+                    _view_mapping_form_deep(element)
                     for element in list(value)
                 ]
             except Exception:
