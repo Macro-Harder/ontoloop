@@ -1453,7 +1453,7 @@ def test_instruction_items_against_holdout(
         holdout_material = []
     from ontoloop import cross_split_audit as _shared_module
 
-    holdout_material = _shared_module._materialise_view_form(
+    holdout_material = _shared_module._materialise_view_form_seam(
         holdout_material
     )
 

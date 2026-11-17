@@ -417,6 +417,119 @@ def _materialise_view_form(value, ancestors=frozenset()):
     ]
 
 
+def _is_delegating_container_subclass(value):
+    """Whether a value stands in a delegating container
+    subclass form at the dataset seam.
+
+    A container form standing in a subclass of a list,
+    a tuple, a set, a frozenset, a deque, a UserList,
+    the abstract Sequence form, or the abstract Set
+    form, whose iteration act stands defined by its
+    own class, delegating to one stored iterator it
+    carries, stands in that form. A container standing
+    in its exact form, a subclass form whose iteration
+    act stands inherited from its container base, a
+    subclass form carrying no stored iterator, and a
+    dictionary view standing in any form, stand in no
+    such form here.
+    """
+    if isinstance(value, (_KeysView, _ItemsView, _ValuesView)):
+        return False
+    if type(value) in (
+        list,
+        tuple,
+        set,
+        frozenset,
+        _collections_module.deque,
+        _collections_module.UserList,
+        _WeakSet,
+    ):
+        return False
+    if not isinstance(
+        value,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+            _Sequence,
+            _Set,
+        ),
+    ):
+        return False
+    if "__iter__" not in type(value).__dict__:
+        return False
+    return _carries_stored_iterator(value)
+
+
+def _materialise_view_form_seam(value, ancestors=frozenset()):
+    """Return a form of the value with its views carried,
+    for the dataset instruction item surface.
+
+    This reading stands as the reading above in every
+    form but one: a container standing in a delegating
+    container subclass form stands as it stands, in
+    parity with the direct act deciding that same
+    presentation, so no view standing inside such a
+    container stands carried by a rebuilding that
+    strips the subclass form it stands in. Every other
+    form stands materialised as the reading above
+    gives it, a dictionary view standing carried as a
+    view of the same kind standing over a rebuilt
+    mapping, an iterator standing listed once only,
+    a mapping standing rebuilt with its keys standing
+    as they stand, and a container form standing
+    rebuilt as the list of its materialised elements.
+    A container standing inside itself stands as it
+    stands at the cyclic position.
+    """
+    kind = _materialise_kind(value)
+    if kind == "leaf":
+        return value
+    if id(value) in ancestors:
+        return value
+    if _is_delegating_container_subclass(value):
+        return value
+    child_ancestors = ancestors | {id(value)}
+    if kind == "dictionary view":
+        underlying = getattr(value, "mapping", None)
+        if underlying is None:
+            underlying = getattr(value, "_mapping", None)
+        if not isinstance(underlying, _Mapping):
+            return _materialise_iterators(value)
+        rebuilt = _materialise_view_form_seam(
+            underlying, child_ancestors
+        )
+        if isinstance(value, _ItemsView):
+            return rebuilt.items()
+        if isinstance(value, _KeysView):
+            return rebuilt.keys()
+        return rebuilt.values()
+    if kind == "mapping" and isinstance(
+        value, _collections_module.ChainMap
+    ):
+        rebuilt = {}
+        for chained in value.maps:
+            for chained_key, inner in chained.items():
+                if chained_key in rebuilt:
+                    continue
+                rebuilt[chained_key] = _materialise_view_form_seam(
+                    inner, child_ancestors
+                )
+        return rebuilt
+    if kind == "mapping":
+        return {
+            key: _materialise_view_form_seam(inner, child_ancestors)
+            for key, inner in value.items()
+        }
+    return [
+        _materialise_view_form_seam(element, child_ancestors)
+        for element in list(value)
+    ]
+
+
 def _resolve_text(value):
     """Read the text a value carries, in its stated forms.
 
@@ -3058,6 +3171,106 @@ def _view_mapping_form(element):
     return element
 
 
+def _carries_stored_iterator(value):
+    """Whether a value carries an iterator in its store.
+
+    A delegating container form carries the one stored
+    iterator its iteration act returns, standing in its
+    own store beside any elements it holds. A container
+    carrying its elements in a re-iterable store carries
+    no iterator in that store.
+    """
+    try:
+        stored = vars(value)
+    except Exception:
+        return False
+    if not isinstance(stored, _Mapping):
+        return False
+    return any(
+        hasattr(inner, "__next__") for inner in stored.values()
+    )
+
+
+def _is_delegating_container(element):
+    """Whether a container element stands delegating.
+
+    A list, a tuple, a deque, or a UserList standing in
+    a subclass form whose iteration act stands defined
+    by a class standing between its own class and its
+    container base, its own class among them, stands as
+    a delegating form, in the form the promote wrapper
+    papers state for that family, delegating to one
+    stored iterator it carries, and stands read by no
+    reading that rebuilds it. A subclass form whose
+    iteration act stands inherited from its container
+    base, the UserList base inheriting its act from the
+    abstract Sequence form among them, and a subclass
+    form carrying no stored iterator, stand in no
+    delegating form here.
+    """
+    bases = (
+        list,
+        tuple,
+        _collections_module.deque,
+        _collections_module.UserList,
+    )
+    if not isinstance(element, bases):
+        return False
+    if type(element) in bases:
+        return False
+    if not _carries_stored_iterator(element):
+        return False
+    for klass in type(element).__mro__:
+        if klass in bases:
+            return False
+        if "__iter__" in klass.__dict__:
+            return True
+    return False
+
+
+def _carries_keys_view(value, ancestors=frozenset()):
+    """Whether a listed form carries a keys view.
+
+    A keys view standing in the listed form itself, or
+    inside a container or a mapping standing in it,
+    stands carried. An iterator standing in the listed
+    form stands in no part here, so a reading that
+    lists an iterator to try it stands bounded by the
+    forms the listing itself reached.
+    """
+    if isinstance(value, _KeysView):
+        return True
+    if isinstance(value, (_ItemsView, _ValuesView)):
+        return False
+    if hasattr(value, "__next__"):
+        return False
+    if id(value) in ancestors:
+        return False
+    child_ancestors = ancestors | {id(value)}
+    if isinstance(value, _Mapping):
+        return any(
+            _carries_keys_view(key, child_ancestors)
+            or _carries_keys_view(inner, child_ancestors)
+            for key, inner in value.items()
+        )
+    if isinstance(
+        value,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ):
+        return any(
+            _carries_keys_view(inner, child_ancestors)
+            for inner in value
+        )
+    return False
+
+
 def _view_mapping_form_deep(element, ancestors=frozenset(), top=True):
     """Return an element with its deep keys views carried.
 
@@ -3071,13 +3284,27 @@ def _view_mapping_form_deep(element, ancestors=frozenset(), top=True):
     the presentation nests it, standing read in that
     same mapping form, in parity with the same keys
     view standing as a direct element of the position
-    container. A container standing in a subclass form
+    container. A container standing in a plain subclass
+    form of one of those container forms, its iteration
+    act standing inherited from its container base,
+    stands rebuilt in the exact form of that base in
+    the same way, in parity with the same keys view
+    standing inside the exact form at the same depth.
+    A container standing in a delegating subclass form
     stands as it stands, its standing readings
     governing it in the same way as at the first
-    container level. A container standing inside
+    container level. An iterator standing inside a
+    container and carrying a keys view stands listed
+    once in this reading and stands rebuilt as the
+    list of its elements read in the same way, in
+    parity with the same keys view standing inside a
+    container the reading rebuilds. An iterator
+    carrying no keys view stands listed once in this
+    reading and stands carried as an iterator over
+    its listed elements, in its standing form in
+    every other part. A container standing inside
     itself stands as it stands at the cyclic position.
-    Any other element stands as it stands, and no
-    iterator stands listed by this reading.
+    Any other element stands as it stands.
     """
     if isinstance(element, (_KeysView, _ValuesView, _ItemsView)):
         if top or isinstance(element, _KeysView):
@@ -3105,7 +3332,161 @@ def _view_mapping_form_deep(element, ancestors=frozenset(), top=True):
         if isinstance(element, _collections_module.UserList):
             return _collections_module.UserList(rebuilt)
         return rebuilt
+    if isinstance(
+        element,
+        (
+            list,
+            tuple,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ):
+        if _is_delegating_container(element):
+            return element
+        if id(element) in ancestors:
+            return element
+        child_ancestors = ancestors | {id(element)}
+        rebuilt = [
+            _view_mapping_form_deep(
+                inner, child_ancestors, top=False
+            )
+            for inner in element
+        ]
+        if isinstance(element, tuple):
+            return tuple(rebuilt)
+        if isinstance(element, _collections_module.deque):
+            return _collections_module.deque(rebuilt)
+        if isinstance(element, _collections_module.UserList):
+            return _collections_module.UserList(rebuilt)
+        return rebuilt
+    if hasattr(element, "__next__"):
+        if id(element) in ancestors:
+            return element
+        child_ancestors = ancestors | {id(element)}
+        listed = list(element)
+        if not _carries_keys_view(listed):
+            return (inner for inner in listed)
+        return [
+            _view_mapping_form_deep(
+                inner, child_ancestors, top=False
+            )
+            for inner in listed
+        ]
     return element
+
+
+def _preserved_beside_element(original, relisted, container_type):
+    """Return one element of a beside sibling replacement
+    with its view material preserved.
+
+    A keys view element stands preserved as the view
+    it stands as, so the readings that follow stand
+    over the keys of the mapping it stands over. An
+    items view or a values view element stands
+    preserved in the same way where its container
+    stands as a list, and stands in its relisted form
+    in every other container, in the bounded form the
+    ruling of this round states for those containers.
+    A plain mapping element carrying no item field of
+    its own and standing as no pair stands read as the
+    keys view of that mapping, in parity with the same
+    mapping standing alone inside the same container.
+    A container element standing in an exact container
+    form stands rebuilt from its elements in the same
+    way. Any other element stands in its relisted form.
+    """
+    if isinstance(original, _KeysView):
+        return original
+    if isinstance(original, (_ItemsView, _ValuesView)):
+        if container_type is list:
+            return original
+        return relisted
+    if isinstance(original, _Mapping):
+        if container_type in (
+            list,
+            tuple,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ) and _is_plain_mapping(original) and not any(
+            field in original for field in _ITEM_FIELD_KEYS
+        ) and _pair_elements(original) is None and any(
+            isinstance(key, (tuple, list, set, frozenset))
+            and _wrapped_key_holdout(key)
+            for key in original.keys()
+        ):
+            try:
+                return original.keys()
+            except Exception:
+                return relisted
+        return relisted
+    if type(original) in (
+        list,
+        tuple,
+        _collections_module.deque,
+        _collections_module.UserList,
+    ):
+        try:
+            original_listed = list(original)
+            relisted_listed = list(relisted)
+        except Exception:
+            return relisted
+        if len(original_listed) != len(relisted_listed):
+            return relisted
+        return [
+            _preserved_beside_element(
+                inner_original, inner_relisted, type(original)
+            )
+            for inner_original, inner_relisted in zip(
+                original_listed, relisted_listed
+            )
+        ]
+    return relisted
+
+
+def _preserved_multi_replacement(original_value, relisted):
+    """Return the multi nested replacement for a beside
+    sibling presentation, with its view material
+    preserved.
+
+    The multi nested replacement above holds the
+    elements of a beside sibling presentation in a
+    mapping of their own positions, in a form where a
+    dictionary view element stands dissolved into the
+    mapping it stands over, so the readings that
+    follow stand over no key the view carries. Where
+    the position container stands in an exact form, a
+    list, a tuple, a deque, or a UserList, the
+    replacement stands rebuilt here with each element
+    standing in the preserved form the reading above
+    gives it, in parity with the same presentation
+    standing alone inside the same container. A
+    position container standing in any other form
+    keeps the standing replacement in full.
+    """
+    multi = _multi_nested_replacement(relisted)
+    if multi is None:
+        return None
+    if type(original_value) not in (
+        list,
+        tuple,
+        _collections_module.deque,
+        _collections_module.UserList,
+    ):
+        return multi
+    try:
+        original_listed = list(original_value)
+    except Exception:
+        return multi
+    if len(original_listed) != len(relisted):
+        return multi
+    return {
+        index: _preserved_beside_element(
+            original, relisted_element, type(original_value)
+        )
+        for index, (original, relisted_element) in enumerate(
+            zip(original_listed, relisted)
+        )
+    }
 
 
 def _wrapped_nested_position_material(material):
@@ -3139,6 +3520,14 @@ def _wrapped_nested_position_material(material):
     the deep view reading above, in parity with the same
     keys view standing inside one container at that
     position.
+    A dictionary view standing inside a container at a
+    position beside a second element stands carried in
+    the preserved form of the multi nested replacement
+    above, in parity with the same presentation
+    standing alone inside the same container, in the
+    bounded form that replacement states for an items
+    view or a values view standing beside a second
+    element inside a tuple, a deque, or a UserList.
     A position standing in any other form stands as it
     stands, a generator position standing listed once
     where it stands consumed by this reading and stands
@@ -3266,7 +3655,7 @@ def _wrapped_nested_position_material(material):
                 for element in list(value)
             ]
             nested, relisted, changed = _wrapped_probe(listed)
-            multi = _multi_nested_replacement(relisted)
+            multi = _preserved_multi_replacement(value, relisted)
             if nested is not None:
                 replacement = nested
             elif multi is not None:
@@ -3301,7 +3690,9 @@ def _wrapped_nested_position_material(material):
                 nested, relisted, changed = _wrapped_probe(
                     listed
                 )
-                multi = _multi_nested_replacement(relisted)
+                multi = _preserved_multi_replacement(
+                    value, relisted
+                )
                 if nested is not None:
                     replacement = nested
                 elif multi is not None:
