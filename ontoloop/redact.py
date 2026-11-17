@@ -522,16 +522,22 @@ def _decorated_token_span(start, token):
     The forms tried stand in order of the least edge
     characters set aside first: up to four characters
     at the leading edge and up to four at the trailing
-    edge, so a parenthesis, a quotation mark, a
-    bracket, a trailing comma, full stop, or semicolon,
+    edge severally, and five characters at one edge
+    where the other edge carries none, so a
+    parenthesis, a quotation mark, a bracket, a
+    trailing comma, full stop, or semicolon,
     or a short fused prefix stands set aside where the
     token standing inside it decides definite. The
     return is the span of the inner token, or None
     where no such inner token decides definite.
     """
-    for total in range(1, 5):
+    for total in range(1, 9):
         for lead in range(0, total + 1):
             trail = total - lead
+            if lead > 4 and not (lead == 5 and trail == 0):
+                continue
+            if trail > 4 and not (trail == 5 and lead == 0):
+                continue
             if lead + trail >= len(token):
                 continue
             candidate = token[lead:len(token) - trail if trail else len(token)]
@@ -550,26 +556,25 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
     """Return the fragment spans of line wrapped definite tokens.
 
     Consecutive tokens wholly in an encoding alphabet
-    stand joined, the longest joining of up to six
-    fragments first, and where the joined form decides
-    definite every fragment of the joining carries its
-    token as its span, beside the fragments an exact
-    resolution already carries. A joining that no
-    fragment of stands resolved exactly carries no
-    span, in the standing detection boundary form of a
-    wrapped token standing alone.
+    stand joined, the longest joining first, across as
+    many fragments as the tokens present, and where the
+    joined form decides definite every fragment of the
+    joining carries its token as its span, beside the
+    fragments an exact resolution already carries. The
+    joining stands decided on the joined value resolving
+    definite in substance, and not on a fragment of the
+    joining resolving exactly. A wrapped token standing
+    alone still carries no span here, because the caller
+    reaches this act only beside an exactly resolved
+    token, in the standing detection boundary form.
     """
     spans = []
     index = 0
     while index < len(tokens):
         joined_span = None
-        for count in range(6, 1, -1):
+        for count in range(len(tokens) - index, 1, -1):
             group = tokens[index:index + count]
             if len(group) < count:
-                continue
-            if not any(
-                index + offset in exact for offset in range(count)
-            ):
                 continue
             if not all(
                 re.fullmatch(r"[A-Za-z0-9+/=]+", token)
