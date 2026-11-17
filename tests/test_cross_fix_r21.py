@@ -83,7 +83,7 @@ class KeyCarrierTwoMappingValuesDeepTests(unittest.TestCase):
                     two_deep({frozenset(tuple_pair_key()): 1}),
                     occasion=occasion)
                 self.assertTrue(result["fired"])
-                self.assertGreaterEqual(result["comparisons"], 1)
+                self.assertEqual(result["comparisons"], 2)
 
     def test_wrapped_nested_key_two_deep_fires(self):
         check_fires(
@@ -187,7 +187,7 @@ class ViewAtItemsPositionTests(unittest.TestCase):
                     }.values()},
                     occasion=occasion)
                 self.assertTrue(result["fired"])
-                self.assertGreaterEqual(result["comparisons"], 1)
+                self.assertEqual(result["comparisons"], 1)
 
     def test_single_pass_key_through_values_view_at_items_fires(self):
         check_fires(self, lambda: {"items": {

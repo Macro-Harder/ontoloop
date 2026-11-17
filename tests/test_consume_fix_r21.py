@@ -286,10 +286,18 @@ class TestConsumeFixR21AddressSeparatorForms(unittest.TestCase):
 
     def test_ruling_850_new_dress_nested_refused(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check([_DecTabGroupsProbe()])
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _DecTabGroupsProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check({"k": _HexCommaPairsProbe()})
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _HexCommaPairsProbe",
+        )
 
     def test_ruling_850_hash_check_on_fresh_instance_refused(self):
         module = require("ontoloop.consumption")
@@ -297,10 +305,14 @@ class TestConsumeFixR21AddressSeparatorForms(unittest.TestCase):
             _DecColonGroupsProbe(),
             _DecColonGroupsProbe(),
         )
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 held_second, expected_hash="0" * 64
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _DecColonGroupsProbe",
+        )
         self.assertIsNotNone(held_first)
 
     def test_ruling_850_hex_fours_new_separator_refused(self):
@@ -336,10 +348,18 @@ class TestConsumeFixR21AddressSeparatorForms(unittest.TestCase):
 
     def test_ruling_850_ruling_786_forms_still_refused(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(_DecSpaceGroupsProbe())
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _DecSpaceGroupsProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(_CoveredAddressProbe())
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type _CoveredAddressProbe",
+        )
 
     def test_ruling_850_short_forms_and_no_content_form_stand(self):
         short_one = _ShortNumberProbe("<short probe at 123>")
@@ -457,12 +477,24 @@ class TestConsumeFixR21PartialAttribute(unittest.TestCase):
         first.tag = "same"
         second = functools.partial(_function_two, 9)
         second.tag = "same"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(first)
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type partial",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(second)
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type partial",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(second, expected_hash="0" * 64)
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type partial",
+        )
 
     def test_ruling_852_partial_differing_keywords_refused(self):
         module = require("ontoloop.consumption")
@@ -474,32 +506,60 @@ class TestConsumeFixR21PartialAttribute(unittest.TestCase):
         first.tag = "same"
         second = functools.partial(_with_keyword, 1, scale=3)
         second.tag = "same"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(first)
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type partial",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(second)
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type partial",
+        )
 
     def test_ruling_852_partial_nested_with_attribute_refused(self):
         module = require("ontoloop.consumption")
         partial = functools.partial(_function_one, 1)
         partial.tag = "same"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check([partial])
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type partial",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check({"k": partial})
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type partial",
+        )
 
     def test_ruling_852_plain_partial_and_function_forms_stand(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 functools.partial(_function_one, 1)
             )
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type partial",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(_function_one)
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type function",
+        )
         _function_one.extra = "x"
         try:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as caught:
                 module.load_with_hash_check(_function_one)
+            self.assertEqual(
+                str(caught.exception),
+                "digest cannot read material of type function",
+            )
         finally:
             del _function_one.extra
 
@@ -827,23 +887,35 @@ class TestConsumeFixR21FactoryTokenCollision(unittest.TestCase):
     def test_ruling_856_colliding_factory_nested_refused(self):
         module = require("ontoloop.consumption")
         factory = _make_local_factory()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 [collections.defaultdict(factory, {"k": 1})]
             )
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type defaultdict",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 {"wrap": collections.defaultdict(factory, {"k": 1})}
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type defaultdict",
+        )
 
     def test_ruling_856_colliding_factory_hash_check_refused(self):
         module = require("ontoloop.consumption")
         factory = _make_local_factory()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 collections.defaultdict(factory, {"k": 1}),
                 expected_hash="0" * 64,
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type defaultdict",
+        )
 
     def test_ruling_856_module_level_type_factories_still_apart(self):
         self.assertNotEqual(
@@ -879,14 +951,22 @@ class TestConsumeFixR21FactoryTokenCollision(unittest.TestCase):
         def _factory():
             return 0
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 collections.defaultdict(_factory, {"a": 1})
             )
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type defaultdict",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 collections.defaultdict(lambda: 0, {"a": 1})
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type defaultdict",
+        )
         self.assertEqual(
             _digest(collections.defaultdict(None, {"a": 1})),
             _digest({"a": 1}),
