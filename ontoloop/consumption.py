@@ -1070,8 +1070,11 @@ def _bundle_copy(bundle):
     specification, in the cause
     or context chain an exception object carries,
     or standing as the callable a callable iterator
-    or a filter object carries, or standing as the
-    callable, predicate, key function, or function
+    or a filter object carries, standing as a bound
+    builtin method value in its own right, or
+    standing as the function a partial application
+    carries, or standing as the callable, predicate,
+    key function, or function
     a wider callable iterator form carries, a map,
     starmap, takewhile, dropwhile, filterfalse,
     groupby, or accumulate form among them, standing inside
@@ -1083,8 +1086,9 @@ def _bundle_copy(bundle):
     refused in the same form in place of unbounded
     recursion in the replacements limb, the view
     standing at a direct value of that mapping or
-    standing inside a container in that mapping in
-    the same refused form.
+    standing inside a container in that mapping or
+    inside object attribute storage in that mapping
+    in the same refused form.
     A dictionary view standing at
     any position copies as a fresh list of copies of
     the material it carries, an items view as a fresh
@@ -2219,6 +2223,19 @@ def _bundle_copy(bundle):
                     ),
                 ):
                     pending.extend(item)
+                elif not isinstance(
+                    item,
+                    (
+                        _types_module.ModuleType,
+                        _types_module.FunctionType,
+                        type,
+                    ),
+                ):
+                    attribute_map = getattr(
+                        item, "__dict__", None
+                    )
+                    if isinstance(attribute_map, dict):
+                        pending.append(attribute_map)
             except Exception:
                 pass
         return False
@@ -2342,6 +2359,7 @@ def _bundle_copy(bundle):
                     _copy_module.deepcopy(item)
                 except Exception:
                     return True
+                pending.extend(_reduce_carried(item))
             if isinstance(item, _xml_module.Element):
                 try:
                     pending.extend(list(item.attrib.keys()))
@@ -2464,6 +2482,18 @@ def _bundle_copy(bundle):
                 elif isinstance(item, _types_module.MethodType):
                     pending.append(item.__self__)
                     pending.append(item.__func__)
+                elif isinstance(
+                    item, _types_module.BuiltinFunctionType
+                ):
+                    bound = getattr(item, "__self__", None)
+                    if (
+                        bound is not None
+                        and not isinstance(
+                            bound, _types_module.ModuleType
+                        )
+                        and not isinstance(bound, type)
+                    ):
+                        pending.append(bound)
                 elif isinstance(item, property):
                     for accessor in (item.fget, item.fset, item.fdel):
                         if accessor is not None:
