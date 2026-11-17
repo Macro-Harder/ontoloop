@@ -1559,45 +1559,80 @@ def _bundle_copy(bundle):
         return False
 
     def _referenced_global_values(func, globals_map):
-        code = getattr(func, "__code__", None)
-        if code is None:
-            return []
-        names = set()
-        pending_codes = [code]
-        seen_codes = set()
-        while pending_codes:
-            current_code = pending_codes.pop()
-            if id(current_code) in seen_codes:
-                continue
-            seen_codes.add(id(current_code))
-            try:
-                instructions = _dis_module.get_instructions(
-                    current_code
-                )
-            except Exception:
-                instructions = ()
-            for instruction in instructions:
-                if instruction.opname in (
-                    "LOAD_GLOBAL",
-                    "LOAD_NAME",
-                ) and isinstance(instruction.argval, str):
-                    names.add(instruction.argval)
-            for const in current_code.co_consts:
-                if isinstance(const, _types_module.CodeType):
-                    pending_codes.append(const)
+        def _code_facts(root_code):
+            names = set()
+            consts = set()
+            pending_codes = [root_code]
+            seen_codes = set()
+            while pending_codes:
+                current_code = pending_codes.pop()
+                if id(current_code) in seen_codes:
+                    continue
+                seen_codes.add(id(current_code))
+                try:
+                    instructions = _dis_module.get_instructions(
+                        current_code
+                    )
+                except Exception:
+                    instructions = ()
+                for instruction in instructions:
+                    if instruction.opname in (
+                        "LOAD_GLOBAL",
+                        "LOAD_NAME",
+                    ) and isinstance(instruction.argval, str):
+                        names.add(instruction.argval)
+                for const in current_code.co_consts:
+                    if isinstance(const, _types_module.CodeType):
+                        pending_codes.append(const)
+                    elif isinstance(const, str):
+                        consts.add(const)
+            return names, consts
+
         values = []
-        for name in names:
-            if name in globals_map:
-                value = globals_map[name]
+        seen_value_ids = set()
+        pending_funcs = [(func, globals_map)]
+        seen_funcs = set()
+        while pending_funcs:
+            current_func, current_map = pending_funcs.pop()
+            if id(current_func) in seen_funcs:
+                continue
+            seen_funcs.add(id(current_func))
+            if not isinstance(current_map, dict):
+                continue
+            code = getattr(current_func, "__code__", None)
+            if code is None:
+                continue
+            names, consts = _code_facts(code)
+            candidate_names = set(names)
+            if "globals" in names or "eval" in names:
+                for const in consts:
+                    if const in current_map:
+                        candidate_names.add(const)
+            for name in candidate_names:
+                if name not in current_map:
+                    continue
+                value = current_map[name]
                 if isinstance(
                     value, _types_module.ModuleType
                 ):
                     continue
                 if isinstance(
-                    value, _extra_uncopyable_types
+                    value, _lru_cache_wrapper_type
                 ):
                     continue
+                if id(value) in seen_value_ids:
+                    continue
+                seen_value_ids.add(id(value))
                 values.append(value)
+                if isinstance(
+                    value, _types_module.FunctionType
+                ):
+                    value_globals = getattr(
+                        value, "__globals__", None
+                    )
+                    pending_funcs.append(
+                        (value, value_globals)
+                    )
         return values
 
     _accepted_bases = (
@@ -2525,6 +2560,38 @@ def _bundle_copy(bundle):
                 if isinstance(item, dict):
                     pending.extend(item.keys())
                     pending.extend(item.values())
+                    if isinstance(
+                        item, _collections.defaultdict
+                    ):
+                        factory = item.default_factory
+                        if factory is not None:
+                            pending.append(factory)
+                elif isinstance(item, type):
+                    carried_values, member_functions = (
+                        _class_namespace_parts(item)
+                    )
+                    pending.extend(carried_values)
+                    pending.extend(member_functions)
+                elif isinstance(
+                    item, _operator_module.methodcaller
+                ):
+                    carried = _reduce_carried(item)
+                    head = _reduce_head(item)
+                    if isinstance(
+                        head, _functools_module.partial
+                    ):
+                        pending.extend(carried)
+                        pending.extend(head.args[1:])
+                        if head.keywords:
+                            pending.extend(
+                                list(head.keywords.values())
+                            )
+                    else:
+                        pending.extend(carried[1:])
+                elif isinstance(
+                    item, _operator_module.itemgetter
+                ):
+                    pending.extend(_reduce_carried(item))
                 elif isinstance(item, _collections.ChainMap):
                     pending.extend(item.maps)
                 elif isinstance(item, _collections.UserDict):
@@ -2690,9 +2757,49 @@ def _bundle_copy(bundle):
             return reduced[2]
         return None
 
+    def _reduce_tail(item):
+        try:
+            reduced = item.__reduce_ex__(4)
+        except Exception:
+            return ()
+        if not isinstance(reduced, tuple) or len(reduced) < 4:
+            return ()
+        carried = []
+        for element in reduced[3:5]:
+            if element is None:
+                continue
+            try:
+                carried.extend(list(element))
+            except Exception:
+                continue
+        return tuple(carried)
+
     def _type_overrides(value, name):
         for klass in type(value).__mro__:
             if klass is object:
+                continue
+            if name in klass.__dict__:
+                return True
+        return False
+
+    _branch_base_types = (
+        dict,
+        list,
+        tuple,
+        set,
+        frozenset,
+        _collections.deque,
+        _collections.UserList,
+        _collections.UserDict,
+        _collections.UserString,
+        _collections.ChainMap,
+    )
+
+    def _branch_overrides(value, name):
+        for klass in type(value).__mro__:
+            if klass is object:
+                continue
+            if klass in _branch_base_types:
                 continue
             if name in klass.__dict__:
                 return True
@@ -2786,6 +2893,9 @@ def _bundle_copy(bundle):
         pending = [value]
         seen = set()
         globals_seen = set()
+        carried_globals_seen = set()
+        namespace_expanded = set()
+        deepcopy_types_seen = set()
         namespace_reach = set()
         view_reach = set()
         while pending:
@@ -3020,6 +3130,24 @@ def _bundle_copy(bundle):
                     ):
                         globals_seen.add(id(globals_map))
                         pending.extend(_globals_walk_values(item))
+                    elif (
+                        isinstance(globals_map, dict)
+                        and id(item) in namespace_reach
+                        and id(item) not in carried_globals_seen
+                    ):
+                        carried_globals_seen.add(id(item))
+                        if _globals_map_is_module_dict(
+                            item, globals_map
+                        ):
+                            pending.extend(
+                                _referenced_global_values(
+                                    item, globals_map
+                                )
+                            )
+                        else:
+                            pending.extend(
+                                _globals_walk_values(item)
+                            )
                 elif isinstance(item, _types_module.MethodType):
                     pending.append(item.__self__)
                     pending.append(item.__func__)
@@ -3070,17 +3198,20 @@ def _bundle_copy(bundle):
                             pending.append(chained)
                 except Exception:
                     pass
-            if id(item) not in namespace_reach:
-                if isinstance(item, type):
-                    carried_values, member_functions = (
-                        _class_namespace_parts(item)
-                    )
-                elif type(item).__module__ != "builtins":
-                    carried_values, member_functions = (
-                        _class_namespace_parts(type(item))
-                    )
-                else:
-                    carried_values, member_functions = (), ()
+            if isinstance(item, type):
+                namespace_target = item
+            elif type(item).__module__ != "builtins":
+                namespace_target = type(item)
+            else:
+                namespace_target = None
+            if (
+                namespace_target is not None
+                and id(namespace_target) not in namespace_expanded
+            ):
+                namespace_expanded.add(id(namespace_target))
+                carried_values, member_functions = (
+                    _class_namespace_parts(namespace_target)
+                )
                 for carried in carried_values:
                     namespace_reach.add(id(carried))
                     pending.append(carried)
@@ -3189,6 +3320,9 @@ def _bundle_copy(bundle):
                     if reduce_state is not None:
                         view_reach.add(id(reduce_state))
                         pending.append(reduce_state)
+                    for carried in _reduce_tail(item):
+                        view_reach.add(id(carried))
+                        pending.append(carried)
                 if plain_carrier and _type_overrides(
                     item, "__getnewargs__"
                 ):
@@ -3210,6 +3344,56 @@ def _bundle_copy(bundle):
                         for part in newargs_ex:
                             view_reach.add(id(part))
                             pending.append(part)
+                branch_carrier = isinstance(
+                    item,
+                    (
+                        dict,
+                        list,
+                        tuple,
+                        set,
+                        frozenset,
+                        _collections.deque,
+                        _collections.UserList,
+                        _collections.UserDict,
+                        _collections.UserString,
+                        _collections.ChainMap,
+                    ),
+                )
+                if branch_carrier and _branch_overrides(
+                    item, "__getnewargs__"
+                ):
+                    try:
+                        newargs = item.__getnewargs__()
+                    except Exception:
+                        newargs = None
+                    if newargs is not None:
+                        view_reach.add(id(newargs))
+                        pending.append(newargs)
+                if branch_carrier and _branch_overrides(
+                    item, "__getnewargs_ex__"
+                ):
+                    try:
+                        newargs_ex = item.__getnewargs_ex__()
+                    except Exception:
+                        newargs_ex = None
+                    if isinstance(newargs_ex, tuple):
+                        for part in newargs_ex:
+                            view_reach.add(id(part))
+                            pending.append(part)
+                if _type_overrides(item, "__deepcopy__") and (
+                    type(item) not in deepcopy_types_seen
+                ):
+                    deepcopy_types_seen.add(type(item))
+                    try:
+                        returned = _copy_module.deepcopy(
+                            item, {}
+                        )
+                    except Exception:
+                        returned = None
+                    if returned is not None and (
+                        returned is not item
+                    ):
+                        pending.append(returned)
             if in_reach:
                 for extra in pending[mark_from:]:
                     namespace_reach.add(id(extra))
@@ -3439,6 +3623,32 @@ def _bundle_copy(bundle):
         if _is_atom(current):
             results.append(current)
             continue
+        if isinstance(
+            current,
+            (
+                dict,
+                list,
+                tuple,
+                set,
+                frozenset,
+                _collections.deque,
+                _collections.UserList,
+                _collections.UserDict,
+                _collections.UserString,
+                _collections.ChainMap,
+                _types_module.MappingProxyType,
+            ),
+        ) and _type_overrides(current, "__getstate__"):
+            try:
+                branch_state = current.__getstate__()
+            except Exception:
+                branch_state = None
+            if branch_state is not None and (
+                _fallback_holds_uncopyable(branch_state)
+            ):
+                raise ValueError(
+                    "uncopyable value in bundle copy"
+                )
         if isinstance(current, bytearray):
             try:
                 built = type(current)(current)
