@@ -467,21 +467,133 @@ def _decoded_spans(text, layer, class_name):
 
     A whitespace separated token that the layer 4
     decoding engine decides definite carries its token
-    as its span. Where no token decides definite and
-    the text as a whole decides definite, the stripped
-    text carries its span.
+    as its span. Where a token decides definite, the
+    computation also resolves the same definite value
+    standing in the text in a decorated form, a token
+    carrying up to four characters of decoration or a
+    short fused prefix at its edges standing over a
+    token that decides definite, and in a line wrapped
+    form, consecutive whitespace separated fragments
+    wholly in an encoding alphabet whose joined form
+    decides definite, each fragment carrying its own
+    span. A decorated or wrapped form standing with no
+    exactly resolved token beside it resolves nothing
+    here, in its standing detection boundary form.
+    Where no token decides definite and the text as a
+    whole decides definite, the stripped text carries
+    its span.
     """
+    tokens = [
+        (match.start(), match.end(), match.group(0))
+        for match in re.finditer(r"\S+", text)
+    ]
     spans = []
-    for match in re.finditer(r"\S+", text):
-        if _decode_candidate(match.group(0))["outcome"] == "definite hit":
-            spans.append((match.start(), match.end(), layer, class_name))
+    exact = set()
+    for index, (start, end, token) in enumerate(tokens):
+        if _decode_candidate(token)["outcome"] == "definite hit":
+            spans.append((start, end, layer, class_name))
+            exact.add(index)
     if spans:
-        return spans
+        for index, (start, end, token) in enumerate(tokens):
+            if index in exact:
+                continue
+            resolved = _decorated_token_span(start, token)
+            if resolved is not None:
+                span = (resolved[0], resolved[1], layer, class_name)
+                if span not in spans:
+                    spans.append(span)
+        for span in _wrapped_token_spans(
+            tokens, exact, layer, class_name
+        ):
+            if span not in spans:
+                spans.append(span)
+        return sorted(spans)
     if _decode_candidate(text)["outcome"] == "definite hit":
         start = len(text) - len(text.lstrip())
         end = len(text.rstrip())
         if end > start:
             spans.append((start, end, layer, class_name))
+    return spans
+
+
+def _decorated_token_span(start, token):
+    """Return the span of a definite token inside a decorated token.
+
+    The forms tried stand in order of the least edge
+    characters set aside first: up to four characters
+    at the leading edge and up to four at the trailing
+    edge, so a parenthesis, a quotation mark, a
+    bracket, a trailing comma, full stop, or semicolon,
+    or a short fused prefix stands set aside where the
+    token standing inside it decides definite. The
+    return is the span of the inner token, or None
+    where no such inner token decides definite.
+    """
+    for total in range(1, 5):
+        for lead in range(0, total + 1):
+            trail = total - lead
+            if lead + trail >= len(token):
+                continue
+            candidate = token[lead:len(token) - trail if trail else len(token)]
+            if len(candidate) < 8:
+                continue
+            resolved = _decode_candidate(candidate)
+            if (
+                resolved["outcome"] == "definite hit"
+                and resolved["decoding_depth_reached"] >= 1
+            ):
+                return (start + lead, start + lead + len(candidate))
+    return None
+
+
+def _wrapped_token_spans(tokens, exact, layer, class_name):
+    """Return the fragment spans of line wrapped definite tokens.
+
+    Consecutive tokens wholly in an encoding alphabet
+    stand joined, the longest joining of up to six
+    fragments first, and where the joined form decides
+    definite every fragment of the joining carries its
+    token as its span, beside the fragments an exact
+    resolution already carries. A joining that no
+    fragment of stands resolved exactly carries no
+    span, in the standing detection boundary form of a
+    wrapped token standing alone.
+    """
+    spans = []
+    index = 0
+    while index < len(tokens):
+        joined_span = None
+        for count in range(6, 1, -1):
+            group = tokens[index:index + count]
+            if len(group) < count:
+                continue
+            if not any(
+                index + offset in exact for offset in range(count)
+            ):
+                continue
+            if not all(
+                re.fullmatch(r"[A-Za-z0-9+/=]+", token)
+                for _start, _end, token in group
+            ):
+                continue
+            joined = "".join(token for _start, _end, token in group)
+            if len(joined) < 16:
+                continue
+            resolved = _decode_candidate(joined)
+            if (
+                resolved["outcome"] == "definite hit"
+                and resolved["decoding_depth_reached"] >= 1
+            ):
+                joined_span = group
+                break
+        if joined_span is None:
+            index += 1
+            continue
+        for start, end, _token in joined_span:
+            span = (start, end, layer, class_name)
+            if span not in spans:
+                spans.append(span)
+        index += len(joined_span)
     return spans
 
 
