@@ -492,7 +492,8 @@ class TestPromoteFixR23ViewAsChainMapItem(_WrapperCase):
             HashableItem({"text": "unrelated"}),
         )
         self._assert_pair_clears(
-            lambda: [{1: clean_key}.values()]
+            lambda: [{1: clean_key}.values()],
+            comparisons=0,
         )
 
     def test_view_without_chainmap_layer_stays_firing(self):

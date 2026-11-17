@@ -51,14 +51,14 @@ def frozenset_key():
     return frozenset(tuple_pair_key())
 
 
-def check_fires_at_least(test_case, make_bundle):
+def check_fires_exactly(test_case, make_bundle, expected):
     module = harness.require("ontoloop.cross_split_audit")
     for occasion in OCCASIONS:
         with test_case.subTest(occasion=occasion):
             result = module.audit_instruction_item(
                 HOLDOUT_TEXT, make_bundle(), occasion=occasion)
             test_case.assertTrue(result["fired"])
-            test_case.assertGreaterEqual(result["comparisons"], 1)
+            test_case.assertEqual(result["comparisons"], expected)
 
 
 def dataset_bundle(text, holdout):
@@ -226,9 +226,9 @@ class WrappedKeysViewTwoContainersControlsTests(unittest.TestCase):
         }.keys()]]})
 
     def test_frozenset_keys_view_two_containers_items_fires(self):
-        check_fires_at_least(self, lambda: {"items": [[{
+        check_fires_exactly(self, lambda: {"items": [[{
             frozenset_key(): 1,
-        }.keys()]]})
+        }.keys()]]}, 1)
 
     def test_single_pass_keys_view_two_containers_items_fires(self):
         check_fires(self, lambda: {"items": [[{

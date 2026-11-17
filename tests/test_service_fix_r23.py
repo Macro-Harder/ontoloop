@@ -278,21 +278,46 @@ class TestServiceFixR23LeadEngineerForms(unittest.TestCase):
         service = _service()
         consumption = require("ontoloop.consumption")
         probe = _DecCommaSpaceProbe()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             consumption.load_with_hash_check(probe)
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type "
+            "_DecCommaSpaceProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             service.ingest_tool(probe)
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type "
+            "_DecCommaSpaceProbe",
+        )
 
     def test_e44_address_single_separator_width_refused(self):
         service = _service()
         consumption = require("ontoloop.consumption")
         probe = _DecTabProbe()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             consumption.load_with_hash_check(probe)
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type "
+            "_DecTabProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             service.ingest_tool(probe)
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type "
+            "_DecTabProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             service.verify_tool(probe, expected_hash="0" * 64)
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type "
+            "_DecTabProbe",
+        )
 
     def test_e45_shadowed_private_slot_apart(self):
         _assert_apart(
