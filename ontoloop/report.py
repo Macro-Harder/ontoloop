@@ -1569,6 +1569,39 @@ _CLAIM_CONCEPT_ROOTS = (
     "seepproof", "stingproof", 
     "leechproof", "gnawproof", 
     "peckproof", "clawproof", 
+    "ferment", "carbonat", "aerat", 
+    "hydrogenat", "oxygenat", "chlorinat", 
+    "ozonat", "crystalliz", "sinter", 
+    "anneal", "quench", "centrifug", 
+    "decant", "gelatiniz", "carameliz", 
+    "lyophiliz", "dehydrat", "rehydrat", 
+    "steriliz", "sanitiz", "fumigat", "perfum", 
+    "blister", "peel", "flak", "chipp", 
+    "dent", "warp", "corrod", "erod", 
+    "tarnish", "pitt", "scarr", "fray", 
+    "soak", "waterlogg", "mildew", "rott", 
+    "decay", "crumbl", "discolour", 
+    "discolor", "fad", "smudg", "blott", 
+    "scratch", "goug", "nick", "creas", 
+    "crumpl", "torn", "ripp", 
+    "unstrapp", "unlash", "uncinch", 
+    "unsnapp", "unveil", "unshroud", "unpack", 
+    "godproof", "devilproof", "angelproof", 
+    "demonproof", "ghostproof", "magicproof", 
+    "curseproof", "hexproof", "evilproof", 
+    "sinproof", "guiltproof", "shameproof", 
+    "fearproof", "painproof", 
+    "corrosionresistant", "drillresistant", 
+    "fireresistant", "mothresistant", 
+    "pickresistant", "ratresistant", 
+    "rustresistant", "scratchresistant", 
+    "termiteresistant", "waterresistant", 
+    "barcod", "microchip", "recorde", 
+    "videotape", "audiotape", "preserv", 
+    "conserv", "encapsulat", "scrambl", 
+    "hash", "tokeniz", "anonymiz", "mask", 
+    "cloak", "veil", "shroud", "insulat", 
+    "buffer", 
 )
 
 # The exact assertion words, beside the assertion roots
@@ -1931,6 +1964,15 @@ _ASSERTION_WORDS = (
     "crows", "yowls", "caterwauls", 
     "yaps", "bugles", "clarions", 
     "flourishes", "insures", 
+    "blushes", "shrugs", "daydreams", 
+    "dreamt", "improvises", "beatboxes", 
+    "caws", "twitches", "throbs", 
+    "pulsates", "vibrates", "oscillates", 
+    "gyrates", "pirouettes", "somersaults", 
+    "hops", "skips", "leaps", "bounds", 
+    "booms", "crackles", "pops", "resounds", 
+    "reverberates", "rings", "rustles", 
+    "snaps", "thuds", "whirs", 
 )
 
 # The assertion roots. A word beginning with one of
@@ -2246,6 +2288,18 @@ _UNCONDITIONAL_MARKERS = (
     "without letup", "nonstop", 
     "semper", "without mercy", 
     "without pity", 
+    "in spite of everything", 
+    "despite everything", "to kingdom come", 
+    "usque ad finem", "in infinitum", 
+    "sine termino", "sine limite", 
+    "neverending", "to doomsday", 
+    "ab aeterno", "aeviternally", 
+    "for all generations", 
+    "from everlasting to everlasting", 
+    "in all generations", "through eternity", 
+    "till death", "till the last day", 
+    "to all generations", "until the last day", 
+    "without limits", 
 )
 
 # The wordings that carry the governed conditional form
@@ -2791,6 +2845,24 @@ _GOVERNING_CONDITION_PHRASES = (
     "by the constitution of", 
     "under the constitution of", 
     "by the bylaws of", "under the bylaws of", 
+    "by the superintendence of", 
+    "under the superintendence of", 
+    "by the vice-regency of", 
+    "by the deputyship of", 
+    "by the lieutenancy of", 
+    "by the prefecture of", "by the diocese of", 
+    "by the bishopric of", "by the papacy of", 
+    "by the caliphate of", "by the sultanate of", 
+    "by the emirate of", "by the shogunate of", 
+    "by the viceroyalty of", 
+    "by the provostship of", 
+    "by the chancellery of", 
+    "by the secretariat of", 
+    "by the directorate of", 
+    "under the commission of", 
+    "by the aegis of", "by the patronage of", 
+    "by the rule of", "by the statutes of", 
+    "under the rule of", "under the statutes of", 
 )
 
 # The wordings that carry a negated form of a claim. A
@@ -3148,6 +3220,19 @@ def _clause_claim(clause):
         "tetra", "octa", "ennea", 
         "anthro", "morpho", "geno", 
         "pheno", "pluvio", "anem", 
+        "wenge", "zebrawood", "cocobolo", 
+        "padauk", "iroko", "sapele", 
+        "bubinga", "merbau", "purpleheart", 
+        "bloodwood", "kingwood", "tulipwood", 
+        "bocote", "ziricote", "ovangkol", 
+        "koa", "tamarind", "mango", 
+        "andesite", "apatite", "arkose", 
+        "breccia", "diorite", "fluorite", 
+        "gabbro", "hornblende", "motherofpearl", 
+        "mudstone", "orthoclase", "rhyolite", 
+        "siltstone", "tortoiseshell", 
+        "algo", "aniso", "allo", "apo", 
+        "cata", "dys", "eu", "agro", "eco", "syn", 
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
@@ -3266,6 +3351,25 @@ def _clause_claim(clause):
         "flavoured", "sculpted", 
         "moulded", "hammered", 
         "pulverised", 
+        "fermented", "carbonated", "aerated", 
+        "hydrogenated", "oxygenated", 
+        "chlorinated", "ozonated", 
+        "crystallized", "sintered", "annealed", 
+        "quenched", "centrifuged", "decanted", 
+        "gelatinized", "caramelized", 
+        "lyophilized", "dehydrated", 
+        "rehydrated", "sterilized", 
+        "sanitized", "fumigated", "perfumed", 
+        "blistered", "peeled", "flaked", 
+        "chipped", "dented", "warped", 
+        "corroded", "eroded", "tarnished", 
+        "pitted", "scarred", "frayed", 
+        "soaked", "waterlogged", "mildewed", 
+        "rotted", "decayed", "crumbled", 
+        "discoloured", "discolored", "faded", 
+        "smudged", "blotted", "scratched", 
+        "gouged", "nicked", "creased", 
+        "crumpled", "torn", "ripped", 
     ):
         if passive in words and "by" in words[
             words.index(passive) + 1:
@@ -3316,6 +3420,7 @@ _SUBORDINATE_INTRODUCERS = (
     "after",
     "whenever",
     "wherever",
+    "whensoever",
     "provided",
     "alongside",
     "whilst",
@@ -3799,6 +3904,21 @@ def _clause_inability_form(clause):
     "steam", "cure", "salt", "season", 
     "flavour", "sculpt", "mould", 
     "hammer", "pulveris", 
+    "ferment", "carbonat", "aerat", 
+    "hydrogenat", "oxygenat", "chlorinat", 
+    "ozonat", "crystalliz", "sinter", 
+    "anneal", "quench", "centrifug", 
+    "decant", "gelatiniz", "carameliz", 
+    "lyophiliz", "dehydrat", "rehydrat", 
+    "steriliz", "sanitiz", "fumigat", "perfum", 
+    "blister", "peel", "flak", "chipp", 
+    "dent", "warp", "corrod", "erod", 
+    "tarnish", "pitt", "scarr", "fray", 
+    "soak", "waterlogg", "mildew", "rott", 
+    "decay", "crumbl", "discolour", 
+    "discolor", "fad", "smudg", "blott", 
+    "scratch", "goug", "nick", "creas", 
+    "crumpl", "torn", "ripp", 
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -4086,6 +4206,20 @@ def _clause_inability_form(clause):
     "pigeonry", "fishery", "hatchery", 
     "amphitheatre", "hippodrome", 
     "palaestra", "hammam", 
+    "joylessly", "mirthlessly", 
+    "lightlessly", "sunlessly", 
+    "breathlessly", "soundlessly", 
+    "wordlessly", "speechlessly", 
+    "desolately", "forlornly", "wretchedly", 
+    "miserably", "unhappily", "dismally", 
+    "wanly", "ashenly", "greyly", "grayly", 
+    "darkly", "dimly", "murkily", "foggily", 
+    "mistily", "cloudily", "stormily", 
+    "rainily", "snowily", "windily", 
+    "numbly", "perplexedly", "resentfully", 
+    "stunnedly", "uneasily", "worriedly", 
+    "jealously", "caravanserai", "madrasa", 
+    "ziggurat", 
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -4193,6 +4327,15 @@ def _seal_claim_scan(assembly_text):
             if " and " in marker or " or " in marker
         ):
             return False
+        if any(
+            _clause_claim(clause) or _clause_inability_form(clause)
+            for clause in clauses
+        ) and any(
+            " ".join(_clause_words(clause))
+            in _UNCONDITIONAL_MARKERS
+            for clause in clauses
+        ):
+            return False
         for clause in clauses:
             if not _clause_claim(clause) and not _clause_inability_form(
                 clause
@@ -4232,6 +4375,11 @@ def _seal_claim_scan(assembly_text):
                     ("to", "the", "extent"),
                     ("whereas",), ("before",),
                     ("in", "case"), ("with",), ("pending",),
+                    ("wherever",), ("whensoever",),
+                    ("when", "and", "where"),
+                    ("where", "and", "when"),
+                    ("as", "and", "where"),
+                    ("whenever", "and", "wherever"),
                 )
                 for position in range(
                     max(0, len(main_words) - 3), len(clause_words)
@@ -4280,6 +4428,22 @@ def _seal_claim_scan(assembly_text):
                 and any(
                     _clause_words(other)[:1]
                     in (["if"], ["when"])
+                    and _governing_condition_holds(
+                        "conditional on "
+                        + " ".join(_clause_words(other)[1:])
+                    )
+                    for other in clauses
+                    if other != clause
+                )
+            ):
+                continue
+            if (
+                clause_words
+                and clause_words[-1]
+                in ("as", "when", "where", "whenever")
+                and any(
+                    _clause_words(other)[:1]
+                    in (["where"], ["when"], ["wherever"])
                     and _governing_condition_holds(
                         "conditional on "
                         + " ".join(_clause_words(other)[1:])
@@ -4693,8 +4857,32 @@ def _seal_claim_scan(assembly_text):
                                          "shatter", "burn",
                                          "shred", "defac",
                                          "vandal", "sabotag",
-                                         "obliterat",
-                                         "annihilat")
+                                          "obliterat",
+                                         "annihilat",
+                                         "fingerprint",
+                                         "barcod", "microchip",
+                                         "tagg", "monitor",
+                                         "recorde",
+                                         "videotape",
+                                         "audiotape",
+                                         "preserv", "conserv",
+                                         "froz", "encapsulat",
+                                         "embedd", "encod",
+                                         "encrypt", "decod",
+                                         "scrambl", "hash",
+                                         "tokeniz", "anonymiz",
+                                         "mask", "cloak",
+                                         "veil", "shroud",
+                                         "insulat", "buffer",
+                                         "back", "unscann",
+                                         "annotat",
+                                         "broadcast", "cach",
+                                         "forward", "scann",
+                                         "summaris",
+                                         "summariz",
+                                         "translat", "beam",
+                                         "cit", "display",
+                                         "mention", "project")
                                     )
                                 )
                                 and any(
