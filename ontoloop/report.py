@@ -1602,6 +1602,36 @@ _CLAIM_CONCEPT_ROOTS = (
     "hash", "tokeniz", "anonymiz", "mask", 
     "cloak", "veil", "shroud", "insulat", 
     "buffer", 
+    "condens", "solidifi", "ioniz", 
+    "electrolyz", "filter", "purifi", 
+    "refin", "vulcaniz", "tann", 
+    "abrad", "bent", "blacken", "brown", 
+    "chopp", "gash", "oxidis", "oxidiz", 
+    "rust", "slash", "snapp", "soil", 
+    "split", "twist", "yellow", 
+    "unbridl", "unsaddl", "unmuzzl", 
+    "unhandcuff", "ungagg", "unhood", 
+    "uncapp", "unthread", "thornproof", 
+    "abrasionresistant", "acidresistant", 
+    "alkaliresistant", "chemicalresistant", 
+    "coldresistant", "dustresistant", 
+    "greaseresistant", "heatresistant", 
+    "impactresistant", "oilresistant", 
+    "punctureresistant", "shockresistant", 
+    "sunresistant", "tearresistant", 
+    "weatherresistant", "windresistant", 
+    "initial", "typeset", "plott", 
+    "stencil", "lithograph", "mimeograph", 
+    "telecopi", "exhibit", "showcas", 
+    "parad", "flaunt", "trumpet", 
+    "herald", "proclaim", "announc", 
+    "declar", "pronounc", "decre", 
+    "ordain", "mandat", "legislat", 
+    "enact", "sanction", "licens", 
+    "patent", "trademark", "enlist", 
+    "induct", "pledg", "vow", "guarante", 
+    "warrant", "insur", "bond", 
+    "underwrit", 
 )
 
 # The exact assertion words, beside the assertion roots
@@ -1973,6 +2003,8 @@ _ASSERTION_WORDS = (
     "booms", "crackles", "pops", "resounds", 
     "reverberates", "rings", "rustles", 
     "snaps", "thuds", "whirs", 
+    "kneels", "crouches", "stretches", 
+    "weeps", "baaes", "lowes", "whickers", 
 )
 
 # The assertion roots. A word beginning with one of
@@ -2300,6 +2332,15 @@ _UNCONDITIONAL_MARKERS = (
     "till death", "till the last day", 
     "to all generations", "until the last day", 
     "without limits", 
+    "happen what may", "at all events", 
+    "whatever may happen", "whatever befalls", 
+    "whatever ensues", "whatever transpires", 
+    "whatever occurs", "no matter the consequence", 
+    "whatever the outcome", "whatever the result", 
+    "no exceptions", 
+    "for generations", "for the rest of time", 
+    "from generation to generation", 
+    "through all the years", "through the ages", 
 )
 
 # The wordings that carry the governed conditional form
@@ -2863,6 +2904,24 @@ _GOVERNING_CONDITION_PHRASES = (
     "by the aegis of", "by the patronage of", 
     "by the rule of", "by the statutes of", 
     "under the rule of", "under the statutes of", 
+    "under the regency of", 
+    "by the protectorate of", 
+    "by the consulship of", 
+    "by the tribunate of", 
+    "by the archdiocese of", 
+    "by the patriarchate of", 
+    "by the khanate of", 
+    "by the receivership of", 
+    "by the tutelage of", "by the sponsorship of", 
+    "by the admiralty of", "by the sovereignty of", 
+    "by the dominion of", "under the dominion of", 
+    "by the hegemony of", "by the suzerainty of", 
+    "by the overlordship of", 
+    "under the overlordship of", 
+    "by the wardenship of", "by the keepership of", 
+    "by the intendancy of", 
+    "by the comptrollership of", 
+    "by the treasurership of", 
 )
 
 # The wordings that carry a negated form of a claim. A
@@ -3233,6 +3292,11 @@ def _clause_claim(clause):
         "siltstone", "tortoiseshell", 
         "algo", "aniso", "allo", "apo", 
         "cata", "dys", "eu", "agro", "eco", "syn", 
+        "pecan", "aspen", "holly", "magnolia", 
+        "olivewood", "camphorwood", "myrtlewood", 
+        "persimmon", 
+        "meso", "contra", "de", "dis", 
+        "ana", "ortho", 
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
@@ -3370,6 +3434,14 @@ def _clause_claim(clause):
         "smudged", "blotted", "scratched", 
         "gouged", "nicked", "creased", 
         "crumpled", "torn", "ripped", 
+        "condensed", "ionized", "electrolyzed", 
+        "filtered", "purified", "refined", 
+        "vulcanized", "tanned", 
+        "abraded", "bent", "blackened", 
+        "browned", "chopped", "gashed", 
+        "oxidised", "oxidized", "rusted", 
+        "slashed", "snapped", "soiled", 
+        "split", "twisted", "yellowed", 
     ):
         if passive in words and "by" in words[
             words.index(passive) + 1:
@@ -3919,6 +3991,13 @@ def _clause_inability_form(clause):
     "discolor", "fad", "smudg", "blott", 
     "scratch", "goug", "nick", "creas", 
     "crumpl", "torn", "ripp", 
+    "condens", "solidifi", "ioniz", 
+    "electrolyz", "filter", "purifi", 
+    "refin", "vulcaniz", "tann", 
+    "abrad", "bent", "blacken", "brown", 
+    "chopp", "gash", "oxidis", "oxidiz", 
+    "rust", "slash", "snapp", "soil", 
+    "split", "twist", "yellow", 
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -4220,6 +4299,12 @@ def _clause_inability_form(clause):
     "stunnedly", "uneasily", "worriedly", 
     "jealously", "caravanserai", "madrasa", 
     "ziggurat", 
+    "feverishly", "franticly", "hectically", 
+    "madly", "harshly", "sullenly", 
+    "peevishly", "irritably", 
+    "bewilderedly", "bitterly", "confusedly", 
+    "dazedly", "despairingly", "enviously", 
+    "fearfully", 
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -4342,7 +4427,15 @@ def _seal_claim_scan(assembly_text):
             ):
                 continue
             if any(
-                marker in clause for marker in _UNCONDITIONAL_MARKERS
+                marker in clause
+                and not (
+                    marker in ("at all times", "in all places")
+                    and _governing_condition_holds(
+                        "conditional on "
+                        + clause.split(marker, 1)[1].strip()
+                    )
+                )
+                for marker in _UNCONDITIONAL_MARKERS
             ):
                 return False
             main = _main_segment(clause)
@@ -4363,7 +4456,7 @@ def _seal_claim_scan(assembly_text):
                 ):
                     continue
             trailing_governed = False
-            if len(main_words) < len(clause_words):
+            if len(main_words) <= len(clause_words):
                 trailing_markers = (
                     ("if",), ("when",), ("whenever",),
                     ("while",), ("whilst",), ("where",),
@@ -4380,9 +4473,19 @@ def _seal_claim_scan(assembly_text):
                     ("where", "and", "when"),
                     ("as", "and", "where"),
                     ("whenever", "and", "wherever"),
+                    ("wheresoever",), ("whithersoever",),
+                    ("at", "any", "time"),
+                    ("in", "any", "place"),
+                    ("in", "every", "place"),
+                    ("for", "the", "whole", "time"),
+                    ("through", "all", "the", "time"),
+                    ("at", "all", "times"),
+                    ("in", "all", "places"),
+                    ("if", "and", "only", "when"),
+                    ("once", "and", "whenever"),
                 )
                 for position in range(
-                    max(0, len(main_words) - 3), len(clause_words)
+                    max(0, len(main_words) - 9), len(clause_words)
                 ):
                     for marker in trailing_markers:
                         if tuple(
@@ -4461,6 +4564,36 @@ def _seal_claim_scan(assembly_text):
                     and _governing_condition_holds(
                         "conditional on "
                         + " ".join(_clause_words(other)[2:])
+                    )
+                    for other in clauses
+                    if other != clause
+                )
+            ):
+                continue
+            if (
+                clause_words
+                and clause_words[-1] == "if"
+                and any(
+                    _clause_words(other)[:2] == ["only", "when"]
+                    and _governing_condition_holds(
+                        "conditional on "
+                        + " ".join(_clause_words(other)[2:])
+                    )
+                    for other in clauses
+                    if other != clause
+                )
+            ):
+                continue
+            if (
+                clause_words
+                and clause_words[-1] == "once"
+                and any(
+                    _clause_words(other)[:1]
+                    in (["whenever"], ["when"], ["where"],
+                        ["wherever"])
+                    and _governing_condition_holds(
+                        "conditional on "
+                        + " ".join(_clause_words(other)[1:])
                     )
                     for other in clauses
                     if other != clause
@@ -4882,7 +5015,28 @@ def _seal_claim_scan(assembly_text):
                                          "summariz",
                                          "translat", "beam",
                                          "cit", "display",
-                                         "mention", "project")
+                                         "mention", "project",
+                                         "initial", "typeset",
+                                         "plott", "stencil",
+                                         "lithograph",
+                                         "mimeograph",
+                                         "telecopi", "exhibit",
+                                         "showcas", "parad",
+                                         "flaunt", "trumpet",
+                                         "herald", "proclaim",
+                                         "announc", "declar",
+                                         "pronounc", "decre",
+                                         "ordain", "mandat",
+                                         "legislat", "enact",
+                                         "sanction", "licens",
+                                         "patent", "trademark",
+                                         "enlist", "induct",
+                                         "pledg", "vow",
+                                         "guarante", "warrant",
+                                         "insur", "bond",
+                                         "underwrit",
+                                         "disclos", "mail",
+                                         "post", "ship")
                                     )
                                 )
                                 and any(
