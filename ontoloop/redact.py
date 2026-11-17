@@ -537,9 +537,16 @@ def _definite_record_spans(record, text):
         ]
     if layer in (4, 6):
         underlying = _underlying_spans(text)
-        if underlying:
+        decoded = _decoded_spans(text, layer, class_name)
+        if not underlying:
+            return decoded
+        if not decoded:
             return underlying
-        return _decoded_spans(text, layer, class_name)
+        spans = list(underlying)
+        for span in decoded:
+            if span not in spans:
+                spans.append(span)
+        return spans
     return []
 
 
