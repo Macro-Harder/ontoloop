@@ -1436,6 +1436,40 @@ _CLAIM_CONCEPT_ROOTS = (
     "naile", "bolte", "clampe", 
     "clipp", "lashe", "knott", 
     "plaite", "braide", "woven", 
+    "rifl", "auction", "pawn", 
+    "welde", "cement", "encas", 
+    "enshrin", "vault", "entomb", 
+    "interred", "burie", "hidd", 
+    "fenc", "moat", "turret", 
+    "sparkproof", "arrowproof", "spearproof", 
+    "clubproof", "fileproof", "crowbarproof", 
+    "hornetproof", "centipedeproof", "millipedeproof", 
+    "earwigproof", "silverfishproof", "alkaliproof", 
+    "inkproof", "bloodproof", "gritproof", 
+    "lintproof", "staticproof", "liceproof", 
+    "dustmiteproof", "thripsproof", "scaleproof", 
+    "mealybugproof", "whiteflyproof", "cutwormproof", 
+    "armywormproof", "hornwormproof", "stinkbugproof", 
+    "agateproof", "jasperproof", "onyxproof", 
+    "topazproof", "garnetproof", "berylproof", 
+    "spinelproof", "zirconproof", "peridotproof", 
+    "tourmalineproof", "satinproof", "tweedproof", 
+    "twillproof", "flannelproof", "jerseyproof", 
+    "chiffonproof", "organzaproof", "tulleproof", 
+    "feltproof", "suedeproof", "nubuckproof", 
+    "corduroyproof", "seersuckerproof", "cambricproof", 
+    "muslinproof", "gauzeproof", "burlapproof", 
+    "juteproof", "sisalproof", "coirproof", 
+    "raffiaproof", "keyloggerproof", "infostealerproof", 
+    "exploitproof", "zerodayproof", "backdoorproof", 
+    "surgeproof", "fogproof", "mistproof", 
+    "dewproof", "humidityproof", "moistureproof", 
+    "dampproof", "unstitch", "unwrapp", 
+    "unmount", "unfram", "unglaz", 
+    "unvarnish", "unpolish", "unpaint", 
+    "unlin", "unpadd", "unsecur", 
+    "unapprov", "unlicens", "uncorroborat", 
+    "unformat", "unclassif", 
 )
 
 # The exact assertion words, beside the assertion roots
@@ -1711,6 +1745,29 @@ _ASSERTION_WORDS = (
     "powers", "fuels", "enables", 
     "empowers", "authorizes", "entitles", 
     "qualifies", 
+    "mumbles", "chatters", "babbles", 
+    "editorializes", "moralizes", "articulates", 
+    "enunciates", "vocalizes", "drawls", 
+    "lisps", "stammers", "trills", 
+    "chirps", "croaks", "coos", 
+    "purrs", "hisses", "tweets", 
+    "cheeps", "peeps", "clucks", 
+    "cackles", "gobbles", "quacks", 
+    "honks", "squawks", "screeches", 
+    "hoots", "barks", "yelps", 
+    "whines", "growls", "snarls", 
+    "meows", "miaows", "moos", 
+    "baas", "bleats", "neighs", 
+    "whinnies", "brays", "snorts", 
+    "grunts", "squeals", "squeaks", 
+    "chitters", "clicks", "buzzes", 
+    "drones", "sighs", "gasps", 
+    "sobs", "wails", "moans", 
+    "groans", "stutters", "lilts", 
+    "requires", "demands", "governs", 
+    "regulates", "oversees", "supervises", 
+    "manages", "administers", "handles", 
+    "operates", "runs", "guides", 
 )
 
 # The assertion roots. A word beginning with one of
@@ -1878,6 +1935,20 @@ _UNCONDITIONAL_MARKERS = (
     "without reserve", "for ever", 
     "forever", "eternally", 
     "permanently", "irrevocably", 
+    "whatever happens", "rain or shine", 
+    "through thick and thin", "to the end of time", 
+    "for eternity", "once and for all", 
+    "beyond question", "for good", 
+    "in any case", "at any cost", 
+    "come hell or high water", "by any means", 
+    "in every way", "for all eternity", 
+    "till the end of time", "until the end of time", 
+    "without end", "categorically", 
+    "beyond doubt", "at every moment", 
+    "on every occasion", "evermore", 
+    "world without end", "henceforth and forever", 
+    "now and forever", "under any circumstances", 
+    "everlastingly", "now and always", 
 )
 
 # The wordings that carry the governed conditional form
@@ -2299,6 +2370,24 @@ _GOVERNING_CONDITION_PHRASES = (
     "by the permission of", "on the endorsement of", "on the counsel of", 
     "in the grip of", "under the boot of", "in servitude to", 
     "under the yoke of", "in the clutches of", "in the pocket of", 
+    "on the instructions of", "on the guidance of", 
+    "on the prompting of", "on the urging of", 
+    "on the insistence of", "at the insistence of", 
+    "on the demand of", "at the demand of", 
+    "on the invitation of", "on the suggestion of", 
+    "by the decision of", "on the decision of", 
+    "by the ruling of", "on the ruling of", 
+    "by the judgment of", "by the verdict of", 
+    "by the warrant of", "under the warrant of", 
+    "by the licence of", "by the license of", 
+    "in vassalage to", "in fealty to", 
+    "in the grasp of", "through the instrumentality of", 
+    "accountable to", "deferring to", 
+    "owing obedience to", "under the wing of", 
+    "under the protection of", "in service to", 
+    "in support of", "on the application of", 
+    "at the suit of", "in the event", 
+    "in the case", 
     "in spite of",
 )
 
@@ -2551,6 +2640,29 @@ def _clause_claim(clause):
         "pupildilation", "serialnumber", "uuid", 
         "deviceid", "hardwareid", "browserprint", 
         "canvasprint", 
+        "porcelain", "slate", "limestone", 
+        "sandstone", "flint", "brass", 
+        "pewter", "zinc", "nickel", 
+        "chrome", "ruby", "sapphire", 
+        "emerald", "pearl", "coral", 
+        "amber", "linen", "cotton", 
+        "wool", "denim", "canvas", 
+        "cardboard", "cork", "optic", 
+        "xeno", "cryo", "pyro", 
+        "hydro", "aero", "astro", 
+        "cosmo", "helio", "geo", 
+        "bio", "zoo", "neuro", 
+        "cardio", "dermato", "spectro", 
+        "chromo", "electro", "magneto", 
+        "sono", "palaeo", "paleo", 
+        "thermo", "opto", "electrooptic", 
+        "archi", "footprint", "irisprint", 
+        "veinprint", "gaitprint", "keystrokeprint", 
+        "scrollprint", "handprint", "headprint", 
+        "scentprint", "breathprint", "pulseprint", 
+        "brainwaveprint", "heartbeatprint", "skinprint", 
+        "nailprint", "hairprint", "toothprint", 
+        "boneprint", 
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
@@ -2605,6 +2717,20 @@ def _clause_claim(clause):
         "nailed", "clamped", "clipped", 
         "lashed", "knotted", "plaited", 
         "braided", "woven", 
+        "rifled", "auctioned", "pawned", 
+        "welded", "cemented", "encased", 
+        "enshrined", "vaulted", "entombed", 
+        "interred", "buried", "hidden", 
+        "fenced", "moated", "turreted", 
+        "misfiled", "dissolved", "vaporized", 
+        "pulverized", "leased", "borrowed", 
+        "torched", "flooded", "swapped", 
+        "melted", "crushed", "smashed", 
+        "mangled", "fractured", "splintered", 
+        "punctured", "perforated", "severed", 
+        "contaminated", "frozen", "guarded", 
+        "armoured", "armored", "fortified", 
+        "walled", 
     ):
         if passive in words and "by" in words[
             words.index(passive) + 1:
@@ -3076,6 +3202,19 @@ def _clause_inability_form(clause):
     "knott", "plaite", "braide", 
     "woven", "quarantin", "segregat", 
     "chaine", 
+    "misfil", "dissolv", "vaporiz", 
+    "pulveriz", "auction", "pawn", 
+    "leased", "borrow", "rifl", 
+    "torch", "flood", "swapp", 
+    "melt", "crush", "smash", 
+    "mangl", "fractur", "splinter", 
+    "punctur", "perforat", "severe", 
+    "contaminat", "welde", "cement", 
+    "encas", "enshrin", "frozen", 
+    "vault", "entomb", "interred", 
+    "guard", "armour", "armor", 
+    "fortif", "fenc", "wall", 
+    "moat", "turret", 
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -3287,6 +3426,26 @@ def _clause_inability_form(clause):
     "athenaeum", "lyceum", "unflinchingly", 
     "brazenfacedly", "impenitently", "unrepentantly", 
     "coldheartedly", "unfeelingly", 
+    "sanctum", "armory", "oubliette", 
+    "garret", "turret", "dovecote", 
+    "bindery", "stupa", "guildhall", 
+    "townhall", "jailhouse", "penitentiary", 
+    "reformatory", "smithy", "stable", 
+    "kennel", "frankly", "coolly", 
+    "blandly", "blithely", "breezily", 
+    "lightly", "plainly", "bluntly", 
+    "tartly", "dryly", "wryly", 
+    "mildly", "meekly", "humbly", 
+    "softly", "surely", "duly", 
+    "keenly", "warmly", "stiffly", 
+    "primly", "demurely", "sedately", 
+    "staidly", "soberly", "gravely", 
+    "sternly", "grimly", "dourly", 
+    "bleakly", "patiently", "reluctantly", 
+    "hesitantly", "confidently", "foolishly", 
+    "clumsily", "gracefully", "awkwardly", 
+    "furiously", "desperately", "impatiently", 
+    "hopelessly", 
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -3385,6 +3544,15 @@ def _seal_claim_scan(assembly_text):
         governed_by_fragment = any(
             _fragment_governs(clause) for clause in clauses
         )
+        if any(
+            _clause_claim(clause) or _clause_inability_form(clause)
+            for clause in clauses
+        ) and any(
+            marker in statement
+            for marker in _UNCONDITIONAL_MARKERS
+            if " and " in marker or " or " in marker
+        ):
+            return False
         for clause in clauses:
             if not _clause_claim(clause) and not _clause_inability_form(
                 clause
@@ -3575,6 +3743,7 @@ def _seal_claim_scan(assembly_text):
                     "combination", "consultation", "harmony",
                     "unison", "sync", "together", "along",
                     "collusion", "cahoots", "glove",
+                    "side", "hand", "paired", "coupled",
                 )
                 and clause_words[len(main_words)] == "with"
             ):
@@ -3604,6 +3773,8 @@ def _seal_claim_scan(assembly_text):
                 and main_words[-1] in (
                     "condition", "grounds", "reason", "footing",
                     "basis", "ground",
+                    "event", "case", "circumstance", "situation",
+                    "occasion", "instance",
                 )
                 and clause_words[len(main_words)] == "that"
             ):
@@ -3646,6 +3817,22 @@ def _seal_claim_scan(assembly_text):
                         or any(
                             words[index + 1].startswith(root)
                             for root in _CLAIM_CONCEPT_ROOTS
+                        )
+                        or (
+                            index == 0
+                            and any(
+                                words[aux] in (
+                                    "was", "were", "is", "are",
+                                    "been", "be",
+                                )
+                                and any(
+                                    words[aux + 1].startswith(root)
+                                    for root in _CLAIM_CONCEPT_ROOTS
+                                )
+                                for aux in range(
+                                    index + 1, len(words) - 1
+                                )
+                            )
                         )
                     )
                     for index, word in enumerate(words)
