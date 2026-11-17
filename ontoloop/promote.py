@@ -1566,9 +1566,18 @@ def _wrapper_materialise_chainmap_set_element(element, shared_module,
     stands, in parity with both readings of this
     position, and a delegating container subclass
     carrying no single pass element stands as it
-    stands on the same ground. A dictionary view
-    standing as an element stands as it stands, in
-    the parity the standing Set form reading states.
+    stands on the same ground. A getitem only form
+    standing as an element stands carried in the
+    nested form the getitem limb of
+    _wrapper_materialise_chainmap_nested states, and
+    a values view standing as an element stands
+    carried in the nested form the view limb of that
+    act states, so the single pass form either form
+    carries stands in key position at this position
+    and stands carried raw in no case. A keys view or
+    an items view standing as an element stands in
+    the container form below, in the parity the
+    standing Set form reading states.
     """
     import array as _array_module
     import collections as _collections_module
@@ -1576,6 +1585,7 @@ def _wrapper_materialise_chainmap_set_element(element, shared_module,
     from collections.abc import Mapping as _Mapping
     from collections.abc import Sequence as _Sequence
     from collections.abc import Set as _Set
+    from collections.abc import ValuesView as _ValuesView
 
     if isinstance(
         element,
@@ -1599,6 +1609,12 @@ def _wrapper_materialise_chainmap_set_element(element, shared_module,
     ) or (
         _is_single_pass_iterable(element)
         and not _is_delegating_container_subclass(element)
+    ):
+        return _wrapper_materialise_chainmap_nested(
+            element, shared_module, ancestors, depth
+        )
+    if _is_getitem_only_form(element) or isinstance(
+        element, _ValuesView
     ):
         return _wrapper_materialise_chainmap_nested(
             element, shared_module, ancestors, depth
@@ -1705,6 +1721,16 @@ def _wrapper_materialise_chainmap_nested(value, shared_module,
     presents it in, a position that act does not list,
     and a value standing unhashable in that form stands
     materialised in its standing element form. A
+    getitem only form stands carried in that same key
+    form, unlisted, on the same ground, and a value
+    standing unhashable in that form stands
+    materialised in its standing element form. A text
+    form or a UserString stands carried in that same
+    key form, unlisted, so no string stands read as a
+    container of its characters and its text stands in
+    no element position, and a byte form, bytes or
+    bytearray, stands as it stands, as a standing
+    element, and stands in no container form. A
     delegating ChainMap subclass stands as it stands,
     unlisted, in parity with both readings of that
     position, and a mapping stands materialised in its
@@ -1746,6 +1772,15 @@ def _wrapper_materialise_chainmap_nested(value, shared_module,
     from collections.abc import Set as _Set
     from collections.abc import ValuesView as _ValuesView
 
+    if isinstance(
+        value, (str, _collections_module.UserString)
+    ):
+        try:
+            return {value: {}}
+        except TypeError:
+            return value
+    if isinstance(value, (bytes, bytearray)):
+        return value
     if _is_delegating_chainmap_subclass(value):
         return value
     if isinstance(value, _Mapping):
@@ -1817,6 +1852,13 @@ def _wrapper_materialise_chainmap_nested(value, shared_module,
     if (
         hasattr(value, "__next__") and hasattr(value, "__iter__")
     ) or _is_single_pass_iterable(value):
+        try:
+            return {value: {}}
+        except TypeError:
+            return _wrapper_materialise(
+                value, shared_module, ancestors, depth, "other"
+            )
+    if _is_getitem_only_form(value):
         try:
             return {value: {}}
         except TypeError:
