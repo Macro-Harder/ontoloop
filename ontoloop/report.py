@@ -1499,6 +1499,29 @@ _CLAIM_CONCEPT_ROOTS = (
     "unhidd", "unglu", "untap", 
     "unpinn", "unstapl", "unfold", 
     "unbox", "uncover", 
+    "evaporat", "cremat", "shatter", 
+    "boil", "sublim", "calcin", 
+    "carbonis", "carboniz", "petrif", 
+    "fossilis", "fossiliz", "mummif", 
+    "embalm", "fuse", "plaster", 
+    "mortar", "grout", "caulk", 
+    "tarr", "enamel", "galvanis", 
+    "galvaniz", "anodis", "anodiz", 
+    "silver", "nickel", "bronz", 
+    "copper", "rope", "wire", 
+    "sheath", "swath", "bundled", 
+    "interlock", "mesh", "chrom", 
+    "accessib", "penetr", 
+    "grimeproof", "goatproof", "cowproof", 
+    "pigproof", "chickenproof", "coyoteproof", 
+    "freezeproof", "verminproof", "midgeproof", 
+    "caterpillarproof", 
+    "unclasp", "unbuckl", "unbutton", 
+    "unhook", "untied", "unknott", 
+    "unlac", "unroll", "unfurl", 
+    "unsew", "unrivet", "unscrew", 
+    "unnail", "unhing", "uncork", 
+    "unplugg", 
 )
 
 # The exact assertion words, beside the assertion roots
@@ -1810,6 +1833,28 @@ _ASSERTION_WORDS = (
     "peeks", "peers", "protests", 
     "confesses", "allows", "urges", 
     "pleads", "begs", 
+    "snuffles", "gurgles", "jabbers", 
+    "prattles", "smirks", "grins", 
+    "frowns", "scowls", "grimaces", 
+    "pouts", "sulks", "broods", 
+    "dozes", "snoozes", "slumbers", 
+    "drowses", "naps", "reclines", 
+    "lounges", "lingers", "dawdles", 
+    "hesitates", "falters", "stumbles", 
+    "scribbles", "scrawls", "doodles", 
+    "paints", "stamps", "types", 
+    "mocks", "belittles", "disparages", 
+    "denigrates", "decries", "reviles", 
+    "vilifies", "maligns", "insults", 
+    "offends", "affronts", "snubs", 
+    "slights", "disdains", "scorns", 
+    "despises", "detests", "loathes", 
+    "abhors", "execrates", "anathematizes", 
+    "damns", "curses", "blasphemes", 
+    "profanes", "lampoon", 
+    "chirrups", "oinks", "gibbers", 
+    "shrieks", "twitters", "yammers", 
+    "witters", "rambles", "whimpers", 
 )
 
 # The assertion roots. A word beginning with one of
@@ -2028,6 +2073,43 @@ _UNCONDITIONAL_MARKERS = (
     "immortally", "undiminished", 
     "undiminishing", "unabated", 
     "unabating", 
+    "at any price", "in all weathers", 
+    "through fire and water", "sink or swim", 
+    "till doomsday", "until doomsday", 
+    "positively", "definitely", "certainly", 
+    "undoubtedly", "beyond all doubt", 
+    "to perpetuity", "from this day forward", 
+    "immutably", "irreversibly", "definitively", 
+    "decisively", "emphatically", 
+    "through sleet or snow", "in fair weather or foul", 
+    "for aye", "till the cows come home", 
+    "until the cows come home", "till kingdom come", 
+    "until kingdom come", "to the last", 
+    "to the very end", "through to the end", 
+    "all the way", "every inch of the way", 
+    "no doubt", "beyond a shadow of a doubt", 
+    "past doubt", "past question", 
+    "incontestably", "indisputably", "irrefutably", 
+    "undeniably", "unmistakably", "patently", 
+    "manifestly", "decidedly", 
+    "by fair means or foul", "by fire or sword", 
+    "with fire and sword", "through flood and fire", 
+    "cost what it may", "to the last breath", 
+    "to all eternity", "throughout eternity", 
+    "for all the days", "all the days of my life", 
+    "while the world stands", "as long as the world stands", 
+    "till the stars fall", "until the stars fall", 
+    "till heaven falls", "in saecula saeculorum", 
+    "per omnia saecula", "from this day forth", 
+    "unfailingly", "invariably", "sempiternally", 
+    "in perpetuum", "beyond recall", "beyond remedy", 
+    "limitlessly", "boundlessly", "over and over", 
+    "again and again", "time and again", 
+    "time after time", "day after day", 
+    "year after year", "on and on", 
+    "onwards and upwards", "to the bitter end", 
+    "until the very end", "till the very end", 
+    "to the end of the line", "down to the wire", 
 )
 
 # The wordings that carry the governed conditional form
@@ -2490,6 +2572,37 @@ _GOVERNING_CONDITION_PHRASES = (
     "at the licence of", "under the license of", 
     "at the license of", "on the licence of", 
     "on the license of", 
+    "under the leave of", "on the leave of", 
+    "under the behest of", "by the mandate of", 
+    "on the mandate of", "under the mandate of", 
+    "by the decree of", "on the decree of", 
+    "under the decree of", "by the edict of", 
+    "on the edict of", "under the edict of", 
+    "by the fiat of", "under the fiat of", 
+    "by the sanction of", "by the assent of", 
+    "with the assent of", "under the assent of", 
+    "by the concurrence of", "with the concurrence of", 
+    "by the acquiescence of", "under the order of", 
+    "under the word of", "by the charge of", 
+    "by the commission of", "by the charter of", 
+    "under the charter of", "by the bidding of", 
+    "under the bidding of", "by the summons of", 
+    "at the summons of", "by the instigation of", 
+    "at the instigation of", "on the instigation of", 
+    "under the instigation of", "by the urging of", 
+    "by the advice of", "at the advice of", 
+    "under the advice of", "at the mandate of", 
+    "at the blessing of", "by the endorsement of", 
+    "at the endorsement of", "under the endorsement of", 
+    "following the order of", "pursuant to the order of", 
+    "by the writ of", "under the writ of", 
+    "at the authority of", "at the will of", 
+    "by the wish of", "by the desire of", 
+    "by the pleasure of", "by the call of", 
+    "by the nomination of", "by the appointment of", 
+    "by the election of", "by the selection of", 
+    "by the choice of", "by the designation of", 
+    "by the assignment of", 
 )
 
 # The wordings that carry a negated form of a claim. A
@@ -2783,6 +2896,38 @@ def _clause_claim(clause):
         "bacterio", "viro", "protozoo", 
         "entomo", "ichthyo", "ornitho", 
         "herpeto", "malaco", "helmintho", 
+        "balsa", "rosewood", "elm", 
+        "ash", "birch", "cherry", 
+        "hickory", "poplar", "spruce", 
+        "willow", "beech", "chestnut", 
+        "sandalwood", "ironwood", "lignum", 
+        "pumice", "shale", "travertine", 
+        "alabaster", "gypsum", "mica", 
+        "feldspar", "beryl", 
+        "spinel", "zircon", "garnet", 
+        "peridot", "tourmaline", 
+        "ferro", "glyco", "lipo", 
+        "vibro", "thio", "telluro", 
+        "arseno", "boro", "silico", 
+        "titano", "zircono", "tantalo", 
+        "rheno", "platino", "argento", 
+        "zinco", "chloro", "xantho", 
+        "cyano", "nitro", "amino", 
+        "turbo", "gyro", "dendro", 
+        "glacio", "paleonto", "galvano", 
+        "chromium", "manganese", "palladium", 
+        "iridium", "osmium", "rhodium", 
+        "sulfur", "boron", "silicon", 
+        "zirconium", "niobium", "tantalum", 
+        "rhenium", "lutetium", "hafnium", 
+        "thallium", "bismuth", "polonium", 
+        "radium", "uranium", "plutonium", 
+        "thorium", "lithium", "sodium", 
+        "potassium", "calcium", "barium", 
+        "strontium", "gallium", "indium", 
+        "tin", "antimony", "tellurium", 
+        "iodine", "bromine", "chlorine", 
+        "fluorine", 
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
@@ -2861,6 +3006,18 @@ def _clause_claim(clause):
         "enclosed", "encircled", "surrounded", 
         "hedged", "sheltered", "housed", 
         "garrisoned", "patrolled", 
+        "evaporated", "cremated", "shattered", 
+        "boiled", "sublimed", "calcined", 
+        "carbonised", "carbonized", "petrified", 
+        "fossilised", "fossilized", "mummified", 
+        "embalmed", "fused", "plastered", 
+        "mortared", "grouted", "caulked", 
+        "tarred", "enameled", "chromed", 
+        "galvanised", "galvanized", "anodised", 
+        "anodized", "silvered", "nickeled", 
+        "bronzed", "coppered", "roped", 
+        "wired", "sheathed", "swathed", 
+        "bundled", "interlocked", "meshed", 
     ):
         if passive in words and "by" in words[
             words.index(passive) + 1:
@@ -3362,6 +3519,18 @@ def _clause_inability_form(clause):
     "hous", "quarter", "billet", 
     "garrison", "mann", "patroll", 
     "sentinell", 
+    "evaporat", "cremat", "shatter", 
+    "boil", "sublim", "calcin", 
+    "carbonis", "carboniz", "petrif", 
+    "fossilis", "fossiliz", "mummif", 
+    "embalm", "fuse", "plaster", 
+    "mortar", "grout", "caulk", 
+    "tarr", "enamel", "chrom", 
+    "galvanis", "galvaniz", "anodis", 
+    "anodiz", "silver", "nickel", 
+    "bronz", "copper", "rope", 
+    "wire", "sheath", "swath", 
+    "bundled", "interlock", "mesh", 
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -3608,6 +3777,20 @@ def _clause_inability_form(clause):
     "hutch", "alcove", "cubicle", 
     "booth", "stall", "larder", 
     "cellarage", 
+    "mournfully", "casually", "absentmindedly", 
+    "gloomily", "wearily", "wildly", 
+    "equably", "stoically", "phlegmatically", 
+    "purposely", "unhurriedly", "leisurely", 
+    "languidly", "drearily", "dully", 
+    "tediously", "ponderously", "laboriously", 
+    "painstakingly", "meticulously", "scrupulously", 
+    "punctiliously", "fastidiously", "rigidly", 
+    "inflexibly", "unyieldingly", "unbendingly", 
+    "adamantly", "unwaveringly", "unswervingly", 
+    "devotedly", "loyally", "dutifully", 
+    "obediently", "submissively", 
+    "scullery", "mezzanine", "byre", 
+    "sty", "roost", 
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -3747,6 +3930,7 @@ def _seal_claim_scan(assembly_text):
                     ("if",), ("when",), ("whenever",),
                     ("while",), ("whilst",), ("where",),
                     ("as",), ("that",),
+                    ("once",), ("until",), ("unless",),
                     ("in", "cases", "where"),
                     ("in", "so", "far", "as"),
                     ("to", "the", "extent", "that"),
@@ -3771,6 +3955,30 @@ def _seal_claim_scan(assembly_text):
                     if trailing_governed:
                         break
             if trailing_governed:
+                continue
+            if any(
+                tuple(clause_words[pos:pos + 3])
+                == ("on", "the", "condition")
+                and _governing_condition_holds(
+                    "conditional on "
+                    + " ".join(clause_words[pos + 3:])
+                )
+                for pos in range(len(clause_words) - 2)
+            ):
+                continue
+            if (
+                clause_words
+                and clause_words[-1] == "if"
+                and any(
+                    _clause_words(other)[:2] == ["only", "if"]
+                    and _governing_condition_holds(
+                        "conditional on "
+                        + " ".join(_clause_words(other)[2:])
+                    )
+                    for other in clauses
+                    if other != clause
+                )
+            ):
                 continue
             if (
                 main_words
@@ -4021,7 +4229,16 @@ def _seal_claim_scan(assembly_text):
                                 and not (
                                     words[aux] in ("is", "are", "be")
                                     and words[aux + 1].startswith(
-                                        ("alter", "unalter")
+                                        ("alter", "unalter",
+                                         "chang", "modif", "rewrit",
+                                         "edit", "delet", "eras",
+                                         "breach", "penetr", "tamper",
+                                         "seal", "access", "reach",
+                                         "leak", "unchange", "immutab",
+                                         "inviolab", "airtight",
+                                         "hermet", "secur", "lock",
+                                         "confin", "contain", "protect",
+                                         "shield", "verif", "sign")
                                     )
                                 )
                                 and any(
