@@ -179,7 +179,9 @@ class TestUnrowed1933DeclarationRefusal(unittest.TestCase):
 
     def test_case_and_spacing_variants_of_listed_names_are_refused(self):
         module = require("ontoloop.core")
-        for variant in ("SFT", " dpo ", "g rpo"):
+        for variant in ("SFT", " dpo ", "g rpo", "s f t", "DPO",
+                        "\tgrpo\n", "G r p o", "SfT", "d  p  o",
+                        "GRPO "):
             outcome = module.present_declaration(variant)
             self.assertEqual(outcome["error"], self.ERROR)
 
@@ -234,6 +236,16 @@ class TestUnrowed1934CalibrationPractice(unittest.TestCase):
         record = module.calibration_record()
         self.assertTrue(record["agreement_figure"])
         self.assertTrue(record["sample_identities_under_key"])
+        self.assertEqual(record["agreement_figure"], "9 of 10")
+        self.assertEqual(record["agreement_count"], 9)
+        self.assertEqual(record["sample_size"], 10)
+        self.assertEqual(
+            record["sample_identities_under_key"],
+            ["graded run 07", "graded run 10", "graded run 03",
+             "graded run 01", "graded run 05", "graded run 06",
+             "graded run 04", "graded run 09", "graded run 08",
+             "graded run 02"],
+        )
         self.assertEqual(record["record_count_for_sample"], 1)
         runs_three = [
             {"id": "graded run %02d" % (index + 1),
@@ -428,6 +440,31 @@ class TestUnrowed1935DatasetStamps(unittest.TestCase):
             failure_share=0.2, channel_share=0.2, holdout_groups=40
         )
         self.assertEqual(stamps, set())
+
+    def test_combined_triggers_attach_the_whole_stamp_set(self):
+        module = require("ontoloop.dataset")
+        stamps = module.stamps_attached(
+            failure_share=0, channel_share=0.5, holdout_groups=29
+        )
+        self.assertEqual(
+            stamps,
+            {"intake thin", "high self reported share",
+             "low confidence"},
+        )
+        stamps = module.stamps_attached(
+            failure_share=0, channel_share=0.5
+        )
+        self.assertEqual(
+            stamps, {"intake thin", "high self reported share"})
+        stamps = module.stamps_attached(
+            failure_share=0, holdout_groups=29
+        )
+        self.assertEqual(stamps, {"intake thin", "low confidence"})
+        stamps = module.stamps_attached(
+            channel_share=0.5, holdout_groups=29
+        )
+        self.assertEqual(
+            stamps, {"high self reported share", "low confidence"})
 
     def test_no_later_slice_originates_a_stamp(self):
         module = require("ontoloop.dataset")
@@ -1473,6 +1510,47 @@ class TestPromoteR2Pro1(unittest.TestCase):
             self.assertEqual(over["bound_after"], bound)
             self.assertFalse(over["act_blocked"])
 
+    def test_refusal_at_domain_bounds_beyond_the_second_ring_beyond_outermost_values(self):
+        module = require("ontoloop.promote")
+        cases = [
+            (0.93, "unknown reuse warning bound: 0.93"),
+            (0.49, "unknown reuse warning bound: 0.49"),
+            (-18, "unknown reuse warning bound: -18"),
+            (-9999999999999999, "unknown reuse warning bound: -9999999999999999"),
+            (0.00000000000000001, "unknown reuse warning bound: 1e-17"),
+            (0.999999999999996, "unknown reuse warning bound: 0.999999999999996"),
+            (-10000000000000000, "unknown reuse warning bound: -10000000000000000"),
+            (0.0078125, "unknown reuse warning bound: 0.0078125"),
+        ]
+        for bound, message in cases:
+            with self.assertRaises(ValueError) as caught:
+                module.reuse_warning_at_count(bound, bound=bound)
+            self.assertEqual(str(caught.exception), message)
+
+    def test_firing_at_domain_bounds_beyond_the_second_ring_beyond_outermost_bounds(self):
+        module = require("ontoloop.promote")
+        cases = [
+            (77, 57, 56, 57),
+            (78, 58, 57, 58),
+            (79, 59, 58, 59),
+            (81, 60, 59, 60),
+            (100013, 75009, 75008, 75009),
+            (1000012, 750009, 750008, 750009),
+            (10000011, 7500008, 7500007, 7500008),
+            (100000000000000000, 75000000000000000, 74999999999999999, 75000000000000000),
+        ]
+        for bound, point, below, at in cases:
+            under = module.reuse_warning_at_count(below, bound=bound)
+            self.assertFalse(under["fired"])
+            self.assertEqual(under["firing_point_count"], point)
+            self.assertEqual(under["bound_after"], bound)
+            self.assertFalse(under["act_blocked"])
+            over = module.reuse_warning_at_count(at, bound=bound)
+            self.assertTrue(over["fired"])
+            self.assertEqual(over["firing_point_count"], point)
+            self.assertEqual(over["bound_after"], bound)
+            self.assertFalse(over["act_blocked"])
+
 
 # ------------------------------------------------------------------
 # Subsection 19.37, the warning act: age form.
@@ -1516,6 +1594,26 @@ class TestUnrowed1937AgeForm(unittest.TestCase):
         outcome = module.stale_warning_at_age(days=67.5, bound_days=90)
         self.assertEqual(outcome["bound_after_days"], 90)
         self.assertFalse(outcome["act_blocked"])
+
+    def test_the_warning_fires_at_75_percent_of_bounds_other_than_90(self):
+        module = require("ontoloop.dataset")
+        cases = [
+            (30, 22.5, 22.49),
+            (7, 5.25, 5.24),
+            (120, 90, 89.99),
+            (365, 273.75, 273.74),
+            (1, 0.75, 0.74),
+        ]
+        for bound, point, below in cases:
+            under = module.stale_warning_at_age(
+                days=below, bound_days=bound)
+            self.assertFalse(under["fired"])
+            over = module.stale_warning_at_age(
+                days=point, bound_days=bound)
+            self.assertTrue(over["fired"])
+            self.assertEqual(over["firing_point_fraction"], 0.75)
+            self.assertEqual(over["bound_after_days"], bound)
+            self.assertFalse(over["act_blocked"])
 
 
 # ------------------------------------------------------------------
@@ -1585,6 +1683,31 @@ class TestUnrowed1938ExpectedMaximumFigure(unittest.TestCase):
         self.assertEqual(figure["standard_error"], 2.0)
         self.assertEqual(figure["expected_maximum"], expected_maximum)
         self.assertEqual(figure["value"], expected_maximum * 2.0)
+
+    def test_the_figure_value_counts_from_further_inputs_passed_in(self):
+        from statistics import NormalDist
+        module = require("ontoloop.eval")
+        cases = [
+            (6, 2.0),
+            (10, 3.0),
+            (1, 0.5),
+            (100, 1.0),
+            (2, 1.5),
+        ]
+        for attempt_count, standard_error in cases:
+            record = module.closing_evaluation_record(
+                attempt_count=attempt_count,
+                standard_error=standard_error)
+            figure = record["figures"][self.FIGURE]
+            expected_maximum = NormalDist().inv_cdf(
+                (attempt_count - 0.375) / (attempt_count + 0.25))
+            self.assertEqual(
+                figure["attempt_count_charged"], attempt_count)
+            self.assertEqual(figure["standard_error"], standard_error)
+            self.assertEqual(
+                figure["expected_maximum"], expected_maximum)
+            self.assertEqual(
+                figure["value"], expected_maximum * standard_error)
 
     def test_the_figure_enters_no_comparison_in_the_evaluation(self):
         module = require("ontoloop.eval")
