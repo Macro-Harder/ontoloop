@@ -491,6 +491,9 @@ def _seam_rebuilt_mapping(value, rebuilt):
     with the direct act deciding the presentation
     itself: a mapping standing as a ChainMap stands
     carried in a ChainMap over its rebuilt maps, a
+    ChainMap standing in a subclass form standing
+    carried in that subclass form over its rebuilt
+    maps in the same way, a
     mapping standing in a dict subclass form, an
     OrderedDict, a defaultdict, or a Counter among
     them, stands rebuilt in its own class over its
@@ -500,11 +503,18 @@ def _seam_rebuilt_mapping(value, rebuilt):
     rebuilt entries, and a mapping standing in any
     other form, a mapping proxy among them, stands
     carried as it stands, its standing readings
-    governing it as they govern the presentation.
+    governing it as they govern the presentation. A
+    rebuild standing empty of the entries the
+    presented mapping carries by its governed readings
+    stands not carried as the presented mapping in
+    any of those forms: the presented mapping stands
+    carried as it stands in that case, so no governed
+    entry stands lost to a rebuild that succeeds in
+    an empty form.
     """
     if type(value) is dict:
-        return rebuilt
-    if isinstance(value, _collections_module.ChainMap):
+        result = rebuilt
+    elif isinstance(value, _collections_module.ChainMap):
         maps = []
         for chained in value.maps:
             carried = {
@@ -515,20 +525,90 @@ def _seam_rebuilt_mapping(value, rebuilt):
             maps.append(carried)
         if not maps:
             maps = [{}]
-        return _collections_module.ChainMap(*maps)
+        if type(value) is _collections_module.ChainMap:
+            result = _collections_module.ChainMap(*maps)
+        else:
+            try:
+                result = type(value)(*maps)
+            except Exception:
+                try:
+                    instance = object.__new__(type(value))
+                    instance.maps = maps
+                    result = instance
+                except Exception:
+                    result = value
+    elif isinstance(value, _collections_module.UserDict):
+        try:
+            result = type(value)(rebuilt)
+        except Exception:
+            result = value
+    elif type(value) is _types_module.MappingProxyType:
+        result = rebuilt
+    elif isinstance(value, dict):
+        try:
+            result = type(value)(rebuilt)
+        except Exception:
+            result = value
+    else:
+        result = value
+    if result is not value and not _seam_result_carries_entries(
+        result
+    ) and _seam_presented_carries_entries(value):
+        return value
+    return result
+
+
+def _seam_result_carries_entries(result):
+    """Whether a rebuilt mapping carries any entry at all,
+    read through its items reading in the standing way."""
+    try:
+        return len(list(result.items())) > 0
+    except Exception:
+        return True
+
+
+def _seam_presented_carries_entries(value):
+    """Whether a presented mapping carries any entry by
+    its governed readings.
+
+    A mapping stands read first through its items
+    reading, and where that reading presents no entry a
+    mapping stands read through the keys it carries and
+    the values those keys reach, in the way the direct
+    act reaches the governed entry of such a mapping,
+    a ChainMap standing read through its maps and a
+    UserDict through the mapping it wraps in the same
+    way. A mapping carrying no entry in any of those
+    readings stands in no entry form here.
+    """
+    try:
+        if len(list(value.items())) > 0:
+            return True
+    except Exception:
+        pass
+    if isinstance(value, _collections_module.ChainMap):
+        try:
+            return any(
+                len(list(chained.items())) > 0
+                for chained in value.maps
+            )
+        except Exception:
+            return False
     if isinstance(value, _collections_module.UserDict):
         try:
-            return type(value)(rebuilt)
+            return len(list(value.data.items())) > 0
         except Exception:
-            return value
-    if type(value) is _types_module.MappingProxyType:
-        return rebuilt
-    if isinstance(value, dict):
-        try:
-            return type(value)(rebuilt)
-        except Exception:
-            return value
-    return value
+            return False
+    try:
+        for key in value.keys():
+            try:
+                value[key]
+            except Exception:
+                continue
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def _materialise_view_form_seam(value, ancestors=frozenset()):
@@ -1939,7 +2019,10 @@ def _carries_nested_mapping(listed):
     as carrying one in the same way, on the elements the
     form carries, an items view standing read for the
     entries it yields, whose elements stand in the entry
-    tuples the view yields, so a nested mapping standing
+    tuples the view yields, and for the entry keys it
+    yields in the same way, a values view standing read
+    for the keys of the mapping it stands over in the
+    same way, so a nested mapping standing
     inside a carrier form, or inside a second carrier
     form the first carrier carries, stands reached in
     the same way.
@@ -1980,10 +2063,52 @@ def _carries_nested_mapping(listed):
                 [inner for _entry_key, inner in element]
             ):
                 return True
+            if _carries_nested_mapping(
+                [
+                    entry_key
+                    for entry_key, _inner in element
+                    if isinstance(entry_key, _Mapping)
+                    or isinstance(
+                        entry_key,
+                        (
+                            list,
+                            tuple,
+                            set,
+                            frozenset,
+                            _collections_module.deque,
+                            _collections_module.UserList,
+                        ),
+                    )
+                ]
+            ):
+                return True
             continue
         if isinstance(element, _ValuesView):
             if _carries_nested_mapping(list(element)):
                 return True
+            underlying = getattr(element, "mapping", None)
+            if underlying is None:
+                underlying = getattr(element, "_mapping", None)
+            if _is_plain_mapping(underlying):
+                if _carries_nested_mapping(
+                    [
+                        entry_key
+                        for entry_key in underlying.keys()
+                        if isinstance(entry_key, _Mapping)
+                        or isinstance(
+                            entry_key,
+                            (
+                                list,
+                                tuple,
+                                set,
+                                frozenset,
+                                _collections_module.deque,
+                                _collections_module.UserList,
+                            ),
+                        )
+                    ]
+                ):
+                    return True
             continue
         if isinstance(element, _KeysView):
             if _carries_nested_mapping(
@@ -3905,6 +4030,87 @@ def _view_mapping_form_deep(element, ancestors=frozenset(), top=True):
                 inner, child_ancestors, top=False
             )
         return rebuilt
+    if isinstance(element, _Mapping) and _is_plain_mapping(
+        element
+    ):
+        if id(element) in ancestors:
+            return element
+        child_ancestors = ancestors | {id(element)}
+        rebuilt = {}
+        changed = False
+        for key, inner in element.items():
+            if isinstance(inner, _KeysView):
+                rebuilt[key] = inner
+                continue
+            if _is_generic_iterable_container(
+                inner
+            ) and not _carries_stored_iterator(inner):
+                nodes, carries = _deep_listed_expansion(
+                    list(inner), child_ancestors | {id(inner)}
+                )
+                if carries:
+                    rebuilt[key] = _deep_carried_form(nodes)
+                    changed = True
+                elif _is_single_pass_iterable(inner):
+                    rebuilt[key] = (
+                        carried
+                        for carried in _deep_restored_form(
+                            nodes
+                        )
+                    )
+                    changed = True
+                else:
+                    rebuilt[key] = inner
+                continue
+            if isinstance(
+                inner,
+                (
+                    list,
+                    tuple,
+                    _collections_module.deque,
+                    _collections_module.UserList,
+                ),
+            ) and not _is_delegating_container(inner):
+                nodes, carries = _deep_listed_expansion(
+                    list(inner), child_ancestors | {id(inner)}
+                )
+                if carries:
+                    rebuilt[key] = _deep_carried_form(nodes)
+                    changed = True
+                    continue
+            elif hasattr(inner, "__next__"):
+                listed_inner = list(inner)
+                nodes, carries = _deep_listed_expansion(
+                    listed_inner, child_ancestors | {id(inner)}
+                )
+                if carries:
+                    rebuilt[key] = _deep_carried_form(nodes)
+                    changed = True
+                    continue
+                rebuilt[key] = (
+                    carried
+                    for carried in _deep_restored_form(nodes)
+                )
+                changed = True
+                continue
+            elif _is_indexed_only_container(inner):
+                indexed = _indexed_elements(inner)
+                if indexed is not None:
+                    nodes, carries = _deep_listed_expansion(
+                        indexed, child_ancestors | {id(inner)}
+                    )
+                    if carries:
+                        rebuilt[key] = _deep_carried_form(nodes)
+                        changed = True
+                        continue
+            rebuilt[key] = _view_mapping_form_deep(
+                inner, child_ancestors, top=False
+            )
+            if rebuilt[key] is not inner:
+                changed = True
+        if not changed:
+            return element
+        return rebuilt
     if hasattr(element, "__next__"):
         if id(element) in ancestors:
             return element
@@ -3986,9 +4192,10 @@ def _preserved_beside_element(original, relisted, container_type):
     over the keys of the mapping it stands over. An
     items view or a values view element stands
     preserved in the same way where its container
-    stands as a list, and stands in its relisted form
-    in every other container, in the bounded form the
-    ruling of this round states for those containers.
+    stands as a list, a tuple, a deque, or a UserList,
+    and stands in its relisted form in every other
+    container, in the bounded form the ruling of this
+    round states for those containers.
     A plain mapping element carrying no item field of
     its own and standing as no pair stands read as the
     keys view of that mapping, in parity with the same
@@ -4019,7 +4226,12 @@ def _preserved_beside_element(original, relisted, container_type):
     if isinstance(original, _KeysView):
         return original
     if isinstance(original, (_ItemsView, _ValuesView)):
-        if container_type is list:
+        if container_type in (
+            list,
+            tuple,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ):
             return original
         return relisted
     if isinstance(original, _Mapping):
@@ -4415,6 +4627,32 @@ def _wrapped_nested_position_material(material):
             ),
         ):
             replacement = None
+            if key == "items" and isinstance(
+                value, _Mapping
+            ) and _is_plain_mapping(
+                value
+            ) and not any(
+                field in value for field in _ITEM_FIELD_KEYS
+            ):
+                deep_value = _view_mapping_form_deep(value)
+                if deep_value is not value and len(
+                    deep_value
+                ) == len(value):
+                    carried = {}
+                    took = False
+                    for carried_key, old in value.items():
+                        new = deep_value[carried_key]
+                        if new is not old and not (
+                            type(old) is list
+                            and len(old) == 1
+                            and hasattr(old[0], "__next__")
+                        ):
+                            carried[carried_key] = new
+                            took = True
+                        else:
+                            carried[carried_key] = old
+                    if took:
+                        replacement = carried
         elif isinstance(
             value, (tuple, _collections_module.deque)
         ) or hasattr(value, "__next__"):
