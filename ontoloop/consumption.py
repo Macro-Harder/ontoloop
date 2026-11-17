@@ -1559,47 +1559,57 @@ def _bundle_copy(bundle):
         return False
 
     def _referenced_global_values(func, globals_map, extra_names=None):
-        if isinstance(globals_map, dict):
-            map_name = globals_map.get("__name__")
-            if isinstance(map_name, str):
-                map_owner = _sys_module.modules.get(map_name)
-                if map_owner is not None:
-                    try:
-                        owner_is_map = (
-                            map_owner.__dict__ is globals_map
-                        )
-                    except Exception:
-                        owner_is_map = False
-                    if owner_is_map:
-                        owner_file = getattr(
-                            map_owner, "__file__", None
-                        )
-                        if owner_file is None:
-                            if map_name in (
-                                "sys",
-                                "builtins",
-                                "_io",
-                                "os",
-                                "posix",
-                                "nt",
-                            ):
-                                return []
-                        else:
-                            stdlib_dir = (
-                                _os_module.path.dirname(
-                                    _os_module.__file__
-                                )
-                            )
-                            if owner_file.startswith(
-                                stdlib_dir
-                                + _os_module.path.sep
-                            ):
-                                return []
+        def _map_is_stdlib(candidate_map):
+            if not isinstance(candidate_map, dict):
+                return False
+            map_name = candidate_map.get("__name__")
+            if not isinstance(map_name, str):
+                return False
+            map_owner = _sys_module.modules.get(map_name)
+            if map_owner is None:
+                return False
+            try:
+                owner_is_map = (
+                    map_owner.__dict__ is candidate_map
+                )
+            except Exception:
+                owner_is_map = False
+            if not owner_is_map:
+                return False
+            owner_file = getattr(
+                map_owner, "__file__", None
+            )
+            if owner_file is None:
+                return map_name in (
+                    "sys",
+                    "builtins",
+                    "_io",
+                    "os",
+                    "posix",
+                    "nt",
+                )
+            stdlib_dir = _os_module.path.dirname(
+                _os_module.__file__
+            )
+            try:
+                return bool(
+                    owner_file.startswith(
+                        stdlib_dir + _os_module.path.sep
+                    )
+                    and _os_module.path.isfile(owner_file)
+                )
+            except Exception:
+                return False
+
+        if _map_is_stdlib(globals_map):
+            return []
         def _code_facts(root_code):
             names = set()
             consts = set()
             attrs = set()
             pairs = set()
+            chains = set()
+            act_targets = set()
             attr_dynamic = False
             vars_with_arg = False
             pending_codes = [root_code]
@@ -1618,6 +1628,8 @@ def _bundle_copy(bundle):
                 except Exception:
                     instructions = []
                 last_global = None
+                chain_base = None
+                chain_attrs = []
                 for index, instruction in enumerate(instructions):
                     if instruction.opname in (
                         "LOAD_GLOBAL",
@@ -1625,10 +1637,38 @@ def _bundle_copy(bundle):
                     ) and isinstance(instruction.argval, str):
                         names.add(instruction.argval)
                         last_global = instruction.argval
+                        chain_base = instruction.argval
+                        chain_attrs = []
+                        if instruction.argval in (
+                            "getattr",
+                            "vars",
+                        ):
+                            for ahead in instructions[
+                                index + 1:index + 10
+                            ]:
+                                if ahead.opname in (
+                                    "CALL",
+                                    "CALL_FUNCTION_EX",
+                                ):
+                                    break
+                                if ahead.opname in (
+                                    "LOAD_GLOBAL",
+                                    "LOAD_NAME",
+                                ) and isinstance(
+                                    ahead.argval, str
+                                ):
+                                    act_targets.add(
+                                        ahead.argval
+                                    )
                         if instruction.argval == "vars":
                             for ahead in instructions[
                                 index + 1:index + 16
                             ]:
+                                if ahead.opname == (
+                                    "CALL_FUNCTION_EX"
+                                ):
+                                    vars_with_arg = True
+                                    break
                                 if ahead.opname == "CALL":
                                     if (
                                         isinstance(
@@ -1662,6 +1702,18 @@ def _bundle_copy(bundle):
                         and isinstance(instruction.argval, str)
                     ):
                         attrs.add(instruction.argval)
+                        if chain_base is not None:
+                            chain_attrs.append(
+                                instruction.argval
+                            )
+                            if len(chain_attrs) == 2:
+                                chains.add(
+                                    (
+                                        chain_base,
+                                        chain_attrs[0],
+                                        chain_attrs[1],
+                                    )
+                                )
                         if last_global is not None:
                             pairs.add(
                                 (last_global, instruction.argval)
@@ -1669,6 +1721,8 @@ def _bundle_copy(bundle):
                             last_global = None
                     else:
                         last_global = None
+                        chain_base = None
+                        chain_attrs = []
                 for const in current_code.co_consts:
                     if isinstance(const, _types_module.CodeType):
                         pending_codes.append(const)
@@ -1677,6 +1731,7 @@ def _bundle_copy(bundle):
             return (
                 names, consts, attrs, pairs,
                 attr_dynamic, vars_with_arg,
+                chains, act_targets,
             )
 
         def _built_from_consts(key, consts):
@@ -1743,6 +1798,108 @@ def _bundle_copy(bundle):
         seen_value_ids = set()
         pending_funcs = [(func, globals_map)]
         seen_funcs = set()
+
+        def _append_reached(reached_value):
+            if isinstance(
+                reached_value, _types_module.ModuleType
+            ):
+                return
+            if isinstance(
+                reached_value, _lru_cache_wrapper_type
+            ):
+                wrapped = _follow_wrapper(reached_value)
+                if wrapped is not None:
+                    pending_funcs.append(
+                        (
+                            wrapped,
+                            getattr(
+                                wrapped,
+                                "__globals__",
+                                None,
+                            ),
+                        )
+                    )
+                return
+            if id(reached_value) in seen_value_ids:
+                return
+            seen_value_ids.add(id(reached_value))
+            values.append(reached_value)
+            if isinstance(
+                reached_value, _types_module.FunctionType
+            ):
+                pending_funcs.append(
+                    (
+                        reached_value,
+                        getattr(
+                            reached_value,
+                            "__globals__",
+                            None,
+                        ),
+                    )
+                )
+
+        _governed_reach_types = (
+            _types_module.GeneratorType,
+            _lock_type,
+            _rlock_type,
+            _condition_type,
+            _types_module.CellType,
+            _types_module.FrameType,
+            _types_module.TracebackType,
+            _types_module.CoroutineType,
+            _types_module.AsyncGeneratorType,
+            _socket_module.socket,
+            _thread_local_type,
+            _sqlite3_module.Connection,
+            _cursor_type,
+            _hash_type,
+            _hmac_type,
+            memoryview,
+            _mmap_module.mmap,
+            _contextvars_module.Context,
+            _ssl_module.SSLContext,
+            _memory_iterator_type,
+            _simple_queue_type,
+            _token_type,
+            _memory_bio_type,
+            _carg_object_type,
+            _future_type,
+            _xml_parser_type,
+            _pickler_type,
+            _csv_writer_type,
+            _decimal_context_manager_type,
+            _extra_uncopyable_types,
+        )
+
+        def _collect_container_contents(container):
+            pending_items = [container]
+            seen_items = set()
+            while pending_items:
+                current_item = pending_items.pop()
+                if id(current_item) in seen_items:
+                    continue
+                seen_items.add(id(current_item))
+                if isinstance(current_item, dict):
+                    for held_key, held_value in (
+                        current_item.items()
+                    ):
+                        pending_items.append(held_key)
+                        pending_items.append(held_value)
+                    continue
+                if isinstance(
+                    current_item,
+                    (list, tuple, set, frozenset),
+                ):
+                    pending_items.extend(current_item)
+                    continue
+                if isinstance(
+                    current_item,
+                    _types_module.FunctionType,
+                ) or isinstance(
+                    current_item, _governed_reach_types
+                ):
+                    _append_reached(current_item)
+
         while pending_funcs:
             current_func, current_map = pending_funcs.pop()
             if id(current_func) in seen_funcs:
@@ -1750,12 +1907,15 @@ def _bundle_copy(bundle):
             seen_funcs.add(id(current_func))
             if not isinstance(current_map, dict):
                 continue
+            if _map_is_stdlib(current_map):
+                continue
             code = getattr(current_func, "__code__", None)
             if code is None:
                 continue
             (
                 names, consts, attrs, pairs,
                 attr_dynamic, vars_with_arg,
+                chains, act_targets,
             ) = _code_facts(code)
             candidate_names = set(names)
             resolved = False
@@ -1787,6 +1947,42 @@ def _bundle_copy(bundle):
                     for inner_const in inner_facts[1]:
                         if inner_const in current_map:
                             candidate_names.add(inner_const)
+                            resolved = True
+            if dynamic:
+                for loaded_name in names:
+                    carried = current_map.get(loaded_name)
+                    if not isinstance(carried, str):
+                        continue
+                    if "exec" in names:
+                        try:
+                            carried_code = compile(
+                                carried, "<referenced>", "exec"
+                            )
+                        except Exception:
+                            carried_code = None
+                        if carried_code is not None:
+                            carried_facts = _code_facts(
+                                carried_code
+                            )
+                            for carried_name in (
+                                carried_facts[0]
+                            ):
+                                if carried_name in current_map:
+                                    candidate_names.add(
+                                        carried_name
+                                    )
+                                    resolved = True
+                            for carried_const in (
+                                carried_facts[1]
+                            ):
+                                if carried_const in current_map:
+                                    candidate_names.add(
+                                        carried_const
+                                    )
+                                    resolved = True
+                    if "eval" in names or "globals" in names:
+                        if carried in current_map:
+                            candidate_names.add(carried)
                             resolved = True
             if "globals" in names or "eval" in names:
                 for key in current_map:
@@ -1844,42 +2040,7 @@ def _bundle_copy(bundle):
                     pending_funcs.append(
                         (value, value_globals)
                     )
-            pairs_enabled = True
-            map_name = current_map.get("__name__")
-            if isinstance(map_name, str):
-                map_owner = _sys_module.modules.get(map_name)
-                if map_owner is not None:
-                    try:
-                        owner_is_map = (
-                            map_owner.__dict__ is current_map
-                        )
-                    except Exception:
-                        owner_is_map = False
-                    if owner_is_map:
-                        owner_file = getattr(
-                            map_owner, "__file__", None
-                        )
-                        if owner_file is None:
-                            if map_name in (
-                                "sys",
-                                "builtins",
-                                "_io",
-                                "os",
-                                "posix",
-                                "nt",
-                            ):
-                                pairs_enabled = False
-                        else:
-                            stdlib_dir = (
-                                _os_module.path.dirname(
-                                    _os_module.__file__
-                                )
-                            )
-                            if owner_file.startswith(
-                                stdlib_dir
-                                + _os_module.path.sep
-                            ):
-                                pairs_enabled = False
+            pairs_enabled = not _map_is_stdlib(current_map)
             for base_name, attr in pairs:
                 if not pairs_enabled:
                     break
@@ -1898,6 +2059,12 @@ def _bundle_copy(bundle):
                 if attr not in module_map:
                     continue
                 attr_value = module_map[attr]
+                if isinstance(
+                    attr_value,
+                    (list, tuple, set, frozenset, dict),
+                ) and attr != "__dict__":
+                    _collect_container_contents(attr_value)
+                    continue
                 if isinstance(attr_value, dict):
                     continue
                 if isinstance(attr_value, type):
@@ -1977,6 +2144,96 @@ def _bundle_copy(bundle):
                             ),
                         )
                     )
+            if pairs_enabled:
+                for base_name, attr in pairs:
+                    if attr != "__dict__":
+                        continue
+                    if base_name not in current_map:
+                        continue
+                    base_value = current_map[base_name]
+                    if not isinstance(
+                        base_value, _types_module.ModuleType
+                    ):
+                        continue
+                    module_map = getattr(
+                        base_value, "__dict__", None
+                    )
+                    if not isinstance(module_map, dict):
+                        continue
+                    for const in consts:
+                        if const in module_map:
+                            _append_reached(
+                                module_map[const]
+                            )
+                            resolved = True
+                for base_name, first_attr, second_attr in (
+                    chains
+                ):
+                    if base_name not in current_map:
+                        continue
+                    base_value = current_map[base_name]
+                    if not isinstance(
+                        base_value, _types_module.ModuleType
+                    ):
+                        continue
+                    first_map = getattr(
+                        base_value, "__dict__", None
+                    )
+                    if not isinstance(first_map, dict):
+                        continue
+                    inner_value = first_map.get(first_attr)
+                    if not isinstance(
+                        inner_value, _types_module.ModuleType
+                    ):
+                        continue
+                    inner_map = getattr(
+                        inner_value, "__dict__", None
+                    )
+                    if not isinstance(inner_map, dict):
+                        continue
+                    if second_attr not in inner_map:
+                        continue
+                    reached = inner_map[second_attr]
+                    if isinstance(
+                        reached, _types_module.FunctionType
+                    ) or isinstance(
+                        reached, _governed_reach_types
+                    ):
+                        _append_reached(reached)
+                        resolved = True
+                if "getattr" in names or vars_with_arg:
+                    for target_name in act_targets:
+                        if target_name not in current_map:
+                            continue
+                        target = current_map[target_name]
+                        if not isinstance(
+                            target, _types_module.ModuleType
+                        ):
+                            continue
+                        target_map = getattr(
+                            target, "__dict__", None
+                        )
+                        if not isinstance(target_map, dict):
+                            continue
+                        for const in consts:
+                            if const in target_map:
+                                _append_reached(
+                                    target_map[const]
+                                )
+                                resolved = True
+                        for target_key in target_map:
+                            if (
+                                not isinstance(target_key, str)
+                                or target_key in consts
+                            ):
+                                continue
+                            if _built_from_consts(
+                                target_key, consts
+                            ):
+                                _append_reached(
+                                    target_map[target_key]
+                                )
+                                resolved = True
             if "__globals__" in attrs:
                 for name in list(candidate_names):
                     if name not in current_map:
@@ -3297,6 +3554,8 @@ def _bundle_copy(bundle):
         namespace_expanded = set()
         deepcopy_instances_seen = set()
         deepcopy_type_counts = {}
+        deepcopy_returns_held = []
+        namespace_members = {}
         namespace_reach = set()
         view_reach = set()
         while pending:
@@ -3613,6 +3872,9 @@ def _bundle_copy(bundle):
                 carried_values, member_functions = (
                     _class_namespace_parts(namespace_target)
                 )
+                namespace_members[id(namespace_target)] = (
+                    member_functions
+                )
                 member_extra_names = set()
                 for carried in carried_values:
                     if isinstance(carried, str):
@@ -3634,6 +3896,11 @@ def _bundle_copy(bundle):
                     ):
                         if isinstance(state_value, str):
                             member_extra_names.add(state_value)
+                member_extra_names.update(
+                    _bundle_instance_strings.get(
+                        id(namespace_target), ()
+                    )
+                )
                 for carried in carried_values:
                     namespace_reach.add(id(carried))
                     pending.append(carried)
@@ -3663,6 +3930,66 @@ def _bundle_copy(bundle):
                                     carried,
                                     carried_globals,
                                     member_extra_names,
+                                )
+                            )
+                        else:
+                            globals_values = (
+                                _globals_walk_values(carried)
+                            )
+                        for globals_value in globals_values:
+                            namespace_reach.add(
+                                id(globals_value)
+                            )
+                            pending.append(globals_value)
+            elif (
+                namespace_target is not None
+                and not isinstance(item, type)
+                and id(namespace_target) in namespace_members
+            ):
+                instance_extra_names = set()
+                item_mapping = getattr(
+                    item, "__dict__", None
+                )
+                if isinstance(item_mapping, dict):
+                    for state_value in (
+                        item_mapping.values()
+                    ):
+                        if isinstance(state_value, str):
+                            instance_extra_names.add(
+                                state_value
+                            )
+                for state_value in _added_slot_values(
+                    item
+                ):
+                    if isinstance(state_value, str):
+                        instance_extra_names.add(state_value)
+                if instance_extra_names:
+                    carried_values, _ = (
+                        _class_namespace_parts(
+                            namespace_target
+                        )
+                    )
+                    for carried in carried_values:
+                        if isinstance(carried, str):
+                            instance_extra_names.add(carried)
+                    for carried in namespace_members[
+                        id(namespace_target)
+                    ]:
+                        carried_globals = getattr(
+                            carried, "__globals__", None
+                        )
+                        if not isinstance(
+                            carried_globals, dict
+                        ):
+                            continue
+                        if _globals_map_is_module_dict(
+                            carried, carried_globals
+                        ):
+                            globals_values = (
+                                _referenced_global_values(
+                                    carried,
+                                    carried_globals,
+                                    instance_extra_names,
                                 )
                             )
                         else:
@@ -3835,6 +4162,8 @@ def _bundle_copy(bundle):
                         )
                     except Exception:
                         returned = None
+                    if returned is not None:
+                        deepcopy_returns_held.append(returned)
                     if returned is not None and (
                         returned is not item
                     ):
@@ -3948,6 +4277,61 @@ def _bundle_copy(bundle):
     in_progress = set()
     act_globals_cache = {}
     act_landing_memo = {}
+    def _scan_bundle_instance_strings(root):
+        found = {}
+        pending_items = [root]
+        seen_ids = set()
+        while pending_items:
+            current_item = pending_items.pop()
+            if id(current_item) in seen_ids:
+                continue
+            seen_ids.add(id(current_item))
+            if isinstance(
+                current_item, _types_module.ModuleType
+            ):
+                continue
+            if isinstance(current_item, dict):
+                pending_items.extend(current_item.keys())
+                pending_items.extend(current_item.values())
+                continue
+            if isinstance(
+                current_item,
+                (list, tuple, set, frozenset),
+            ):
+                pending_items.extend(current_item)
+                continue
+            if isinstance(current_item, type):
+                try:
+                    carried_values, _ = (
+                        _class_namespace_parts(current_item)
+                    )
+                except Exception:
+                    carried_values = []
+                pending_items.extend(carried_values)
+                continue
+            mapping = getattr(current_item, "__dict__", None)
+            if isinstance(mapping, dict):
+                strings = [
+                    held for held in mapping.values()
+                    if isinstance(held, str)
+                ]
+                strings.extend(
+                    held
+                    for held in _added_slot_values(
+                        current_item
+                    )
+                    if isinstance(held, str)
+                )
+                if strings:
+                    found.setdefault(
+                        id(type(current_item)), set()
+                    ).update(strings)
+                pending_items.extend(mapping.values())
+        return found
+
+    _bundle_instance_strings = _scan_bundle_instance_strings(
+        bundle
+    )
     results = []
     stack = [(bundle, False, None, None, 0)]
     while stack:
@@ -4077,6 +4461,7 @@ def _bundle_copy(bundle):
                 set,
                 frozenset,
                 bytearray,
+                _array_module.array,
                 _collections.deque,
                 _collections.UserList,
                 _collections.UserDict,
