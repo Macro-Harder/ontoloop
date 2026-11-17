@@ -349,6 +349,74 @@ def _materialise_iterators(value, depth=0):
     return results[0]
 
 
+def _materialise_view_form(value, ancestors=frozenset()):
+    """Return a form of the value with its views carried.
+
+    The materialisation act above lists a dictionary
+    view standing in the material as its elements, so
+    key material standing in the keys of the viewed
+    mapping stands discarded or dissolved by that
+    listing before the direct act sees it. A dictionary
+    view standing in any position of the material
+    therefore stands carried here as a view of the same
+    kind standing over a rebuilt mapping, the rebuilt
+    mapping standing in the order of its maps where it
+    stands as a ChainMap, so the direct act decides the
+    carried form as it decides the presentation itself.
+    Every other form stands materialised in the same
+    way the materialisation act gives it: an iterator
+    standing in any position stands listed once only,
+    a mapping stands rebuilt with its keys standing as
+    they stand and its values materialised, and a
+    container form stands rebuilt as the list of its
+    materialised elements. A container standing inside
+    itself stands as it stands at the cyclic position.
+    A view standing over no mapping this reading can
+    rebuild stands listed in the standing form.
+    """
+    kind = _materialise_kind(value)
+    if kind == "leaf":
+        return value
+    if id(value) in ancestors:
+        return value
+    child_ancestors = ancestors | {id(value)}
+    if kind == "dictionary view":
+        underlying = getattr(value, "mapping", None)
+        if underlying is None:
+            underlying = getattr(value, "_mapping", None)
+        if not isinstance(underlying, _Mapping):
+            return _materialise_iterators(value)
+        rebuilt = _materialise_view_form(
+            underlying, child_ancestors
+        )
+        if isinstance(value, _ItemsView):
+            return rebuilt.items()
+        if isinstance(value, _KeysView):
+            return rebuilt.keys()
+        return rebuilt.values()
+    if kind == "mapping" and isinstance(
+        value, _collections_module.ChainMap
+    ):
+        rebuilt = {}
+        for chained in value.maps:
+            for chained_key, inner in chained.items():
+                if chained_key in rebuilt:
+                    continue
+                rebuilt[chained_key] = _materialise_view_form(
+                    inner, child_ancestors
+                )
+        return rebuilt
+    if kind == "mapping":
+        return {
+            key: _materialise_view_form(inner, child_ancestors)
+            for key, inner in value.items()
+        }
+    return [
+        _materialise_view_form(element, child_ancestors)
+        for element in list(value)
+    ]
+
+
 def _resolve_text(value):
     """Read the text a value carries, in its stated forms.
 
@@ -1721,6 +1789,37 @@ def _carries_nested_mapping(listed):
             ),
         ) and _carries_nested_mapping(list(element)):
             return True
+        if isinstance(element, _ItemsView):
+            if _carries_nested_mapping(
+                [inner for _entry_key, inner in element]
+            ):
+                return True
+            continue
+        if isinstance(element, _ValuesView):
+            if _carries_nested_mapping(list(element)):
+                return True
+            continue
+        if isinstance(element, _KeysView):
+            if _carries_nested_mapping(
+                [
+                    entry
+                    for entry in element
+                    if isinstance(entry, _Mapping)
+                    or isinstance(
+                        entry,
+                        (
+                            list,
+                            tuple,
+                            set,
+                            frozenset,
+                            _collections_module.deque,
+                            _collections_module.UserList,
+                        ),
+                    )
+                ]
+            ):
+                return True
+            continue
         if hasattr(element, "__next__") or hasattr(
             element, "__iter__"
         ):
@@ -2274,7 +2373,13 @@ def _mappings_within_deep(value, seen=None):
     list, a tuple, a set, a frozenset, a deque, or a
     UserList, stands read for the mappings its elements
     stand as or carry in the same way, at any depth the
-    presentation nests them. A mapping or a container
+    presentation nests them. A dictionary view stands
+    read for the mapping it stands over and for the
+    mappings its elements stand as or carry in the same
+    way, so a carrier mapping presented through a view
+    standing at a mapping value, or inside a container,
+    stands yielded in the same form as the mapping
+    standing there itself. A mapping or a container
     already yielded on this walk stands yielded once
     only, so a cyclic presentation stands bounded and no
     mapping stands counted twice. Any other value yields
@@ -2290,6 +2395,23 @@ def _mappings_within_deep(value, seen=None):
         yield value
         for inner in value.values():
             yield from _mappings_within_deep(inner, seen)
+        return
+    if isinstance(value, (_KeysView, _ValuesView, _ItemsView)):
+        if id(value) in seen:
+            return
+        seen.add(id(value))
+        underlying = getattr(value, "mapping", None)
+        if underlying is None:
+            underlying = getattr(value, "_mapping", None)
+        if not _is_plain_mapping(underlying):
+            return
+        yield from _mappings_within_deep(underlying, seen)
+        try:
+            listed = list(value)
+        except Exception:
+            listed = []
+        for element in listed:
+            yield from _mappings_within_deep(element, seen)
         return
     if isinstance(
         value,
@@ -2309,7 +2431,102 @@ def _mappings_within_deep(value, seen=None):
             yield from _mappings_within_deep(element, seen)
 
 
-def _direct_bundle_extra_holdout(bundle):
+def _is_plain_mapping(value):
+    """Whether a mapping stands in a plain walked form.
+
+    A mapping standing in its own form, a plain
+    dictionary, a dictionary subclass, an OrderedDict,
+    a mapping proxy, and a ChainMap standing in its own
+    form among them, stands walked by the view readings
+    of this round. A ChainMap standing in a subclass
+    form stands in no part of those readings, its
+    standing readings governing it, because a walk of
+    such a mapping can stand as a delegation act on it.
+    """
+    return isinstance(value, _Mapping) and not (
+        isinstance(value, _collections_module.ChainMap)
+        and type(value) is not _collections_module.ChainMap
+    )
+
+
+def _keys_within_view_containers(value, seen=None):
+    """List the keys of mappings reached through views.
+
+    A mapping stands read for its own keys in the
+    standing way elsewhere, and stands in no part here.
+    A dictionary view standing inside a container form,
+    a list, a tuple, a set, a frozenset, a deque, or a
+    UserList, or standing as a mapping value, stands
+    read here for the keys of the mapping it stands
+    over, in parity with the same view standing at the
+    position itself, and a container or a mapping value
+    carrying such a view stands read in the same way at
+    any depth the presentation nests it. A view or a
+    container already walked on this reading stands
+    walked once only, so a cyclic presentation stands
+    bounded. Any other value carries no key here, and
+    no iterator stands listed by this reading.
+    """
+    if seen is None:
+        seen = set()
+    try:
+        if isinstance(value, (_KeysView, _ValuesView, _ItemsView)):
+            if id(value) in seen:
+                return []
+            seen.add(id(value))
+            keys = []
+            underlying = getattr(value, "mapping", None)
+            if underlying is None:
+                underlying = getattr(value, "_mapping", None)
+            if _is_plain_mapping(underlying):
+                keys.extend(list(underlying.keys()))
+                for inner in underlying.values():
+                    keys.extend(
+                        _keys_within_view_containers(inner, seen)
+                    )
+                for element in list(value):
+                    keys.extend(
+                        _keys_within_view_containers(element, seen)
+                    )
+            return keys
+        if isinstance(value, _Mapping):
+            if not _is_plain_mapping(value):
+                return []
+            if id(value) in seen:
+                return []
+            seen.add(id(value))
+            keys = []
+            for inner in value.values():
+                keys.extend(
+                    _keys_within_view_containers(inner, seen)
+                )
+            return keys
+        if isinstance(
+            value,
+            (
+                list,
+                tuple,
+                set,
+                frozenset,
+                _collections_module.deque,
+                _collections_module.UserList,
+            ),
+        ):
+            if id(value) in seen:
+                return []
+            seen.add(id(value))
+            keys = []
+            for element in value:
+                keys.extend(
+                    _keys_within_view_containers(element, seen)
+                )
+            return keys
+    except Exception:
+        return []
+    return []
+
+
+def _direct_bundle_extra_holdout(bundle, seen_ids=frozenset()):
     """Return holdout items from bundle positions in no read form.
 
     The plain dictionary bundle limb of the direct act
@@ -2362,7 +2579,17 @@ def _direct_bundle_extra_holdout(bundle):
     position stands read here in the same way, through
     the keys of the mapping the view stands over, in
     parity with its plain mapping and items view forms
-    at that position.
+    at that position. Material standing as a key of a
+    mapping presented through a view standing at a
+    mapping value of the pairs position, or through a
+    view standing inside a container or as a mapping
+    value at the items position, or through a view
+    standing inside a container at a holdout side
+    position, stands read here in the same way, through
+    the keys of the mapping the view stands over and
+    through the deep mapping reading, in parity with
+    the same views standing at those positions
+    themselves.
     """
     extra = []
     for key in ("holdout_items", "holdout"):
@@ -2381,6 +2608,30 @@ def _direct_bundle_extra_holdout(bundle):
                     collected
                 ):
                     extra.extend(_unwrapped_items(element))
+            if not isinstance(
+                value, (_KeysView, _ValuesView, _ItemsView)
+            ):
+                nested_keys = _keys_within_view_containers(value)
+                if nested_keys:
+                    nested_material = []
+                    for nested_key in nested_keys:
+                        if isinstance(nested_key, _Mapping):
+                            continue
+                        wrapped = _wrapped_key_holdout(nested_key)
+                        if wrapped:
+                            nested_material.extend(wrapped)
+                    if nested_material:
+                        held_ids = {
+                            id(item) for item in extra
+                        } | set(seen_ids)
+                        for element in _mapping_position_material(
+                            nested_material
+                        ):
+                            for item in _unwrapped_items(element):
+                                if id(item) in held_ids:
+                                    continue
+                                held_ids.add(id(item))
+                                extra.append(item)
             if value is None or _is_partitionable_form(value):
                 continue
             values = _mapping_position_values(value)
@@ -2435,6 +2686,7 @@ def _direct_bundle_extra_holdout(bundle):
                 wrapped_keys = list(underlying.keys())
         elif isinstance(value, _Mapping):
             wrapped_keys = list(value.keys())
+        wrapped_keys.extend(_keys_within_view_containers(value))
         wrapped_material = []
         for wrapped_key in wrapped_keys:
             if isinstance(wrapped_key, _Mapping):
@@ -2443,7 +2695,9 @@ def _direct_bundle_extra_holdout(bundle):
             if wrapped:
                 wrapped_material.extend(wrapped)
         if wrapped_material:
-            held_ids = {id(item) for item in extra[items_start:]}
+            held_ids = {
+                id(item) for item in extra[items_start:]
+            } | set(seen_ids)
             if isinstance(value, _KeysView):
                 split_elements = _position_elements(value)
                 if split_elements is not None:
@@ -2612,6 +2866,26 @@ def _direct_bundle_extra_holdout(bundle):
                                 _unwrapped_items(sides[0])
                             )
                         extra.extend(_unwrapped_items(sides[1]))
+            carrier_material = []
+            for mapping in _mappings_within_deep(value):
+                for carrier_key in mapping.keys():
+                    if isinstance(carrier_key, _Mapping):
+                        continue
+                    wrapped = _wrapped_key_holdout(carrier_key)
+                    if wrapped:
+                        carrier_material.extend(wrapped)
+            if carrier_material:
+                held_ids = {
+                    id(item) for item in extra
+                } | set(seen_ids)
+                for element in _mapping_position_material(
+                    carrier_material
+                ):
+                    for item in _unwrapped_items(element):
+                        if id(item) in held_ids:
+                            continue
+                        held_ids.add(id(item))
+                        extra.append(item)
     return extra
 
 
@@ -2704,7 +2978,11 @@ def _wrapped_probe(listed):
     relisted form first, so an iterator element stands
     held in its listed form and no element stands
     consumed by the probe where the form carries no
-    nested mapping. Returns the nested mapping the form
+    nested mapping. A dictionary view element stands as
+    it stands in this probe, so a single pass key the
+    view carries stands consumed by no probe listing
+    and stands read by the key readings that follow.
+    Returns the nested mapping the form
     carries or None, the relisted form, and whether any
     element stands relisted, so a form the probe changed
     stands replaced by its relisted form where it
@@ -2712,7 +2990,10 @@ def _wrapped_probe(listed):
     the generator limb of the wrapped position reading.
     """
     relisted = [
-        _carrier_relisted_form(element) for element in listed
+        element
+        if isinstance(element, (_KeysView, _ValuesView, _ItemsView))
+        else _carrier_relisted_form(element)
+        for element in listed
     ]
     nested = _nested_mapping_from_listed(relisted)
     changed = any(
@@ -2737,6 +3018,44 @@ def _multi_nested_replacement(relisted):
     if _carries_nested_mapping(relisted):
         return dict(enumerate(relisted))
     return None
+
+
+def _view_mapping_form(element):
+    """Return the mapping a dictionary view element carries.
+
+    A dictionary view standing as an element of a
+    container at a bundle position stands read in the
+    wrapped nested reading as the mapping it stands
+    over, in parity with the keys view form of the same
+    reading standing at the position itself, so the key
+    material the viewed mapping carries stands read by
+    the readings that follow and no part of it stands
+    dissolved by the listing of the view. A ChainMap
+    stands read in the order of its maps in the same
+    way. Any other element stands as it stands.
+    """
+    if isinstance(element, (_KeysView, _ValuesView, _ItemsView)):
+        underlying = getattr(element, "mapping", None)
+        if underlying is None:
+            underlying = getattr(element, "_mapping", None)
+        if not _is_plain_mapping(underlying):
+            return element
+        try:
+            if isinstance(
+                underlying, _collections_module.ChainMap
+            ):
+                carried = {}
+                for chained in underlying.maps:
+                    for chained_key, inner in chained.items():
+                        if chained_key in carried:
+                            continue
+                        carried[chained_key] = inner
+                return carried
+            if isinstance(underlying, _Mapping):
+                return dict(underlying)
+        except Exception:
+            return element
+    return element
 
 
 def _wrapped_nested_position_material(material):
@@ -2887,7 +3206,10 @@ def _wrapped_nested_position_material(material):
         elif isinstance(
             value, (tuple, _collections_module.deque)
         ) or hasattr(value, "__next__"):
-            listed = list(value)
+            listed = [
+                _view_mapping_form(element)
+                for element in list(value)
+            ]
             nested, relisted, changed = _wrapped_probe(listed)
             multi = _multi_nested_replacement(relisted)
             if nested is not None:
@@ -2914,7 +3236,10 @@ def _wrapped_nested_position_material(material):
             value, "__getitem__"
         ):
             try:
-                listed = list(value)
+                listed = [
+                    _view_mapping_form(element)
+                    for element in list(value)
+                ]
             except Exception:
                 listed = None
             if listed is not None:
@@ -2961,7 +3286,10 @@ def _holdout_items_of(holdout_material):
             )
             candidate, holdout = _split_items(holdout_material)
             return holdout + _direct_bundle_extra_holdout(
-                holdout_material
+                holdout_material,
+                seen_ids=frozenset(
+                    id(item) for item in holdout
+                ),
             )
         if holdout_material and not any(
             key in holdout_material for key in _ITEM_FIELD_KEYS
