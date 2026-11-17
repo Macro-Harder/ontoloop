@@ -155,7 +155,29 @@ def _residual_content_mapping(value):
     slot values, this act returns a fresh mapping of
     that content, keyed by attribute or slot name, so
     the encoding reads the content of the value and
-    not only its string form. Where the value carries
+    not only its string form. A slot whose stated name
+    carries two leading underscores stands stored
+    under a storage name carrying the stating class
+    name as a prefix, and the act reads that slot
+    under its storage name beside the raw name, so
+    its content stands in the mapping in the same
+    form as any other slot content. Where a subclass
+    states a slot under the same stated name as a
+    base class, the slot of each stating class
+    stands read under its own storage name, so the
+    content of every stating class stands in the
+    mapping. Where a subclass states a slot under a
+    plain stated name, or under a stated name
+    carrying one leading underscore, that a base
+    class states again, the slot of each stating
+    class stands read through the descriptor of its
+    own stating class, the content of a later
+    stating class standing in the mapping under a
+    key naming that stating class beside the stated
+    name, so the content of every stating class
+    stands in the mapping in that form as well.
+    Where the value
+    carries
     no such content, the act returns None, and the
     encoding states its governed no content form or
     its content bearing string form, as
@@ -178,11 +200,156 @@ def _residual_content_mapping(value):
             if name in ("__dict__", "__weakref__"):
                 continue
             if name in mapping:
+                if name.startswith("__") and not name.endswith("__"):
+                    storage = "_" + cls.__name__.lstrip("_") + name
+                    if storage != name and storage not in mapping:
+                        try:
+                            mapping[storage] = getattr(value, storage)
+                        except AttributeError:
+                            pass
+                else:
+                    descriptor = cls.__dict__.get(name)
+                    if descriptor is not None and hasattr(
+                        descriptor, "__get__"
+                    ):
+                        key = cls.__qualname__ + ":" + name
+                        if key not in mapping:
+                            try:
+                                mapping[key] = descriptor.__get__(value)
+                            except AttributeError:
+                                pass
                 continue
             try:
                 mapping[name] = getattr(value, name)
-            except AttributeError:
                 continue
+            except AttributeError:
+                pass
+            if name.startswith("__") and not name.endswith("__"):
+                storage = "_" + cls.__name__.lstrip("_") + name
+                if storage != name:
+                    try:
+                        mapping[name] = getattr(value, storage)
+                    except AttributeError:
+                        continue
+            else:
+                descriptor = cls.__dict__.get(name)
+                if descriptor is not None and hasattr(
+                    descriptor, "__get__"
+                ):
+                    try:
+                        mapping[name] = descriptor.__get__(value)
+                    except AttributeError:
+                        continue
+    if mapping:
+        return mapping
+    return None
+
+
+def _class_namespace_mapping(value):
+    """Return the namespace mapping of a class, or None.
+
+    A class standing as a value carries its content in
+    its class namespace, which its vars act returns as
+    a mapping proxy and not as a dict, so the residual
+    content reading returns no content for a class in
+    any case. This act reads that namespace in a
+    governed form: each member standing in the
+    namespace stands in the mapping under its member
+    name, a member standing as plain data, or as a
+    container of plain data, standing in the mapping
+    in its own form, a member standing as a function,
+    a classmethod, a staticmethod, or a property
+    standing in the mapping as a token naming the
+    callable it wraps by its module and its qualified
+    name, a member standing as a class standing as a
+    token naming that class in the same name form, a
+    member standing as an instance of the class
+    standing as a token naming its kind, so no member
+    reading walks back into the class itself, and any
+    further member standing as a token naming its
+    type. The bookkeeping members stating the class
+    name form itself stand in no entry, that form
+    standing stated beside the mapping in the
+    encoding. Where the namespace carries no member
+    beyond those bookkeeping members, the act returns
+    None, and the class digests in its standing string
+    form.
+    """
+    import types as _types_module
+
+    if not isinstance(value, type):
+        return None
+    try:
+        stored = vars(value)
+    except TypeError:
+        return None
+
+    def _callable_token(member, fallback):
+        return (
+            "callable:"
+            + (getattr(member, "__module__", None) or "")
+            + "."
+            + (getattr(member, "__qualname__", None) or fallback)
+        )
+
+    def _convert(member, depth):
+        if member is value:
+            return "class:self"
+        if isinstance(member, value):
+            return "instance:" + type(member).__name__
+        if member is None or isinstance(
+            member, (bool, int, float, str, bytes, bytearray)
+        ):
+            return member
+        if isinstance(member, type):
+            return (
+                "class:"
+                + (getattr(member, "__module__", None) or "")
+                + "."
+                + (getattr(member, "__qualname__", None) or "")
+            )
+        if isinstance(
+            member,
+            (
+                _types_module.FunctionType,
+                _types_module.BuiltinFunctionType,
+            ),
+        ):
+            return _callable_token(member, "callable")
+        if isinstance(member, (classmethod, staticmethod)):
+            return _callable_token(member.__func__, "callable")
+        if isinstance(member, property):
+            if member.fget is None:
+                return "callable:property"
+            return _callable_token(member.fget, "property")
+        if isinstance(member, dict) and depth < 3:
+            converted = {}
+            for item_key in member:
+                key_form = _convert(item_key, depth + 1)
+                try:
+                    hash(key_form)
+                except TypeError:
+                    key_form = "object:" + type(item_key).__name__
+                converted[key_form] = _convert(
+                    member[item_key], depth + 1
+                )
+            return converted
+        if isinstance(member, (list, tuple)) and depth < 3:
+            return [_convert(item, depth + 1) for item in member]
+        if isinstance(member, (set, frozenset)) and depth < 3:
+            return [_convert(item, depth + 1) for item in member]
+        return "object:" + type(member).__name__
+
+    mapping = {}
+    for key in stored:
+        if key in (
+            "__dict__",
+            "__weakref__",
+            "__module__",
+            "__qualname__",
+        ):
+            continue
+        mapping[key] = _convert(stored[key], 0)
     if mapping:
         return mapping
     return None
@@ -222,34 +389,413 @@ def _tagged_digest_form(value):
     value stating no content in any of those forms
     encodes under its type name in a no content form
     carrying no process address, so its encoding
-    stands the same in every process.
+    stands the same in every process. A subclass
+    instance of a named container form encodes over
+    its container content and over its added instance
+    content together, and a subclass instance of a
+    Decimal, a date, a time, or a timedelta carrying
+    added instance content encodes over its intrinsic
+    string form and over that content together, so
+    state standing in either channel stands in the
+    digest. A subclass instance of a scalar or byte
+    like type carrying added instance content encodes
+    over its intrinsic value and over that content
+    together, in the same two channel form, and a
+    subclass instance of a complex, an array, or a
+    deque carrying added instance content encodes
+    over its intrinsic content and over that content
+    together, the attribute reading never preempting
+    the intrinsic channel. A subclass instance of an
+    exception type carrying added instance content
+    encodes over its argument content and over that
+    content together, in the same two channel form,
+    the filename channels of an OSError standing
+    beside its argument content in that form, and the
+    cause and context channels of an exception
+    standing beside its argument content in every
+    exception form, the suppression flag channel of
+    an exception, the name and path channels of an
+    ImportError, and the filename, line, offset,
+    text, and end position channels of a SyntaxError
+    standing beside its argument content in every
+    exception form beside them, the name and object
+    channels of an AttributeError, the name channel
+    of a NameError, and the subexception content an
+    exception group carries standing beside its
+    argument content in every exception form beside
+    them, an exception group and an AttributeError
+    and a NameError standing decided into the
+    chained kind in their plain forms as in their
+    added state forms, so their argument content and
+    their channels stand read in both forms, the
+    encoding walk
+    standing over that chaining walk in its cyclic
+    form, and a
+    member of an enum mixing in int, float, str,
+    bytes, or bytearray carrying added instance
+    content beyond the
+    member state its enum class states encodes over
+    its intrinsic value and over that added content
+    together, a member carrying no such added content
+    encoding in its standing form. A defaultdict
+    encodes over its entries and over a governed form
+    of its default factory together, a factory stating
+    no such form standing refused, a type factory
+    standing in a local scope, whose module and
+    qualified name state no distinction from a second
+    such type, standing refused in the same form, a
+    type factory standing as no standing module state
+    under its stated module and qualified name, as a
+    type created by a type constructor call or a type
+    retained from a definition a later definition of
+    the same name replaced, standing refused in the
+    same form, the token stating a type factory only
+    where the standing module state under its stated
+    names stands as that type itself, and a class
+    standing as a value encoding over its stated name
+    form and over a governed form of its namespace
+    content together, where its namespace carries
+    content in that form, and a function
+    carrying added instance content stands refused in
+    the form its plain form stands refused, the
+    function channel standing decided before the
+    attribute reading in the same form as the stream
+    and iterator positions, and a partial application
+    carrying added instance content standing refused
+    in the form its plain form stands refused, its
+    channel standing decided before the attribute
+    reading in the same form. An in memory stream encodes
+    over the content it holds, read through its
+    getvalue act without consumption, and a stream
+    subclass instance carrying added instance content
+    encodes over that held content and over that
+    content together. A value whose content stands
+    in a channel this reading cannot reach without
+    consumption, an iterator among them, a stream
+    whose content stands readable in no such form,
+    and a value whose string form carries its process
+    address in any dress, behind the words at 0x in
+    either marker case, with no at wording before it,
+    as a decimal number after the word at, behind a
+    hash sign, a colon, or brackets, behind the word
+    At with a capital first letter, grouped with
+    commas after the word at, or standing bare inside
+    a bracketed form as a decimal or hexadecimal
+    number, or standing in any whole token dress the
+    scan reads in substance, after a space, inside
+    parentheses, behind an equals sign, a semicolon,
+    or a slash, attached to its introducer, or at the
+    head of the form, or standing separated into
+    groups by a separator sequence of any width, each
+    separator of one grouped form standing as one
+    consistent sequence of characters standing
+    outside the letters and the digits, as grouped
+    decimal groups or as hexadecimal pairs or groups,
+    stand
+    refused with a ValueError naming the type of the
+    material, so no digest stands taken over an
+    unread channel or over an address.
+    The stream and iterator positions stand decided
+    before the attribute reading, so a value carrying
+    readable attributes beside an unread channel
+    stands read or refused on that channel and never
+    on its attributes alone.
     """
+    import array as _array_module
+    import collections as _collections_module
+    import datetime as _datetime_module
+    import decimal as _decimal_module
+    import enum as _enum_module
+    import functools as _functools_module
+    import io as _io_module
+    import re as _re_module
+    import sys as _sys_module
+    import types as _types_module
+
+    def _enum_added_mapping(member):
+        residual = _residual_content_mapping(member)
+        if residual is None:
+            return None
+        added = {}
+        for key in residual:
+            if key in (
+                "_value_",
+                "_name_",
+                "__objclass__",
+                "_sort_order_",
+            ):
+                continue
+            added[key] = residual[key]
+        if added:
+            return added
+        return None
+
+    def _address_bearing(text):
+        if _re_module.search(
+            r" at 0[xX][0-9a-fA-F]+"
+            r"| at [0-9]{5,}"
+            r"|0[xX][0-9a-fA-F]{4,}"
+            r"| At [0-9]{5,}"
+            r"| [aA]t [0-9]{1,3}(?:,[0-9]{3})+"
+            r"| [#:\[] *[0-9]{5,}"
+            r"| [#:\[] *[0-9]{1,3}(?:,[0-9]{3})+"
+            r"|<[^>]*[0-9]{7,}[^>]*>"
+            r"|<[^>]*[0-9]{1,3}(?:,[0-9]{3})+[^>]*>"
+            r"|<[^>]*\b(?=[0-9a-fA-F]*[a-fA-F])"
+            r"(?=[0-9a-fA-F]*[0-9])"
+            r"[0-9a-fA-F]{7,}\b[^>]*>",
+            text,
+        ):
+            return True
+        stripped = text.strip()
+        if _re_module.fullmatch(
+            r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)"
+            r"(?:[eE][+-]?[0-9]+)?",
+            stripped,
+        ):
+            return False
+        if _re_module.search(r"[0-9]{7,}", text):
+            return True
+        if _re_module.search(
+            r"(?<![0-9a-fA-F])"
+            r"(?=[0-9a-fA-F]*[a-fA-F])(?=[0-9a-fA-F]*[0-9])"
+            r"[0-9a-fA-F]{7,}(?![0-9a-fA-F])",
+            text,
+        ):
+            return True
+        if _re_module.search(
+            r"(?<![0-9])[0-9]{1,3}([^0-9A-Za-z]+)[0-9]{3}"
+            r"(?:\1[0-9]{3})+(?![0-9])",
+            text,
+        ):
+            return True
+        if _re_module.search(
+            r"(?<![0-9a-fA-F])[0-9a-fA-F]{2}([^0-9A-Za-z]+)"
+            r"[0-9a-fA-F]{2}(?:\1[0-9a-fA-F]{2}){4,}"
+            r"(?![0-9a-fA-F])",
+            text,
+        ):
+            return True
+        for match in _re_module.finditer(
+            r"(?<![0-9a-fA-F])[0-9a-fA-F]{4}([^0-9A-Za-z]+)"
+            r"[0-9a-fA-F]{4}(?:\1[0-9a-fA-F]{4}){1,}"
+            r"(?![0-9a-fA-F])",
+            text,
+        ):
+            if _re_module.search(r"[a-fA-F]", match.group(0)):
+                return True
+        return False
+
+    def _dict_factory_token(current):
+        if not isinstance(
+            current, _collections_module.defaultdict
+        ):
+            return None
+        factory = current.default_factory
+        if factory is None:
+            return None
+        if isinstance(factory, type):
+            if "<locals>" in factory.__qualname__:
+                raise ValueError(
+                    "digest cannot read material of type "
+                    + type(current).__name__
+                )
+            resolved = _sys_module.modules.get(factory.__module__)
+            if resolved is not None:
+                for part in factory.__qualname__.split("."):
+                    resolved = getattr(resolved, part, None)
+                    if resolved is None:
+                        break
+            if resolved is not factory:
+                raise ValueError(
+                    "digest cannot read material of type "
+                    + type(current).__name__
+                )
+            return (
+                "factorytype:"
+                + factory.__module__
+                + "."
+                + factory.__qualname__
+            )
+        if (
+            callable(factory)
+            and type(factory).__name__
+            == "builtin_function_or_method"
+            and getattr(factory, "__qualname__", None)
+            and "<lambda>" not in factory.__qualname__
+        ):
+            return (
+                "factorybuiltin:"
+                + factory.__module__
+                + "."
+                + factory.__qualname__
+            )
+        raise ValueError(
+            "digest cannot read material of type "
+            + type(current).__name__
+        )
+
+    def _exception_filename(current, attribute):
+        if isinstance(current, OSError):
+            value = getattr(current, attribute, None)
+            if value is not None:
+                return value
+        return None
+
+    def _exception_channels(current):
+        if isinstance(current, ImportError):
+            import_name = getattr(current, "name", None)
+            import_path = getattr(current, "path", None)
+        else:
+            import_name = None
+            import_path = None
+        if isinstance(current, SyntaxError):
+            syntax = (
+                getattr(current, "filename", None),
+                getattr(current, "lineno", None),
+                getattr(current, "offset", None),
+                getattr(current, "text", None),
+                getattr(current, "end_lineno", None),
+                getattr(current, "end_offset", None),
+            )
+        else:
+            syntax = None
+        if isinstance(current, AttributeError):
+            attribute_name = getattr(current, "name", None)
+            attribute_object = getattr(current, "obj", None)
+        else:
+            attribute_name = None
+            attribute_object = None
+        if isinstance(current, NameError):
+            name_error_name = getattr(current, "name", None)
+        else:
+            name_error_name = None
+        if isinstance(current, BaseExceptionGroup):
+            group_exceptions = tuple(
+                getattr(current, "exceptions", ()) or ()
+            )
+        else:
+            group_exceptions = ()
+        return (
+            bool(getattr(current, "__suppress_context__", False)),
+            import_name,
+            import_path,
+            syntax,
+            attribute_name,
+            attribute_object,
+            name_error_name,
+            group_exceptions,
+        )
+
     results = []
     path = set()
     stack = [(value, False, 0)]
     while stack:
         current, expanded, child_count = stack.pop()
+        base_kind = None
         if isinstance(current, dict):
-            kind = "dict"
+            base_kind = "dict"
         elif isinstance(current, list):
-            kind = "list"
+            base_kind = "list"
         elif isinstance(current, tuple):
-            kind = "tuple"
+            base_kind = "tuple"
         elif isinstance(current, frozenset):
-            kind = "frozenset"
+            base_kind = "frozenset"
         elif isinstance(current, set):
-            kind = "set"
+            base_kind = "set"
+        if base_kind is not None:
+            if _residual_content_mapping(current) is not None:
+                kind = base_kind + "_attrs"
+            else:
+                kind = base_kind
+        elif (
+            isinstance(
+                current,
+                (
+                    _decimal_module.Decimal,
+                    _datetime_module.date,
+                    _datetime_module.time,
+                    _datetime_module.timedelta,
+                    complex,
+                    _array_module.array,
+                    _collections_module.deque,
+                ),
+            )
+            and _residual_content_mapping(current) is not None
+        ):
+            kind = "value_attrs"
+        elif (
+            isinstance(current, _enum_module.Enum)
+            and isinstance(current, (int, float, str, bytes, bytearray))
+            and _enum_added_mapping(current) is not None
+        ):
+            kind = "enum_attrs"
+        elif (
+            isinstance(
+                current,
+                (bool, int, float, str, bytes, bytearray, memoryview),
+            )
+            and not isinstance(current, _enum_module.Enum)
+            and _residual_content_mapping(current) is not None
+        ):
+            kind = "scalar_attrs"
+        elif (
+            isinstance(current, _io_module.IOBase)
+            and _residual_content_mapping(current) is not None
+        ):
+            kind = "stream_attrs"
+        elif (
+            isinstance(current, BaseException)
+            and _residual_content_mapping(current) is not None
+        ):
+            kind = "exc_attrs"
+        elif (
+            isinstance(current, BaseException)
+            and (
+                getattr(current, "__cause__", None) is not None
+                or getattr(current, "__context__", None) is not None
+                or getattr(current, "__suppress_context__", False)
+                or isinstance(
+                    current,
+                    (
+                        ImportError,
+                        SyntaxError,
+                        BaseExceptionGroup,
+                        AttributeError,
+                        NameError,
+                    ),
+                )
+            )
+        ):
+            kind = "exc_chain"
+        elif (
+            isinstance(current, type)
+            and _class_namespace_mapping(current) is not None
+        ):
+            kind = "class_attrs"
         elif (
             current is not None
             and not isinstance(
                 current,
                 (bool, int, float, str, bytes, bytearray, memoryview),
             )
+            and not isinstance(current, _io_module.IOBase)
+            and not hasattr(current, "__next__")
             and _residual_content_mapping(current) is not None
         ):
             kind = "attrs"
         else:
             kind = None
+        if isinstance(current, _types_module.FunctionType):
+            kind = None
+        if (
+            isinstance(current, _functools_module.partial)
+            and _residual_content_mapping(current) is not None
+        ):
+            raise ValueError(
+                "digest cannot read material of type "
+                + type(current).__name__
+            )
         if kind is None:
             if current is None:
                 results.append(b"none;")
@@ -272,7 +818,41 @@ def _tagged_digest_form(value):
                     b"bytes:" + str(len(raw)).encode("ascii") + b":" + raw + b";"
                 )
             else:
-                if (
+                if isinstance(current, _io_module.IOBase):
+                    getvalue = getattr(current, "getvalue", None)
+                    content = None
+                    if getvalue is not None:
+                        try:
+                            content = getvalue()
+                        except Exception:
+                            content = None
+                    if isinstance(content, bytes):
+                        results.append(
+                            b"stream:"
+                            + type(current).__name__.encode("utf-8")
+                            + b":bytes:"
+                            + str(len(content)).encode("ascii")
+                            + b":" + content + b";"
+                        )
+                    elif isinstance(content, str):
+                        raw = content.encode("utf-8")
+                        results.append(
+                            b"stream:"
+                            + type(current).__name__.encode("utf-8")
+                            + b":str:" + str(len(raw)).encode("ascii")
+                            + b":" + raw + b";"
+                        )
+                    else:
+                        raise ValueError(
+                            "digest cannot read material of type "
+                            + type(current).__name__
+                        )
+                elif hasattr(current, "__next__"):
+                    raise ValueError(
+                        "digest cannot read material of type "
+                        + type(current).__name__
+                    )
+                elif (
                     type(current).__str__ is object.__str__
                     and type(current).__repr__ is object.__repr__
                 ):
@@ -282,7 +862,13 @@ def _tagged_digest_form(value):
                         + b":nocontent;"
                     )
                 else:
-                    raw = str(current).encode("utf-8")
+                    text = str(current)
+                    if _address_bearing(text):
+                        raise ValueError(
+                            "digest cannot read material of type "
+                            + type(current).__name__
+                        )
+                    raw = text.encode("utf-8")
                     results.append(
                         b"other:" + type(current).__name__.encode("utf-8")
                         + b":" + str(len(raw)).encode("ascii")
@@ -294,13 +880,54 @@ def _tagged_digest_form(value):
             if marker in path:
                 raise ValueError("cyclic value in canonical form")
             path.add(marker)
-            if kind == "dict":
+            if kind in ("dict", "dict_attrs"):
                 children = []
                 for key in current:
                     children.append(key)
                     children.append(current[key])
-            elif kind == "attrs":
+                if kind == "dict_attrs":
+                    children.append(_residual_content_mapping(current))
+                factory_token = _dict_factory_token(current)
+                if factory_token is not None:
+                    children.append(factory_token)
+            elif kind == "exc_attrs":
+                children = [
+                    tuple(current.args),
+                    _residual_content_mapping(current),
+                    _exception_filename(current, "filename"),
+                    _exception_filename(current, "filename2"),
+                    getattr(current, "__cause__", None),
+                    getattr(current, "__context__", None),
+                    _exception_channels(current),
+                ]
+            elif kind == "exc_chain":
+                children = [
+                    tuple(current.args),
+                    _exception_filename(current, "filename"),
+                    _exception_filename(current, "filename2"),
+                    getattr(current, "__cause__", None),
+                    getattr(current, "__context__", None),
+                    _exception_channels(current),
+                ]
+            elif kind == "enum_attrs":
+                children = [_enum_added_mapping(current)]
+            elif kind == "class_attrs":
+                text = str(current)
+                if _address_bearing(text):
+                    raise ValueError(
+                        "digest cannot read material of type "
+                        + type(current).__name__
+                    )
+                children = [text, _class_namespace_mapping(current)]
+            elif kind in (
+                "attrs", "value_attrs", "scalar_attrs", "stream_attrs"
+            ):
                 children = [_residual_content_mapping(current)]
+            elif kind in (
+                "list_attrs", "tuple_attrs", "set_attrs", "frozenset_attrs"
+            ):
+                children = list(current)
+                children.append(_residual_content_mapping(current))
             else:
                 children = list(current)
             stack.append((current, True, len(children)))
@@ -313,26 +940,152 @@ def _tagged_digest_form(value):
             del results[len(results) - child_count:]
         else:
             parts = []
-        if kind == "dict":
+        if kind in ("dict", "dict_attrs"):
+            factory_part = None
+            entry_parts = parts
+            if _dict_factory_token(current) is not None:
+                factory_part = parts[-1]
+                entry_parts = parts[:-1]
+            attrs_part = None
+            if kind == "dict_attrs":
+                attrs_part = entry_parts[-1]
+                entry_parts = entry_parts[:-1]
             entries = []
-            for index in range(0, len(parts), 2):
-                entries.append(parts[index] + b"=" + parts[index + 1])
+            for index in range(0, len(entry_parts), 2):
+                entries.append(
+                    entry_parts[index] + b"=" + entry_parts[index + 1]
+                )
             entries.sort()
-            results.append(b"dict:{" + b",".join(entries) + b"}")
+            encoded = b"dict:{" + b",".join(entries) + b"}"
+            if attrs_part is not None:
+                encoded = encoded + b"+attrs=" + attrs_part
+            if factory_part is not None:
+                encoded = encoded + b"+factory=" + factory_part
+            if attrs_part is not None or factory_part is not None:
+                encoded = encoded + b";"
+            results.append(encoded)
         elif kind == "attrs":
             results.append(
                 b"object:" + type(current).__name__.encode("utf-8")
                 + b"=" + parts[0] + b";"
             )
-        elif kind in ("set", "frozenset"):
-            parts.sort()
+        elif kind == "exc_attrs":
             results.append(
-                kind.encode("ascii") + b":[" + b",".join(parts) + b"]"
+                b"object:" + type(current).__name__.encode("utf-8")
+                + b"=args=" + parts[0] + b"+attrs=" + parts[1]
+                + b"+filename=" + parts[2]
+                + b"+filename2=" + parts[3]
+                + b"+cause=" + parts[4]
+                + b"+context=" + parts[5]
+                + b"+channels=" + parts[6] + b";"
             )
+        elif kind == "exc_chain":
+            results.append(
+                b"object:" + type(current).__name__.encode("utf-8")
+                + b"=args=" + parts[0]
+                + b"+filename=" + parts[1]
+                + b"+filename2=" + parts[2]
+                + b"+cause=" + parts[3]
+                + b"+context=" + parts[4]
+                + b"+channels=" + parts[5] + b";"
+            )
+        elif kind == "class_attrs":
+            results.append(
+                b"class:" + parts[0] + b"+namespace=" + parts[1] + b";"
+            )
+        elif kind == "value_attrs":
+            raw = str(current).encode("utf-8")
+            intrinsic = (
+                b"other:" + type(current).__name__.encode("utf-8")
+                + b":" + str(len(raw)).encode("ascii")
+                + b":" + raw + b";"
+            )
+            results.append(intrinsic + b"+attrs=" + parts[0] + b";")
+        elif kind in ("scalar_attrs", "enum_attrs"):
+            if isinstance(current, bool):
+                intrinsic = b"bool:true;" if current else b"bool:false;"
+            elif isinstance(current, int):
+                intrinsic = (
+                    b"int:" + str(current).encode("ascii") + b";"
+                )
+            elif isinstance(current, float):
+                intrinsic = (
+                    b"float:" + repr(current).encode("ascii") + b";"
+                )
+            elif isinstance(current, str):
+                raw = current.encode("utf-8")
+                intrinsic = (
+                    b"str:" + str(len(raw)).encode("ascii")
+                    + b":" + raw + b";"
+                )
+            else:
+                raw = bytes(current)
+                intrinsic = (
+                    b"bytes:" + str(len(raw)).encode("ascii")
+                    + b":" + raw + b";"
+                )
+            results.append(intrinsic + b"+attrs=" + parts[0] + b";")
+        elif kind == "stream_attrs":
+            getvalue = getattr(current, "getvalue", None)
+            content = None
+            if getvalue is not None:
+                try:
+                    content = getvalue()
+                except Exception:
+                    content = None
+            if isinstance(content, bytes):
+                intrinsic = (
+                    b"stream:"
+                    + type(current).__name__.encode("utf-8")
+                    + b":bytes:"
+                    + str(len(content)).encode("ascii")
+                    + b":" + content + b";"
+                )
+            elif isinstance(content, str):
+                raw = content.encode("utf-8")
+                intrinsic = (
+                    b"stream:"
+                    + type(current).__name__.encode("utf-8")
+                    + b":str:" + str(len(raw)).encode("ascii")
+                    + b":" + raw + b";"
+                )
+            else:
+                raise ValueError(
+                    "digest cannot read material of type "
+                    + type(current).__name__
+                )
+            results.append(intrinsic + b"+attrs=" + parts[0] + b";")
+        elif kind in ("set", "frozenset", "set_attrs", "frozenset_attrs"):
+            attrs_part = None
+            member_parts = parts
+            base_kind = kind
+            if kind in ("set_attrs", "frozenset_attrs"):
+                attrs_part = parts[-1]
+                member_parts = parts[:-1]
+                base_kind = kind[:-len("_attrs")]
+            member_parts.sort()
+            encoded = (
+                base_kind.encode("ascii")
+                + b":[" + b",".join(member_parts) + b"]"
+            )
+            if attrs_part is not None:
+                encoded = encoded + b"+attrs=" + attrs_part + b";"
+            results.append(encoded)
         else:
-            results.append(
-                kind.encode("ascii") + b":[" + b",".join(parts) + b"]"
+            attrs_part = None
+            member_parts = parts
+            base_kind = kind
+            if kind in ("list_attrs", "tuple_attrs"):
+                attrs_part = parts[-1]
+                member_parts = parts[:-1]
+                base_kind = kind[:-len("_attrs")]
+            encoded = (
+                base_kind.encode("ascii")
+                + b":[" + b",".join(member_parts) + b"]"
             )
+            if attrs_part is not None:
+                encoded = encoded + b"+attrs=" + attrs_part + b";"
+            results.append(encoded)
     return results[0]
 
 
@@ -341,13 +1094,17 @@ def _ingest_material_digest(material):
 
     The digest stands taken over a canonical form of
     the material that distinguishes its type as well
-    as its content, in the form the consumption module
+    as its content, in the form the service layer
     digest helper governs for such encodings in this
     scope: byte like material, standing as bytes, as
     a bytearray, or as a memoryview, over its bytes in
     the one form the byte like family states at every
-    depth, string material over its UTF-8 encoding, and
-    any other material over the tagged canonical encoding
+    depth, string material over its UTF-8 encoding, a
+    subclass instance of a byte like or string type
+    carrying added instance content over the tagged
+    canonical encoding instead, so that content stands
+    in its digest, and any other material over the
+    tagged canonical encoding
     _tagged_digest_form states, carried behind a
     marker no string or byte limb carries, so a
     scalar, a sequence, a tuple, a set, and a mapping
@@ -356,17 +1113,19 @@ def _ingest_material_digest(material):
     every process, and a mapping with mixed or tuple
     keys digests in that governed form with no
     exception. Two mappings holding the same entries
-    in different key order return one digest. String
-    material therefore digests exactly as it did under
-    the string form this act replaces, while byte
-    material and its string spelling, and no material
-    and the string None, return differing digests.
+    in different key order return one digest.
     """
     import hashlib
 
-    if isinstance(material, (bytes, bytearray, memoryview)):
+    if (
+        isinstance(material, (bytes, bytearray, memoryview))
+        and _residual_content_mapping(material) is None
+    ):
         payload = bytes(material)
-    elif isinstance(material, str):
+    elif (
+        isinstance(material, str)
+        and _residual_content_mapping(material) is None
+    ):
         payload = material.encode("utf-8")
     else:
         payload = (
