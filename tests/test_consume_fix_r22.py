@@ -339,12 +339,22 @@ class TestConsumeFixR22AddressSequenceForms(unittest.TestCase):
 
     def test_ruling_911_sequence_dress_nested_refused(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check([_DecCommaSpaceProbe()])
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type "
+            "_DecCommaSpaceProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 {"k": _HexTwoColonsPairsProbe()}
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type "
+            "_HexTwoColonsPairsProbe",
+        )
 
     def test_ruling_911_hash_check_on_fresh_instance_refused(self):
         module = require("ontoloop.consumption")
@@ -352,10 +362,15 @@ class TestConsumeFixR22AddressSequenceForms(unittest.TestCase):
             _DecTwoHyphensProbe(),
             _DecTwoHyphensProbe(),
         )
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 held_second, expected_hash="0" * 64
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type "
+            "_DecTwoHyphensProbe",
+        )
         self.assertIsNotNone(held_first)
 
     def test_ruling_911_content_bearing_string_forms_still_digest(self):
@@ -378,10 +393,20 @@ class TestConsumeFixR22AddressSequenceForms(unittest.TestCase):
 
     def test_ruling_911_single_character_forms_still_refused(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(_DecColonGroupsProbe())
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type "
+            "_DecColonGroupsProbe",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(_CoveredAddressProbe())
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type "
+            "_CoveredAddressProbe",
+        )
 
     def test_ruling_911_short_forms_and_no_content_form_stand(self):
         short_one = _ShortNumberProbe("<short probe at 123>")
@@ -792,23 +817,35 @@ class TestConsumeFixR22FactoryTokenForms(unittest.TestCase):
     def test_ruling_916_dynamic_factory_nested_refused(self):
         module = require("ontoloop.consumption")
         factory = type("DynFactory", (), {"__module__": __name__})
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 [collections.defaultdict(factory, {"k": 1})]
             )
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type defaultdict",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 {"wrap": collections.defaultdict(factory, {"k": 1})}
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type defaultdict",
+        )
 
     def test_ruling_916_dynamic_factory_hash_check_refused(self):
         module = require("ontoloop.consumption")
         factory = type("DynFactory", (), {"__module__": __name__})
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 collections.defaultdict(factory, {"k": 1}),
                 expected_hash="0" * 64,
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type defaultdict",
+        )
 
     def test_ruling_916_redefined_factory_forms_decide(self):
         module = require("ontoloop.consumption")
@@ -859,10 +896,14 @@ class TestConsumeFixR22FactoryTokenForms(unittest.TestCase):
         second_factory = _make_local_factory()
         self.assertIsNot(first_factory, second_factory)
         for factory in (first_factory, second_factory):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as caught:
                 module.load_with_hash_check(
                     collections.defaultdict(factory, {"k": 1})
                 )
+            self.assertEqual(
+                str(caught.exception),
+                "digest cannot read material of type defaultdict",
+            )
 
     def test_ruling_916_standing_factory_forms_still_decide(self):
         module = require("ontoloop.consumption")
@@ -878,14 +919,22 @@ class TestConsumeFixR22FactoryTokenForms(unittest.TestCase):
         def _factory():
             return 0
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 collections.defaultdict(_factory, {"a": 1})
             )
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type defaultdict",
+        )
+        with self.assertRaises(ValueError) as caught:
             module.load_with_hash_check(
                 collections.defaultdict(lambda: 0, {"a": 1})
             )
+        self.assertEqual(
+            str(caught.exception),
+            "digest cannot read material of type defaultdict",
+        )
 
 
 class TestConsumeFixR22ClassValueForms(unittest.TestCase):

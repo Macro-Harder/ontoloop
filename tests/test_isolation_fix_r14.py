@@ -364,10 +364,11 @@ class TestRuling485FallbackEscapeForms(unittest.TestCase):
 
     def test_module_in_its_governed_refusal_form_still_refused(self):
         module = require("ontoloop.consumption")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as caught:
             module.record_promotion(
                 "r14 module governed wf", {"part": Holder(os)}
             )
+        self.assertEqual(str(caught.exception), UNCOPYABLE_MESSAGE)
         found = module.discover("r14 module governed wf")
         self.assertEqual(found["answer"], "no promotion")
         self.assertIsNone(found["bundle"])

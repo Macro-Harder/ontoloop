@@ -1286,6 +1286,47 @@ class TestPromoteR2Pro1(unittest.TestCase):
             self.assertEqual(over["bound_after"], bound)
             self.assertFalse(over["act_blocked"])
 
+    def test_refusal_at_domain_bounds_beyond_the_further_ring_out_values(self):
+        module = require("ontoloop.promote")
+        cases = [
+            (0.955, "unknown reuse warning bound: 0.955"),
+            (0.58, "unknown reuse warning bound: 0.58"),
+            (-15, "unknown reuse warning bound: -15"),
+            (-9999999999999, "unknown reuse warning bound: -9999999999999"),
+            (0.00000000000001, "unknown reuse warning bound: 1e-14"),
+            (0.9999999999999991, "unknown reuse warning bound: 0.9999999999999991"),
+            (-10000000000000, "unknown reuse warning bound: -10000000000000"),
+            (0.0625, "unknown reuse warning bound: 0.0625"),
+        ]
+        for bound, message in cases:
+            with self.assertRaises(ValueError) as caught:
+                module.reuse_warning_at_count(bound, bound=bound)
+            self.assertEqual(str(caught.exception), message)
+
+    def test_firing_at_domain_bounds_beyond_the_further_ring_out_bounds(self):
+        module = require("ontoloop.promote")
+        cases = [
+            (61, 45, 44, 45),
+            (62, 46, 45, 46),
+            (63, 47, 46, 47),
+            (67, 50, 49, 50),
+            (100010, 75007, 75006, 75007),
+            (1000009, 750006, 750005, 750006),
+            (10000008, 7500006, 7500005, 7500006),
+            (100000000000000, 75000000000000, 74999999999999, 75000000000000),
+        ]
+        for bound, point, below, at in cases:
+            under = module.reuse_warning_at_count(below, bound=bound)
+            self.assertFalse(under["fired"])
+            self.assertEqual(under["firing_point_count"], point)
+            self.assertEqual(under["bound_after"], bound)
+            self.assertFalse(under["act_blocked"])
+            over = module.reuse_warning_at_count(at, bound=bound)
+            self.assertTrue(over["fired"])
+            self.assertEqual(over["firing_point_count"], point)
+            self.assertEqual(over["bound_after"], bound)
+            self.assertFalse(over["act_blocked"])
+
 
 # ------------------------------------------------------------------
 # Subsection 19.37, the warning act: age form.

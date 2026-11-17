@@ -63,14 +63,14 @@ def frozenset_key():
     return frozenset(tuple_pair_key())
 
 
-def check_fires_at_least(test_case, make_bundle):
+def check_fires_exactly(test_case, make_bundle, expected):
     module = harness.require("ontoloop.cross_split_audit")
     for occasion in OCCASIONS:
         with test_case.subTest(occasion=occasion):
             result = module.audit_instruction_item(
                 HOLDOUT_TEXT, make_bundle(), occasion=occasion)
             test_case.assertTrue(result["fired"])
-            test_case.assertGreaterEqual(result["comparisons"], 1)
+            test_case.assertEqual(result["comparisons"], expected)
 
 
 def dataset_bundle(text, holdout):
@@ -148,9 +148,9 @@ class ViewAtMappingValuePairsTests(unittest.TestCase):
         }.items()]})
 
     def test_frozenset_items_view_inside_list_pairs_fires(self):
-        check_fires_at_least(self, lambda: {"pairs": [{
+        check_fires_exactly(self, lambda: {"pairs": [{
             frozenset_key(): 1,
-        }.items()]})
+        }.items()]}, 2)
 
     def test_view_at_mapping_value_pairs_clean_clears(self):
         check_clears(self, lambda: {"pairs": {"outer": {
@@ -227,9 +227,9 @@ class ViewInsideContainerItemsTests(unittest.TestCase):
         }.values()}})
 
     def test_frozenset_values_view_inside_list_items_fires(self):
-        check_fires_at_least(self, lambda: {"items": [{
+        check_fires_exactly(self, lambda: {"items": [{
             frozenset_key(): 1,
-        }.values()]})
+        }.values()]}, 1)
 
     def test_single_pass_values_view_inside_list_items_fires(self):
         check_fires(self, lambda: {"items": [{
@@ -303,9 +303,9 @@ class KeysItemsViewInsideListItemsTests(unittest.TestCase):
         }.items()]})
 
     def test_single_pass_items_view_inside_list_holdout_items(self):
-        check_fires_at_least(self, lambda: {"holdout_items": [{
+        check_fires_exactly(self, lambda: {"holdout_items": [{
             single_pass_key(): 1,
-        }.items()]})
+        }.items()]}, 1)
 
     def test_keys_items_view_inside_list_clean_clears(self):
         check_clears(self, lambda: {"items": [{
