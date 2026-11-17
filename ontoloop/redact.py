@@ -470,13 +470,15 @@ def _decoded_spans(text, layer, class_name):
     as its span. Where a token decides definite, the
     computation also resolves the same definite value
     standing in the text in a decorated form, a token
-    carrying up to four characters of decoration or a
-    short fused prefix at its edges standing over a
-    token that decides definite, and in a line wrapped
-    form, consecutive whitespace separated fragments
-    wholly in an encoding alphabet whose joined form
-    decides definite, each fragment carrying its own
-    span. A decorated or wrapped form standing with no
+    carrying decoration or a fused prefix at its edges
+    at any count standing over a token that decides
+    definite, and in a line wrapped form, consecutive
+    whitespace separated fragments whose encoding
+    cores, the dress at their edges standing set
+    aside, join to a form that decides definite, each
+    fragment carrying its own span, the fragments
+    after one intervening token standing joined to a
+    decided joining in the same form. A decorated or wrapped form standing with no
     exactly resolved token beside it resolves nothing
     here, in its standing detection boundary form.
     Where no token decides definite and the text as a
@@ -520,28 +522,31 @@ def _decorated_token_span(start, token):
     """Return the span of a definite token inside a decorated token.
 
     The forms tried stand in order of the least edge
-    characters set aside first: up to four characters
-    at the leading edge and up to four at the trailing
-    edge severally, and five characters at one edge
-    where the other edge carries none, so a
-    parenthesis, a quotation mark, a bracket, a
-    trailing comma, full stop, or semicolon,
-    or a short fused prefix stands set aside where the
-    token standing inside it decides definite. The
-    return is the span of the inner token, or None
-    where no such inner token decides definite.
+    characters set aside first, at any count at each
+    edge severally and at any total, so a parenthesis,
+    a quotation mark, a bracket, a trailing comma,
+    full stop, or semicolon, a fused prefix of any
+    length the token carries, or an assignment dress
+    such as a value prefix stands set aside where the
+    token standing inside it decides definite. A
+    candidate stands tried only where a first decoding
+    round can run on it at all, in the form the
+    decoding engine states, so a candidate that no
+    round can decode stands set aside without a full
+    trial and the search stands in the same order the
+    standing form states. The return is the span of
+    the inner token, or None where no such inner
+    token decides definite.
     """
-    for total in range(1, 9):
+    for total in range(1, len(token) - 7):
         for lead in range(0, total + 1):
             trail = total - lead
-            if lead > 4 and not (lead == 5 and trail == 0):
-                continue
-            if trail > 4 and not (trail == 5 and lead == 0):
-                continue
             if lead + trail >= len(token):
                 continue
             candidate = token[lead:len(token) - trail if trail else len(token)]
             if len(candidate) < 8:
+                continue
+            if _try_decode_round(candidate) is None:
                 continue
             resolved = _decode_candidate(candidate)
             if (
@@ -552,36 +557,84 @@ def _decorated_token_span(start, token):
     return None
 
 
+def _wrapped_fragment_core(start, end, token):
+    """Return the encoding core of one wrapped fragment token.
+
+    A fragment carrying punctuation dress at its
+    edges, a comma, a bracket, a quotation mark, or
+    any other character standing outside the encoding
+    alphabet at an edge, stands carried by the core
+    standing between that dress, in the span the core
+    itself occupies. A token whose interior carries a
+    character outside the alphabet, or which carries
+    no alphabet character at all, carries no core and
+    stands returned as None.
+    """
+    alphabet = set(
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz0123456789+/="
+    )
+    lead = 0
+    while lead < len(token) and token[lead] not in alphabet:
+        lead += 1
+    trail = len(token)
+    while trail > lead and token[trail - 1] not in alphabet:
+        trail -= 1
+    core = token[lead:trail]
+    if not core:
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9+/=]+", core):
+        return None
+    return (start + lead, start + trail, core)
+
+
 def _wrapped_token_spans(tokens, exact, layer, class_name):
     """Return the fragment spans of line wrapped definite tokens.
 
-    Consecutive tokens wholly in an encoding alphabet
-    stand joined, the longest joining first, across as
-    many fragments as the tokens present, and where the
-    joined form decides definite every fragment of the
-    joining carries its token as its span, beside the
-    fragments an exact resolution already carries. The
-    joining stands decided on the joined value resolving
-    definite in substance, and not on a fragment of the
-    joining resolving exactly. A wrapped token standing
-    alone still carries no span here, because the caller
-    reaches this act only beside an exactly resolved
-    token, in the standing detection boundary form.
+    Consecutive tokens stand joined on the encoding
+    cores their dress leaves, the longest joining
+    first, across as many fragments as the tokens
+    present, and where the joined form decides
+    definite every fragment of the joining carries
+    its core as its span, beside the fragments an
+    exact resolution already carries. The joining
+    stands decided on the joined value resolving
+    definite in substance, and not on a fragment of
+    the joining resolving exactly. Where a joining
+    that decides definite stands interrupted by one
+    intervening token, the fragments after that token
+    stand tried as an extension of the decided
+    joining, across the one intervening token alone:
+    where the extended joining, the decided cores
+    joined with the cores after the intervening
+    token, decides definite, every fragment after the
+    intervening token carries its core as its span as
+    well, and the intervening token itself carries no
+    span. The extension tries each count of following
+    fragments once for each decided joining, so the
+    joining search stands in the same growth order
+    the standing form states. A wrapped token standing
+    alone still carries no span here, because the
+    caller reaches this act only beside an exactly
+    resolved token, in the standing detection
+    boundary form.
     """
+    cores = [
+        _wrapped_fragment_core(start, end, token)
+        for start, end, token in tokens
+    ]
     spans = []
     index = 0
     while index < len(tokens):
         joined_span = None
+        joined_text = None
         for count in range(len(tokens) - index, 1, -1):
-            group = tokens[index:index + count]
+            group = cores[index:index + count]
             if len(group) < count:
                 continue
-            if not all(
-                re.fullmatch(r"[A-Za-z0-9+/=]+", token)
-                for _start, _end, token in group
-            ):
+            if any(core is None for core in group):
                 continue
-            joined = "".join(token for _start, _end, token in group)
+            joined = "".join(core[2] for core in group)
             if len(joined) < 16:
                 continue
             resolved = _decode_candidate(joined)
@@ -590,15 +643,43 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
                 and resolved["decoding_depth_reached"] >= 1
             ):
                 joined_span = group
+                joined_text = joined
                 break
         if joined_span is None:
             index += 1
             continue
-        for start, end, _token in joined_span:
-            span = (start, end, layer, class_name)
+        for core_start, core_end, _core in joined_span:
+            span = (core_start, core_end, layer, class_name)
             if span not in spans:
                 spans.append(span)
         index += len(joined_span)
+        if index < len(tokens):
+            after = index + 1
+            extension = None
+            extension_text = None
+            for count in range(len(tokens) - after, 0, -1):
+                group = cores[after:after + count]
+                if len(group) < count:
+                    continue
+                if any(core is None for core in group):
+                    continue
+                joined = joined_text + "".join(
+                    core[2] for core in group
+                )
+                resolved = _decode_candidate(joined)
+                if (
+                    resolved["outcome"] == "definite hit"
+                    and resolved["decoding_depth_reached"] >= 1
+                ):
+                    extension = group
+                    extension_text = joined
+                    break
+            if extension is not None:
+                for core_start, core_end, _core in extension:
+                    span = (core_start, core_end, layer, class_name)
+                    if span not in spans:
+                        spans.append(span)
+                index = after + len(extension)
     return spans
 
 
