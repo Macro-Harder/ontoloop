@@ -1543,6 +1543,138 @@ class _WrapperMaterialisedSetForm(_WrapperSetFormBase):
         return self._stored
 
 
+class _WrapperMaterialisedKeyForm:
+    """A hashable key form carrying one carried value.
+
+    The form carries a value that stands unhashable
+    in the key form the ChainMap item materialisation
+    states, a dictionary view or a bytearray, holding
+    it as the key of a one entry mapping carrying an
+    empty mapping as its value, so the direct act
+    reads the carried value in the key position the
+    presentation presents it in, a position that act
+    does not list, in parity with the hashable key
+    form of the same limb. The form carries no
+    iteration act and no getitem act of its own, so
+    no reading of the form itself reaches the carried
+    value in element position.
+    """
+
+    def __init__(self, carried):
+        self._carried = carried
+
+
+class _WrapperMaterialisedDelegatingListForm(list):
+    """A delegating list form carrying listed elements.
+
+    The form carries the elements one listing of a
+    delegating container subclass yielded, and its
+    iteration act delegates to one stored iterator
+    over those elements, so the direct act reads it
+    in the delegating container form the presentation
+    presented at a mapping value position, in parity
+    with that presentation standing as it stands,
+    while the one listing the materialisation spent
+    stands replaced by a reading that yields the same
+    elements once in the same delegating form.
+    """
+
+    def __init__(self, elements):
+        super().__init__()
+        self._elements = list(elements)
+        self._stored = iter(list(elements))
+
+    def __iter__(self):
+        return self._stored
+
+
+def _wrapper_view_carries_single_pass(value):
+    """Return True where a keys view or an items view
+    carries a single pass form in the position the
+    element position reading of a view reaches: the
+    key position of a keys view, and the value
+    position of an items view. The reading lists the
+    view alone, a re-iterable form over its underlying
+    mapping, and asks the subtree reading of each
+    reached element, which stands never listing a
+    single pass form it detects.
+    """
+    from collections.abc import ItemsView as _ItemsView
+    from collections.abc import KeysView as _KeysView
+
+    if isinstance(value, _KeysView):
+        return any(
+            _wrapper_subtree_has_iterator(element, frozenset())
+            for element in list(value)
+        )
+    if isinstance(value, _ItemsView):
+        return any(
+            _wrapper_subtree_has_iterator(pair[1], frozenset())
+            for pair in list(value)
+        )
+    return False
+
+
+def _wrapper_subtree_carries_view(value, ancestors):
+    """Return True where a dictionary view stands in
+    the subtree of a value, on re-iterable forms
+    alone: a single pass form and an iterator stand
+    never listed by this reading, and a value standing
+    on its own ancestor path carries no further view
+    for this reading.
+    """
+    import array as _array_module
+    import collections as _collections_module
+
+    from collections.abc import ItemsView as _ItemsView
+    from collections.abc import KeysView as _KeysView
+    from collections.abc import Mapping as _Mapping
+    from collections.abc import ValuesView as _ValuesView
+
+    if isinstance(value, (_KeysView, _ValuesView, _ItemsView)):
+        return True
+    if isinstance(
+        value,
+        (
+            str,
+            _collections_module.UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+        ),
+    ):
+        return False
+    if id(value) in ancestors:
+        return False
+    if hasattr(value, "__next__") and hasattr(value, "__iter__"):
+        return False
+    if _is_single_pass_iterable(value) and not isinstance(
+        value, (list, tuple, set, frozenset)
+    ):
+        return False
+    ancestors = ancestors | {id(value)}
+    if isinstance(value, _Mapping):
+        return any(
+            _wrapper_subtree_carries_view(inner, ancestors)
+            for inner in list(value.values())
+        ) or any(
+            _wrapper_subtree_carries_view(inner, ancestors)
+            for inner in list(value.keys())
+        )
+    if hasattr(value, "__iter__"):
+        try:
+            elements = list(value)
+        except Exception:
+            return False
+        return any(
+            _wrapper_subtree_carries_view(element, ancestors)
+            for element in elements
+        )
+    return False
+
+
 def _wrapper_materialise_chainmap_set_element(element, shared_module,
                                               ancestors, depth):
     """Materialise one element of a delegating abstract Set form.
@@ -1729,8 +1861,11 @@ def _wrapper_materialise_chainmap_nested(value, shared_module,
     key form, unlisted, so no string stands read as a
     container of its characters and its text stands in
     no element position, and a byte form, bytes or
-    bytearray, stands as it stands, as a standing
-    element, and stands in no container form. A
+    bytearray, stands carried in that same key form,
+    unlisted, so its text stands in no element
+    position, a byte form standing unhashable in that
+    form standing carried in the hashable key form
+    that form states. A
     delegating ChainMap subclass stands as it stands,
     unlisted, in parity with both readings of that
     position, and a mapping stands materialised in its
@@ -1753,7 +1888,14 @@ def _wrapper_materialise_chainmap_nested(value, shared_module,
     standing unhashable in that form stands carried
     in the re-iterable Set form above holding the view
     alone, whose elements stand in the same key
-    position. The elements of a delegating abstract
+    position, save where the view carries a single
+    pass form in the position the element position
+    reading of a view reaches, which stands carried
+    in the hashable key form that form states, because
+    the direct act lists a Set form standing in
+    element position in the rebuilt form and reaches
+    the single pass form the view carries. The
+    elements of a delegating abstract
     Set form stand materialised in the form
     _wrapper_materialise_chainmap_set_element states,
     so a single pass element standing beside a second
@@ -1780,7 +1922,10 @@ def _wrapper_materialise_chainmap_nested(value, shared_module,
         except TypeError:
             return value
     if isinstance(value, (bytes, bytearray)):
-        return value
+        try:
+            return {value: {}}
+        except TypeError:
+            return {_WrapperMaterialisedKeyForm(value): {}}
     if _is_delegating_chainmap_subclass(value):
         return value
     if isinstance(value, _Mapping):
@@ -1791,6 +1936,8 @@ def _wrapper_materialise_chainmap_nested(value, shared_module,
         try:
             return {value: {}}
         except TypeError:
+            if _wrapper_view_carries_single_pass(value):
+                return {_WrapperMaterialisedKeyForm(value): {}}
             return _WrapperMaterialisedSetForm([value])
     if _is_delegating_container_subclass(value):
         if isinstance(
@@ -2003,7 +2150,13 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0,
     form where it stands at a mapping presented
     position, reached as a value of a mapping standing
     in the holdout material through mapping values
-    alone, and a delegating subclass stands as it
+    alone, save where an element it carries carries a
+    dictionary view in its subtree, where it stands
+    rebuilt in the delegating list form that form
+    states holding its materialised elements, so the
+    direct act reads it in the delegating form the
+    presentation presents at that position, and a
+    delegating subclass stands as it
     stands, unlisted, at a position inside a
     container, in a concrete container form and in
     an abstract Sequence or abstract Set form
@@ -2070,15 +2223,25 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0,
         if path_state != "mapping":
             return value
         subclass_ancestors = ancestors | {id(value)}
+        listed_once = list(value)
         materialised = [
             _wrapper_materialise(
                 element, shared_module, subclass_ancestors,
                 depth + 1, "other",
             )
-            for element in list(value)
+            for element in listed_once
         ]
         from collections.abc import Mapping as _SubclassMapping
 
+        if any(
+            _wrapper_subtree_carries_view(
+                element, frozenset()
+            )
+            for element in listed_once
+        ):
+            return _WrapperMaterialisedDelegatingListForm(
+                materialised
+            )
         if len(materialised) == 1 and isinstance(
             materialised[0], _SubclassMapping
         ) and not any(
