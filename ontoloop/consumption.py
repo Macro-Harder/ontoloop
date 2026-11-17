@@ -1559,6 +1559,42 @@ def _bundle_copy(bundle):
         return False
 
     def _referenced_global_values(func, globals_map, extra_names=None):
+        if isinstance(globals_map, dict):
+            map_name = globals_map.get("__name__")
+            if isinstance(map_name, str):
+                map_owner = _sys_module.modules.get(map_name)
+                if map_owner is not None:
+                    try:
+                        owner_is_map = (
+                            map_owner.__dict__ is globals_map
+                        )
+                    except Exception:
+                        owner_is_map = False
+                    if owner_is_map:
+                        owner_file = getattr(
+                            map_owner, "__file__", None
+                        )
+                        if owner_file is None:
+                            if map_name in (
+                                "sys",
+                                "builtins",
+                                "_io",
+                                "os",
+                                "posix",
+                                "nt",
+                            ):
+                                return []
+                        else:
+                            stdlib_dir = (
+                                _os_module.path.dirname(
+                                    _os_module.__file__
+                                )
+                            )
+                            if owner_file.startswith(
+                                stdlib_dir
+                                + _os_module.path.sep
+                            ):
+                                return []
         def _code_facts(root_code):
             names = set()
             consts = set()
