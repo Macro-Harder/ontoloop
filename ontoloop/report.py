@@ -1522,6 +1522,17 @@ _CLAIM_CONCEPT_ROOTS = (
     "unsew", "unrivet", "unscrew", 
     "unnail", "unhing", "uncork", 
     "unplugg", 
+    "gasif", "atomis", "extinguish", 
+    "drown", "mulch", "minc", "mash", 
+    "braz", "manacl", "fetter", 
+    "swaddl", "plat", "coat", "glaz", 
+    "lac", "brick", "board", 
+    "copy", "break", "duplica", 
+    "bugproof", "riotproof", "warproof", 
+    "unclipp", "unweld", "unbarr", 
+    "unpadlock", "unchain", "unleash", 
+    "unmoor", "unanchor", "untether", 
+    "unshackl", "unfetter", "unmanacl", 
 )
 
 # The exact assertion words, beside the assertion roots
@@ -1855,6 +1866,19 @@ _ASSERTION_WORDS = (
     "chirrups", "oinks", "gibbers", 
     "shrieks", "twitters", "yammers", 
     "witters", "rambles", "whimpers", 
+    "grumbles", "howls", "sniffles", 
+    "thunders", "rumbles", "clatters", 
+    "rattles", "clinks", "chimes", 
+    "tolls", "peals", "tinkles", 
+    "jingles", "jangles", "strums", 
+    "twangs", "plucks", "bows", 
+    "blows", "toots", "beeps", "bleeps", 
+    "puffs", "belches", "glares", 
+    "gapes", "leers", "titters", 
+    "snickers", "guffaws", "flouts", 
+    "spurns", "rebuffs", "repudiates", 
+    "disavows", "renounces", "abjures", 
+    "forswears", 
 )
 
 # The assertion roots. A word beginning with one of
@@ -2110,6 +2134,25 @@ _UNCONDITIONAL_MARKERS = (
     "onwards and upwards", "to the bitter end", 
     "until the very end", "till the very end", 
     "to the end of the line", "down to the wire", 
+    "by hook or crook", "willy-nilly", 
+    "like it or not", "ready or not", 
+    "believe it or not", "for richer for poorer", 
+    "until death", "to the grave", 
+    "from the cradle to the grave", 
+    "ad infinitum", "ad nauseam", 
+    "no strings attached", "full stop", 
+    "end of story", "end of discussion", 
+    "case closed", "first and last", 
+    "now and for all time", "for all future time", 
+    "unto the ages of ages", 
+    "to eternity", "in eternity", 
+    "through all eternity", "amen", 
+    "without ceasing", "unceasingly", 
+    "for all ages", "through all ages", 
+    "till time ends", "until time ends", 
+    "anyhow", "anyway", "irrespective", 
+    "thoroughly", "unambiguously", 
+    "unequivocally", "explicitly", "evidently", 
 )
 
 # The wordings that carry the governed conditional form
@@ -2603,6 +2646,23 @@ _GOVERNING_CONDITION_PHRASES = (
     "by the election of", "by the selection of", 
     "by the choice of", "by the designation of", 
     "by the assignment of", 
+    "at the say-so of", "by the dictate of", 
+    "under the dictate of", "by the guidance of", 
+    "by the stewardship of", "under the stewardship of", 
+    "by the presidency of", "by the chairmanship of", 
+    "by the power of", "by the right of", 
+    "by the grant of", "under the grant of", 
+    "by the permit of", "under the permit of", 
+    "by the agreement of", "with the agreement of", 
+    "under the agreement of", "by the leadership of", 
+    "by the management of", "by the control of", 
+    "by the governance of", "under the governance of", 
+    "by the administration of", 
+    "under the administration of", 
+    "by the regulation of", "under the regulation of", 
+    "by the law of", "under the law of", 
+    "by the standards of", "by the provisions of", 
+    "to the extent", 
 )
 
 # The wordings that carry a negated form of a claim. A
@@ -2928,6 +2988,21 @@ def _clause_claim(clause):
         "tin", "antimony", "tellurium", 
         "iodine", "bromine", "chlorine", 
         "fluorine", 
+        "redwood", "sequoia", "cypress", 
+        "juniper", "larch", "fir", 
+        "yew", "boxwood", "topaz", 
+        "citrine", "lapis", "malachite", 
+        "magnetite", "pyrite", "azurite", 
+        "mercury", "petro", "necro", 
+        "acousto", "gravito", "nucleo", 
+        "isotopo", "stereo", "holo", 
+        "endoscopo", "laparo", "broncho", 
+        "colono", "cysto", "hystero", 
+        "laryngo", "naso", "otolaryngo", 
+        "pharyngo", "procto", "uretero", 
+        "vaso", "angio", "arterio", 
+        "phlebo", "lympho", "myelo", 
+        "chondro", "syndesmo", 
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
@@ -3018,6 +3093,12 @@ def _clause_claim(clause):
         "bronzed", "coppered", "roped", 
         "wired", "sheathed", "swathed", 
         "bundled", "interlocked", "meshed", 
+        "gasified", "atomised", "extinguished", 
+        "drowned", "mulched", "minced", 
+        "mashed", "pureed", "brazed", 
+        "manacled", "fettered", "swaddled", 
+        "plated", "coated", "glazed", 
+        "laced", "bricked", "boarded", 
     ):
         if passive in words and "by" in words[
             words.index(passive) + 1:
@@ -3531,6 +3612,11 @@ def _clause_inability_form(clause):
     "bronz", "copper", "rope", 
     "wire", "sheath", "swath", 
     "bundled", "interlock", "mesh", 
+    "gasif", "atomis", "extinguish", 
+    "drown", "mulch", "minc", "mash", "pure", 
+    "braz", "manacl", "fetter", 
+    "swaddl", "plat", "coat", "glaz", 
+    "lac", "brick", "board", 
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -3791,6 +3877,17 @@ def _clause_inability_form(clause):
     "obediently", "submissively", 
     "scullery", "mezzanine", "byre", 
     "sty", "roost", 
+    "cheerlessly", "somberly", "glumly", 
+    "ruefully", "wistfully", "pensively", 
+    "moodily", "sulkily", "grumpily", 
+    "crossly", "brusquely", "curtly", 
+    "peaceably", "restlessly", "fitfully", 
+    "drowsily", "sleepily", "woodenly", 
+    "impassively", "apathetically", 
+    "indifferently", "lethargically", 
+    "torpidly", "inertly", "passively", 
+    "resignedly", "fatalistically", 
+    "dormer", "cupola", 
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -3934,6 +4031,8 @@ def _seal_claim_scan(assembly_text):
                     ("in", "cases", "where"),
                     ("in", "so", "far", "as"),
                     ("to", "the", "extent", "that"),
+                    ("to", "the", "extent"),
+                    ("whereas",), ("before",),
                 )
                 for position in range(
                     max(0, len(main_words) - 3), len(clause_words)
@@ -4227,7 +4326,10 @@ def _seal_claim_scan(assembly_text):
                                     "been", "be",
                                 )
                                 and not (
-                                    words[aux] in ("is", "are", "be")
+                                    words[aux] in (
+                                        "is", "are", "be", "was",
+                                        "were", "been",
+                                    )
                                     and words[aux + 1].startswith(
                                         ("alter", "unalter",
                                          "chang", "modif", "rewrit",
@@ -4238,7 +4340,42 @@ def _seal_claim_scan(assembly_text):
                                          "inviolab", "airtight",
                                          "hermet", "secur", "lock",
                                          "confin", "contain", "protect",
-                                         "shield", "verif", "sign")
+                                         "shield", "verif", "sign",
+                                         "remov", "copy", "copi",
+                                         "read", "view", "export",
+                                         "shar", "print", "download",
+                                         "intercept", "forg", "falsif",
+                                         "counterfeit", "reproduc",
+                                         "spoof", "hack", "crack",
+                                         "break", "open", "unlock",
+                                         "unfasten", "destroy",
+                                         "corrupt", "overwrit",
+                                         "replac", "duplicat",
+                                         "duplica",
+                                         "extract", "transmitt",
+                                         "transfer", "mov", "replay",
+                                         "guard", "wall", "barr",
+                                         "fortif", "audit", "inspect",
+                                         "examin", "review", "screen",
+                                         "vett", "ratif", "accredit",
+                                         "endors", "attest", "certif",
+                                         "authentic", "validat",
+                                         "confirm", "check", "stamp",
+                                         "regist", "enroll",
+                                         "initiall", "witness",
+                                         "sworn", "everlast", "etern",
+                                         "perpet", "timeless",
+                                         "indestruct", "imperish",
+                                         "inaccess", "untouch",
+                                         "unbreak", "unforg",
+                                         "incorrupt", "indel",
+                                         "ineras", "irrevoc",
+                                         "ironclad", "sacrosanct",
+                                         "failsafe", "perfect",
+                                         "import", "trac", "observ",
+                                         "search", "index", "recover",
+                                         "restor", "fak", "stol",
+                                         "tak", "seiz")
                                     )
                                 )
                                 and any(
