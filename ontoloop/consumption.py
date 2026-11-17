@@ -134,7 +134,17 @@ def _residual_content_mapping(value):
     base class, the slot of each stating class
     stands read under its own storage name, so the
     content of every stating class stands in the
-    mapping. Where the value
+    mapping. Where a subclass states a slot under a
+    plain stated name, or under a stated name
+    carrying one leading underscore, that a base
+    class states again, the slot of each stating
+    class stands read through the descriptor of its
+    own stating class, the content of a later
+    stating class standing in the mapping under a
+    key naming that stating class beside the stated
+    name, so the content of every stating class
+    stands in the mapping in that form as well.
+    Where the value
     carries
     no such content, the act returns None, and the
     encoding states its governed no content form or
@@ -165,6 +175,17 @@ def _residual_content_mapping(value):
                             mapping[storage] = getattr(value, storage)
                         except AttributeError:
                             pass
+                else:
+                    descriptor = cls.__dict__.get(name)
+                    if descriptor is not None and hasattr(
+                        descriptor, "__get__"
+                    ):
+                        key = cls.__qualname__ + ":" + name
+                        if key not in mapping:
+                            try:
+                                mapping[key] = descriptor.__get__(value)
+                            except AttributeError:
+                                pass
                 continue
             try:
                 mapping[name] = getattr(value, name)
@@ -178,6 +199,125 @@ def _residual_content_mapping(value):
                         mapping[name] = getattr(value, storage)
                     except AttributeError:
                         continue
+            else:
+                descriptor = cls.__dict__.get(name)
+                if descriptor is not None and hasattr(
+                    descriptor, "__get__"
+                ):
+                    try:
+                        mapping[name] = descriptor.__get__(value)
+                    except AttributeError:
+                        continue
+    if mapping:
+        return mapping
+    return None
+
+
+def _class_namespace_mapping(value):
+    """Return the namespace mapping of a class, or None.
+
+    A class standing as a value carries its content in
+    its class namespace, which its vars act returns as
+    a mapping proxy and not as a dict, so the residual
+    content reading returns no content for a class in
+    any case. This act reads that namespace in a
+    governed form: each member standing in the
+    namespace stands in the mapping under its member
+    name, a member standing as plain data, or as a
+    container of plain data, standing in the mapping
+    in its own form, a member standing as a function,
+    a classmethod, a staticmethod, or a property
+    standing in the mapping as a token naming the
+    callable it wraps by its module and its qualified
+    name, a member standing as a class standing as a
+    token naming that class in the same name form, a
+    member standing as an instance of the class
+    standing as a token naming its kind, so no member
+    reading walks back into the class itself, and any
+    further member standing as a token naming its
+    type. The bookkeeping members stating the class
+    name form itself stand in no entry, that form
+    standing stated beside the mapping in the
+    encoding. Where the namespace carries no member
+    beyond those bookkeeping members, the act returns
+    None, and the class digests in its standing string
+    form.
+    """
+    import types as _types_module
+
+    if not isinstance(value, type):
+        return None
+    try:
+        stored = vars(value)
+    except TypeError:
+        return None
+
+    def _callable_token(member, fallback):
+        return (
+            "callable:"
+            + (getattr(member, "__module__", None) or "")
+            + "."
+            + (getattr(member, "__qualname__", None) or fallback)
+        )
+
+    def _convert(member, depth):
+        if member is value:
+            return "class:self"
+        if isinstance(member, value):
+            return "instance:" + type(member).__name__
+        if member is None or isinstance(
+            member, (bool, int, float, str, bytes, bytearray)
+        ):
+            return member
+        if isinstance(member, type):
+            return (
+                "class:"
+                + (getattr(member, "__module__", None) or "")
+                + "."
+                + (getattr(member, "__qualname__", None) or "")
+            )
+        if isinstance(
+            member,
+            (
+                _types_module.FunctionType,
+                _types_module.BuiltinFunctionType,
+            ),
+        ):
+            return _callable_token(member, "callable")
+        if isinstance(member, (classmethod, staticmethod)):
+            return _callable_token(member.__func__, "callable")
+        if isinstance(member, property):
+            if member.fget is None:
+                return "callable:property"
+            return _callable_token(member.fget, "property")
+        if isinstance(member, dict) and depth < 3:
+            converted = {}
+            for item_key in member:
+                key_form = _convert(item_key, depth + 1)
+                try:
+                    hash(key_form)
+                except TypeError:
+                    key_form = "object:" + type(item_key).__name__
+                converted[key_form] = _convert(
+                    member[item_key], depth + 1
+                )
+            return converted
+        if isinstance(member, (list, tuple)) and depth < 3:
+            return [_convert(item, depth + 1) for item in member]
+        if isinstance(member, (set, frozenset)) and depth < 3:
+            return [_convert(item, depth + 1) for item in member]
+        return "object:" + type(member).__name__
+
+    mapping = {}
+    for key in stored:
+        if key in (
+            "__dict__",
+            "__weakref__",
+            "__module__",
+            "__qualname__",
+        ):
+            continue
+        mapping[key] = _convert(stored[key], 0)
     if mapping:
         return mapping
     return None
@@ -246,7 +386,17 @@ def _tagged_digest_form(value):
     ImportError, and the filename, line, offset,
     text, and end position channels of a SyntaxError
     standing beside its argument content in every
-    exception form beside them, the encoding walk
+    exception form beside them, the name and object
+    channels of an AttributeError, the name channel
+    of a NameError, and the subexception content an
+    exception group carries standing beside its
+    argument content in every exception form beside
+    them, an exception group and an AttributeError
+    and a NameError standing decided into the
+    chained kind in their plain forms as in their
+    added state forms, so their argument content and
+    their channels stand read in both forms, the
+    encoding walk
     standing over that chaining walk in its cyclic
     form, and a
     member of an enum mixing in int, float, str,
@@ -261,8 +411,19 @@ def _tagged_digest_form(value):
     no such form standing refused, a type factory
     standing in a local scope, whose module and
     qualified name state no distinction from a second
-    such type, standing refused in the same form, and
-    a function
+    such type, standing refused in the same form, a
+    type factory standing as no standing module state
+    under its stated module and qualified name, as a
+    type created by a type constructor call or a type
+    retained from a definition a later definition of
+    the same name replaced, standing refused in the
+    same form, the token stating a type factory only
+    where the standing module state under its stated
+    names stands as that type itself, and a class
+    standing as a value encoding over its stated name
+    form and over a governed form of its namespace
+    content together, where its namespace carries
+    content in that form, and a function
     carrying added instance content stands refused in
     the form its plain form stands refused, the
     function channel standing decided before the
@@ -293,7 +454,9 @@ def _tagged_digest_form(value):
     parentheses, behind an equals sign, a semicolon,
     or a slash, attached to its introducer, or at the
     head of the form, or standing separated into
-    groups by any single separator character standing
+    groups by a separator sequence of any width, each
+    separator of one grouped form standing as one
+    consistent sequence of characters standing
     outside the letters and the digits, as grouped
     decimal groups or as hexadecimal pairs or groups,
     stand
@@ -314,6 +477,7 @@ def _tagged_digest_form(value):
     import functools as _functools_module
     import io as _io_module
     import re as _re_module
+    import sys as _sys_module
     import types as _types_module
 
     def _enum_added_mapping(member):
@@ -368,20 +532,20 @@ def _tagged_digest_form(value):
         ):
             return True
         if _re_module.search(
-            r"(?<![0-9])[0-9]{1,3}(?:[^0-9A-Za-z][0-9]{3}){2,}"
-            r"(?![0-9])",
+            r"(?<![0-9])[0-9]{1,3}([^0-9A-Za-z]+)[0-9]{3}"
+            r"(?:\1[0-9]{3})+(?![0-9])",
             text,
         ):
             return True
         if _re_module.search(
-            r"(?<![0-9a-fA-F])[0-9a-fA-F]{2}([^0-9A-Za-z])"
+            r"(?<![0-9a-fA-F])[0-9a-fA-F]{2}([^0-9A-Za-z]+)"
             r"[0-9a-fA-F]{2}(?:\1[0-9a-fA-F]{2}){4,}"
             r"(?![0-9a-fA-F])",
             text,
         ):
             return True
         for match in _re_module.finditer(
-            r"(?<![0-9a-fA-F])[0-9a-fA-F]{4}([^0-9A-Za-z])"
+            r"(?<![0-9a-fA-F])[0-9a-fA-F]{4}([^0-9A-Za-z]+)"
             r"[0-9a-fA-F]{4}(?:\1[0-9a-fA-F]{4}){1,}"
             r"(?![0-9a-fA-F])",
             text,
@@ -400,6 +564,17 @@ def _tagged_digest_form(value):
             return None
         if isinstance(factory, type):
             if "<locals>" in factory.__qualname__:
+                raise ValueError(
+                    "digest cannot read material of type "
+                    + type(current).__name__
+                )
+            resolved = _sys_module.modules.get(factory.__module__)
+            if resolved is not None:
+                for part in factory.__qualname__.split("."):
+                    resolved = getattr(resolved, part, None)
+                    if resolved is None:
+                        break
+            if resolved is not factory:
                 raise ValueError(
                     "digest cannot read material of type "
                     + type(current).__name__
@@ -453,11 +628,31 @@ def _tagged_digest_form(value):
             )
         else:
             syntax = None
+        if isinstance(current, AttributeError):
+            attribute_name = getattr(current, "name", None)
+            attribute_object = getattr(current, "obj", None)
+        else:
+            attribute_name = None
+            attribute_object = None
+        if isinstance(current, NameError):
+            name_error_name = getattr(current, "name", None)
+        else:
+            name_error_name = None
+        if isinstance(current, BaseExceptionGroup):
+            group_exceptions = tuple(
+                getattr(current, "exceptions", ()) or ()
+            )
+        else:
+            group_exceptions = ()
         return (
             bool(getattr(current, "__suppress_context__", False)),
             import_name,
             import_path,
             syntax,
+            attribute_name,
+            attribute_object,
+            name_error_name,
+            group_exceptions,
         )
 
     results = []
@@ -528,10 +723,24 @@ def _tagged_digest_form(value):
                 getattr(current, "__cause__", None) is not None
                 or getattr(current, "__context__", None) is not None
                 or getattr(current, "__suppress_context__", False)
-                or isinstance(current, (ImportError, SyntaxError))
+                or isinstance(
+                    current,
+                    (
+                        ImportError,
+                        SyntaxError,
+                        BaseExceptionGroup,
+                        AttributeError,
+                        NameError,
+                    ),
+                )
             )
         ):
             kind = "exc_chain"
+        elif (
+            isinstance(current, type)
+            and _class_namespace_mapping(current) is not None
+        ):
+            kind = "class_attrs"
         elif (
             current is not None
             and not isinstance(
@@ -670,6 +879,14 @@ def _tagged_digest_form(value):
                 ]
             elif kind == "enum_attrs":
                 children = [_enum_added_mapping(current)]
+            elif kind == "class_attrs":
+                text = str(current)
+                if _address_bearing(text):
+                    raise ValueError(
+                        "digest cannot read material of type "
+                        + type(current).__name__
+                    )
+                children = [text, _class_namespace_mapping(current)]
             elif kind in (
                 "attrs", "value_attrs", "scalar_attrs", "stream_attrs"
             ):
@@ -739,6 +956,10 @@ def _tagged_digest_form(value):
                 + b"+cause=" + parts[3]
                 + b"+context=" + parts[4]
                 + b"+channels=" + parts[5] + b";"
+            )
+        elif kind == "class_attrs":
+            results.append(
+                b"class:" + parts[0] + b"+namespace=" + parts[1] + b";"
             )
         elif kind == "value_attrs":
             raw = str(current).encode("utf-8")
