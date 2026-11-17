@@ -128,11 +128,14 @@ class _WrapperCase(unittest.TestCase):
         self.assertTrue(direct_outcome["fired"])
         self.assertEqual(direct_outcome["comparisons"], 1)
 
-    def _assert_chainmap_pair_clears(self, make_item):
+    def _assert_chainmap_pair_clears(self, make_item, direct_comparisons):
         outcome = self._wrapper(_chainmap_item(make_item()))
         self._assert_clears(outcome)
         direct_outcome = self._direct(_chainmap_item(make_item()))
         self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(
+            direct_outcome["comparisons"], direct_comparisons
+        )
 
 
 class TestPromoteFixR26ViewInSinglePassElement(_WrapperCase):
@@ -533,17 +536,20 @@ class TestPromoteFixR26NestedMappingInItemMapping(_WrapperCase):
 
     def test_clean_nested_deleg_list_in_item_map_clears(self):
         self._assert_chainmap_pair_clears(
-            lambda: {"k": ListSubclass([_clean_position()])}
+            lambda: {"k": ListSubclass([_clean_position()])},
+            1
         )
 
     def test_string_deleg_list_in_item_map_clears(self):
         self._assert_chainmap_pair_clears(
-            lambda: {"k": ListSubclass([HOLDOUT_TEXT])}
+            lambda: {"k": ListSubclass([HOLDOUT_TEXT])},
+            0
         )
 
     def test_bytes_deleg_list_in_item_map_clears(self):
         self._assert_chainmap_pair_clears(
-            lambda: {"k": ListSubclass([HOLDOUT_TEXT.encode()])}
+            lambda: {"k": ListSubclass([HOLDOUT_TEXT.encode()])},
+            0
         )
 
     def test_getitem_nested_deleg_list_in_item_map_clears(self):
@@ -552,7 +558,8 @@ class TestPromoteFixR26NestedMappingInItemMapping(_WrapperCase):
                 "k": ListSubclass(
                     [GetitemOnlyForm([_nested_position()])]
                 )
-            }
+            },
+            0
         )
 
 
@@ -670,7 +677,8 @@ class TestPromoteFixR26KeysViewInItemMapping(_WrapperCase):
 
     def test_kv_gen_as_item_directly_stays_clearing(self):
         self._assert_chainmap_pair_clears(
-            lambda: _keys_view_of_generator()
+            lambda: _keys_view_of_generator(),
+            0
         )
 
     def test_clean_kv_gen_in_item_map_clears(self):
@@ -679,7 +687,8 @@ class TestPromoteFixR26KeysViewInItemMapping(_WrapperCase):
                 "k": {
                     _generator_of(_clean_position()): 1
                 }.keys()
-            }
+            },
+            1
         )
 
 
@@ -689,12 +698,14 @@ class TestPromoteFixR26StandingControls(_WrapperCase):
 
     def test_ruling_1106_kv_gen_in_list_as_item_clears(self):
         self._assert_chainmap_pair_clears(
-            lambda: [_keys_view_of_generator()]
+            lambda: [_keys_view_of_generator()],
+            0
         )
 
     def test_ruling_1107_bytes_in_list_as_item_clears(self):
         self._assert_chainmap_pair_clears(
-            lambda: [HOLDOUT_TEXT.encode()]
+            lambda: [HOLDOUT_TEXT.encode()],
+            0
         )
 
 
