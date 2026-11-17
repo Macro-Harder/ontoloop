@@ -8,6 +8,7 @@ design/steps/step-13-content-retrace.md.
 """
 
 import unittest
+import re
 from decimal import Decimal
 from array import array
 from collections import Counter, OrderedDict, deque
@@ -16,12 +17,17 @@ from datetime import timedelta
 from fractions import Fraction
 from collections import namedtuple
 from datetime import date
+from enum import Enum
 from enum import IntEnum
 from pathlib import Path
 from types import MappingProxyType
 from datetime import datetime
+from datetime import timezone
 from enum import Flag, IntFlag, StrEnum
 from uuid import UUID
+from ipaddress import IPv4Address
+from weakref import WeakKeyDictionary, WeakSet, WeakValueDictionary
+from xml.etree.ElementTree import Element
 
 from tests.harness import require, stage_carried
 
@@ -1375,6 +1381,120 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             r1135_userstring_none["reconstructed_material"], r1135_userstring_none_second["reconstructed_material"])
         self.assertIsNot(
             r1135_userstring_none["material_read"], r1135_userstring_none_second["material_read"])
+
+        r1213_element = module.resolve_dispute(disputed=Element("tag"), journal_records=["journal record one", "journal record two"])
+        r1213_element_second = module.resolve_dispute(disputed=Element("tag"), journal_records=["journal record one", "journal record two"])
+        self.assertIsNot(r1213_element, r1213_element_second)
+        self.assertIsNot(
+            r1213_element["reconstructed_material"], r1213_element_second["reconstructed_material"])
+        self.assertIsNot(
+            r1213_element["material_read"], r1213_element_second["material_read"])
+        r1213_weakset = module.resolve_dispute(disputed=WeakSet(), journal_records=["journal record one", "journal record two"])
+        r1213_weakset_second = module.resolve_dispute(disputed=WeakSet(), journal_records=["journal record one", "journal record two"])
+        self.assertIsNot(r1213_weakset, r1213_weakset_second)
+        self.assertIsNot(
+            r1213_weakset["reconstructed_material"], r1213_weakset_second["reconstructed_material"])
+        self.assertIsNot(
+            r1213_weakset["material_read"], r1213_weakset_second["material_read"])
+        r1213_weakkey = module.resolve_dispute(disputed=WeakKeyDictionary(), journal_records=["journal record one", "journal record two"])
+        r1213_weakkey_second = module.resolve_dispute(disputed=WeakKeyDictionary(), journal_records=["journal record one", "journal record two"])
+        self.assertIsNot(r1213_weakkey, r1213_weakkey_second)
+        self.assertIsNot(
+            r1213_weakkey["reconstructed_material"], r1213_weakkey_second["reconstructed_material"])
+        self.assertIsNot(
+            r1213_weakkey["material_read"], r1213_weakkey_second["material_read"])
+        r1213_weakvalue = module.resolve_dispute(disputed=WeakValueDictionary(), journal_records=["journal record one", "journal record two"])
+        r1213_weakvalue_second = module.resolve_dispute(disputed=WeakValueDictionary(), journal_records=["journal record one", "journal record two"])
+        self.assertIsNot(r1213_weakvalue, r1213_weakvalue_second)
+        self.assertIsNot(
+            r1213_weakvalue["reconstructed_material"], r1213_weakvalue_second["reconstructed_material"])
+        self.assertIsNot(
+            r1213_weakvalue["material_read"], r1213_weakvalue_second["material_read"])
+
+        r1222_items_tuple = module.resolve_dispute(disputed={}.items(), journal_records=("journal record one", "journal record two"))
+        r1222_items_tuple_second = module.resolve_dispute(disputed={}.items(), journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r1222_items_tuple, r1222_items_tuple_second)
+        self.assertIsNot(
+            r1222_items_tuple["reconstructed_material"], r1222_items_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r1222_items_tuple["material_read"], r1222_items_tuple_second["material_read"])
+        r1222_items_omitted = module.resolve_dispute(disputed={}.items())
+        r1222_items_omitted_second = module.resolve_dispute(disputed={}.items())
+        self.assertIsNot(r1222_items_omitted, r1222_items_omitted_second)
+        self.assertIsNot(
+            r1222_items_omitted["reconstructed_material"], r1222_items_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r1222_items_omitted["material_read"], r1222_items_omitted_second["material_read"])
+        r1222_items_none = module.resolve_dispute(disputed={}.items(), journal_records=None)
+        r1222_items_none_second = module.resolve_dispute(disputed={}.items(), journal_records=None)
+        self.assertIsNot(r1222_items_none, r1222_items_none_second)
+        self.assertIsNot(
+            r1222_items_none["reconstructed_material"], r1222_items_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r1222_items_none["material_read"], r1222_items_none_second["material_read"])
+        r1222_intflag_tuple = module.resolve_dispute(disputed=IntFlag("R1222Flag", {"member": 0}).member, journal_records=("journal record one", "journal record two"))
+        r1222_intflag_tuple_second = module.resolve_dispute(disputed=IntFlag("R1222Flag", {"member": 0}).member, journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r1222_intflag_tuple, r1222_intflag_tuple_second)
+        self.assertIsNot(
+            r1222_intflag_tuple["reconstructed_material"], r1222_intflag_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r1222_intflag_tuple["material_read"], r1222_intflag_tuple_second["material_read"])
+        r1222_intflag_omitted = module.resolve_dispute(disputed=IntFlag("R1222Flag", {"member": 0}).member)
+        r1222_intflag_omitted_second = module.resolve_dispute(disputed=IntFlag("R1222Flag", {"member": 0}).member)
+        self.assertIsNot(r1222_intflag_omitted, r1222_intflag_omitted_second)
+        self.assertIsNot(
+            r1222_intflag_omitted["reconstructed_material"], r1222_intflag_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r1222_intflag_omitted["material_read"], r1222_intflag_omitted_second["material_read"])
+        r1222_intflag_none = module.resolve_dispute(disputed=IntFlag("R1222Flag", {"member": 0}).member, journal_records=None)
+        r1222_intflag_none_second = module.resolve_dispute(disputed=IntFlag("R1222Flag", {"member": 0}).member, journal_records=None)
+        self.assertIsNot(r1222_intflag_none, r1222_intflag_none_second)
+        self.assertIsNot(
+            r1222_intflag_none["reconstructed_material"], r1222_intflag_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r1222_intflag_none["material_read"], r1222_intflag_none_second["material_read"])
+        r1222_strenum_tuple = module.resolve_dispute(disputed=StrEnum("R1222StrEnum", {"member": ""}).member, journal_records=("journal record one", "journal record two"))
+        r1222_strenum_tuple_second = module.resolve_dispute(disputed=StrEnum("R1222StrEnum", {"member": ""}).member, journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r1222_strenum_tuple, r1222_strenum_tuple_second)
+        self.assertIsNot(
+            r1222_strenum_tuple["reconstructed_material"], r1222_strenum_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r1222_strenum_tuple["material_read"], r1222_strenum_tuple_second["material_read"])
+        r1222_strenum_omitted = module.resolve_dispute(disputed=StrEnum("R1222StrEnum", {"member": ""}).member)
+        r1222_strenum_omitted_second = module.resolve_dispute(disputed=StrEnum("R1222StrEnum", {"member": ""}).member)
+        self.assertIsNot(r1222_strenum_omitted, r1222_strenum_omitted_second)
+        self.assertIsNot(
+            r1222_strenum_omitted["reconstructed_material"], r1222_strenum_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r1222_strenum_omitted["material_read"], r1222_strenum_omitted_second["material_read"])
+        r1222_strenum_none = module.resolve_dispute(disputed=StrEnum("R1222StrEnum", {"member": ""}).member, journal_records=None)
+        r1222_strenum_none_second = module.resolve_dispute(disputed=StrEnum("R1222StrEnum", {"member": ""}).member, journal_records=None)
+        self.assertIsNot(r1222_strenum_none, r1222_strenum_none_second)
+        self.assertIsNot(
+            r1222_strenum_none["reconstructed_material"], r1222_strenum_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r1222_strenum_none["material_read"], r1222_strenum_none_second["material_read"])
+        r1222_flag_tuple = module.resolve_dispute(disputed=Flag("R1222PlainFlag", {"member": 0}).member, journal_records=("journal record one", "journal record two"))
+        r1222_flag_tuple_second = module.resolve_dispute(disputed=Flag("R1222PlainFlag", {"member": 0}).member, journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r1222_flag_tuple, r1222_flag_tuple_second)
+        self.assertIsNot(
+            r1222_flag_tuple["reconstructed_material"], r1222_flag_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r1222_flag_tuple["material_read"], r1222_flag_tuple_second["material_read"])
+        r1222_flag_omitted = module.resolve_dispute(disputed=Flag("R1222PlainFlag", {"member": 0}).member)
+        r1222_flag_omitted_second = module.resolve_dispute(disputed=Flag("R1222PlainFlag", {"member": 0}).member)
+        self.assertIsNot(r1222_flag_omitted, r1222_flag_omitted_second)
+        self.assertIsNot(
+            r1222_flag_omitted["reconstructed_material"], r1222_flag_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r1222_flag_omitted["material_read"], r1222_flag_omitted_second["material_read"])
+        r1222_flag_none = module.resolve_dispute(disputed=Flag("R1222PlainFlag", {"member": 0}).member, journal_records=None)
+        r1222_flag_none_second = module.resolve_dispute(disputed=Flag("R1222PlainFlag", {"member": 0}).member, journal_records=None)
+        self.assertIsNot(r1222_flag_none, r1222_flag_none_second)
+        self.assertIsNot(
+            r1222_flag_none["reconstructed_material"], r1222_flag_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r1222_flag_none["material_read"], r1222_flag_none_second["material_read"])
     def test_consequence_of_a_yes_at_each_question(self):
         module = require("ontoloop.ops")
         for question in self.QUESTIONS_IN_ORDER:
@@ -2574,6 +2694,156 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
             r1135_userstring_none["reconstructed_material"], r1135_userstring_none_second["reconstructed_material"])
         self.assertIsNot(
             r1135_userstring_none["material_read"], r1135_userstring_none_second["material_read"])
+
+        r1212_slice = module.resolve_dispute(disputed=slice(1), journal_records=records)
+        r1212_slice_second = module.resolve_dispute(disputed=slice(1), journal_records=records)
+        self.assertIsNot(r1212_slice, r1212_slice_second)
+        self.assertIsNot(
+            r1212_slice["reconstructed_material"], r1212_slice_second["reconstructed_material"])
+        self.assertIsNot(
+            r1212_slice["material_read"], r1212_slice_second["material_read"])
+        r1212_pattern = module.resolve_dispute(disputed=re.compile("a pattern"), journal_records=records)
+        r1212_pattern_second = module.resolve_dispute(disputed=re.compile("a pattern"), journal_records=records)
+        self.assertIsNot(r1212_pattern, r1212_pattern_second)
+        self.assertIsNot(
+            r1212_pattern["reconstructed_material"], r1212_pattern_second["reconstructed_material"])
+        self.assertIsNot(
+            r1212_pattern["material_read"], r1212_pattern_second["material_read"])
+        r1212_enum = module.resolve_dispute(disputed=Enum("R1212Enum", {"member": 1}).member, journal_records=records)
+        r1212_enum_second = module.resolve_dispute(disputed=Enum("R1212Enum", {"member": 1}).member, journal_records=records)
+        self.assertIsNot(r1212_enum, r1212_enum_second)
+        self.assertIsNot(
+            r1212_enum["reconstructed_material"], r1212_enum_second["reconstructed_material"])
+        self.assertIsNot(
+            r1212_enum["material_read"], r1212_enum_second["material_read"])
+        r1212_ipv4 = module.resolve_dispute(disputed=IPv4Address("1.2.3.4"), journal_records=records)
+        r1212_ipv4_second = module.resolve_dispute(disputed=IPv4Address("1.2.3.4"), journal_records=records)
+        self.assertIsNot(r1212_ipv4, r1212_ipv4_second)
+        self.assertIsNot(
+            r1212_ipv4["reconstructed_material"], r1212_ipv4_second["reconstructed_material"])
+        self.assertIsNot(
+            r1212_ipv4["material_read"], r1212_ipv4_second["material_read"])
+        r1212_timezone = module.resolve_dispute(disputed=timezone.utc, journal_records=records)
+        r1212_timezone_second = module.resolve_dispute(disputed=timezone.utc, journal_records=records)
+        self.assertIsNot(r1212_timezone, r1212_timezone_second)
+        self.assertIsNot(
+            r1212_timezone["reconstructed_material"], r1212_timezone_second["reconstructed_material"])
+        self.assertIsNot(
+            r1212_timezone["material_read"], r1212_timezone_second["material_read"])
+
+        r1221_items_tuple = module.resolve_dispute(disputed={"k": "v"}.items(), journal_records=("journal record one", "journal record two"))
+        r1221_items_tuple_second = module.resolve_dispute(disputed={"k": "v"}.items(), journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r1221_items_tuple, r1221_items_tuple_second)
+        self.assertIsNot(
+            r1221_items_tuple["reconstructed_material"], r1221_items_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r1221_items_tuple["material_read"], r1221_items_tuple_second["material_read"])
+        r1221_items_omitted = module.resolve_dispute(disputed={"k": "v"}.items())
+        r1221_items_omitted_second = module.resolve_dispute(disputed={"k": "v"}.items())
+        self.assertIsNot(r1221_items_omitted, r1221_items_omitted_second)
+        self.assertIsNot(
+            r1221_items_omitted["reconstructed_material"], r1221_items_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r1221_items_omitted["material_read"], r1221_items_omitted_second["material_read"])
+        r1221_items_none = module.resolve_dispute(disputed={"k": "v"}.items(), journal_records=None)
+        r1221_items_none_second = module.resolve_dispute(disputed={"k": "v"}.items(), journal_records=None)
+        self.assertIsNot(r1221_items_none, r1221_items_none_second)
+        self.assertIsNot(
+            r1221_items_none["reconstructed_material"], r1221_items_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r1221_items_none["material_read"], r1221_items_none_second["material_read"])
+        r1221_intflag_tuple = module.resolve_dispute(disputed=IntFlag("R1221Flag", {"member": 1}).member, journal_records=("journal record one", "journal record two"))
+        r1221_intflag_tuple_second = module.resolve_dispute(disputed=IntFlag("R1221Flag", {"member": 1}).member, journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r1221_intflag_tuple, r1221_intflag_tuple_second)
+        self.assertIsNot(
+            r1221_intflag_tuple["reconstructed_material"], r1221_intflag_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r1221_intflag_tuple["material_read"], r1221_intflag_tuple_second["material_read"])
+        r1221_intflag_omitted = module.resolve_dispute(disputed=IntFlag("R1221Flag", {"member": 1}).member)
+        r1221_intflag_omitted_second = module.resolve_dispute(disputed=IntFlag("R1221Flag", {"member": 1}).member)
+        self.assertIsNot(r1221_intflag_omitted, r1221_intflag_omitted_second)
+        self.assertIsNot(
+            r1221_intflag_omitted["reconstructed_material"], r1221_intflag_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r1221_intflag_omitted["material_read"], r1221_intflag_omitted_second["material_read"])
+        r1221_intflag_none = module.resolve_dispute(disputed=IntFlag("R1221Flag", {"member": 1}).member, journal_records=None)
+        r1221_intflag_none_second = module.resolve_dispute(disputed=IntFlag("R1221Flag", {"member": 1}).member, journal_records=None)
+        self.assertIsNot(r1221_intflag_none, r1221_intflag_none_second)
+        self.assertIsNot(
+            r1221_intflag_none["reconstructed_material"], r1221_intflag_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r1221_intflag_none["material_read"], r1221_intflag_none_second["material_read"])
+        r1221_strenum_tuple = module.resolve_dispute(disputed=StrEnum("R1221StrEnum", {"member": "x"}).member, journal_records=("journal record one", "journal record two"))
+        r1221_strenum_tuple_second = module.resolve_dispute(disputed=StrEnum("R1221StrEnum", {"member": "x"}).member, journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r1221_strenum_tuple, r1221_strenum_tuple_second)
+        self.assertIsNot(
+            r1221_strenum_tuple["reconstructed_material"], r1221_strenum_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r1221_strenum_tuple["material_read"], r1221_strenum_tuple_second["material_read"])
+        r1221_strenum_omitted = module.resolve_dispute(disputed=StrEnum("R1221StrEnum", {"member": "x"}).member)
+        r1221_strenum_omitted_second = module.resolve_dispute(disputed=StrEnum("R1221StrEnum", {"member": "x"}).member)
+        self.assertIsNot(r1221_strenum_omitted, r1221_strenum_omitted_second)
+        self.assertIsNot(
+            r1221_strenum_omitted["reconstructed_material"], r1221_strenum_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r1221_strenum_omitted["material_read"], r1221_strenum_omitted_second["material_read"])
+        r1221_strenum_none = module.resolve_dispute(disputed=StrEnum("R1221StrEnum", {"member": "x"}).member, journal_records=None)
+        r1221_strenum_none_second = module.resolve_dispute(disputed=StrEnum("R1221StrEnum", {"member": "x"}).member, journal_records=None)
+        self.assertIsNot(r1221_strenum_none, r1221_strenum_none_second)
+        self.assertIsNot(
+            r1221_strenum_none["reconstructed_material"], r1221_strenum_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r1221_strenum_none["material_read"], r1221_strenum_none_second["material_read"])
+        r1221_flag_tuple = module.resolve_dispute(disputed=Flag("R1221PlainFlag", {"member": 1}).member, journal_records=("journal record one", "journal record two"))
+        r1221_flag_tuple_second = module.resolve_dispute(disputed=Flag("R1221PlainFlag", {"member": 1}).member, journal_records=("journal record one", "journal record two"))
+        self.assertIsNot(r1221_flag_tuple, r1221_flag_tuple_second)
+        self.assertIsNot(
+            r1221_flag_tuple["reconstructed_material"], r1221_flag_tuple_second["reconstructed_material"])
+        self.assertIsNot(
+            r1221_flag_tuple["material_read"], r1221_flag_tuple_second["material_read"])
+        r1221_flag_omitted = module.resolve_dispute(disputed=Flag("R1221PlainFlag", {"member": 1}).member)
+        r1221_flag_omitted_second = module.resolve_dispute(disputed=Flag("R1221PlainFlag", {"member": 1}).member)
+        self.assertIsNot(r1221_flag_omitted, r1221_flag_omitted_second)
+        self.assertIsNot(
+            r1221_flag_omitted["reconstructed_material"], r1221_flag_omitted_second["reconstructed_material"])
+        self.assertIsNot(
+            r1221_flag_omitted["material_read"], r1221_flag_omitted_second["material_read"])
+        r1221_flag_none = module.resolve_dispute(disputed=Flag("R1221PlainFlag", {"member": 1}).member, journal_records=None)
+        r1221_flag_none_second = module.resolve_dispute(disputed=Flag("R1221PlainFlag", {"member": 1}).member, journal_records=None)
+        self.assertIsNot(r1221_flag_none, r1221_flag_none_second)
+        self.assertIsNot(
+            r1221_flag_none["reconstructed_material"], r1221_flag_none_second["reconstructed_material"])
+        self.assertIsNot(
+            r1221_flag_none["material_read"], r1221_flag_none_second["material_read"])
+
+        r1223_path = module.resolve_dispute(disputed=Path("part"), journal_records=records)
+        r1223_path_second = module.resolve_dispute(disputed=Path("part"), journal_records=records)
+        self.assertIsNot(r1223_path, r1223_path_second)
+        self.assertIsNot(
+            r1223_path["reconstructed_material"], r1223_path_second["reconstructed_material"])
+        self.assertIsNot(
+            r1223_path["material_read"], r1223_path_second["material_read"])
+        r1223_date = module.resolve_dispute(disputed=date(2026, 11, 17), journal_records=records)
+        r1223_date_second = module.resolve_dispute(disputed=date(2026, 11, 17), journal_records=records)
+        self.assertIsNot(r1223_date, r1223_date_second)
+        self.assertIsNot(
+            r1223_date["reconstructed_material"], r1223_date_second["reconstructed_material"])
+        self.assertIsNot(
+            r1223_date["material_read"], r1223_date_second["material_read"])
+        r1223_datetime = module.resolve_dispute(disputed=datetime(2026, 11, 17, 12, 0), journal_records=records)
+        r1223_datetime_second = module.resolve_dispute(disputed=datetime(2026, 11, 17, 12, 0), journal_records=records)
+        self.assertIsNot(r1223_datetime, r1223_datetime_second)
+        self.assertIsNot(
+            r1223_datetime["reconstructed_material"], r1223_datetime_second["reconstructed_material"])
+        self.assertIsNot(
+            r1223_datetime["material_read"], r1223_datetime_second["material_read"])
+        r1223_uuid = module.resolve_dispute(disputed=UUID(int=1), journal_records=records)
+        r1223_uuid_second = module.resolve_dispute(disputed=UUID(int=1), journal_records=records)
+        self.assertIsNot(r1223_uuid, r1223_uuid_second)
+        self.assertIsNot(
+            r1223_uuid["reconstructed_material"], r1223_uuid_second["reconstructed_material"])
+        self.assertIsNot(
+            r1223_uuid["material_read"], r1223_uuid_second["material_read"])
     def test_recorder_first_rule_with_journal_records_as_a_tuple(self):
         module = require("ontoloop.ops")
         records = ("journal record one", "journal record two")
@@ -2808,6 +3078,64 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         r1136_path_stop = module.take_loading_stop(bundle=Path("part"))
         r1136_path_second_stop = module.take_loading_stop(bundle=Path("part"))
         self.assertIsNot(r1136_path_stop, r1136_path_second_stop)
+
+        r1215_slice_stop = module.take_loading_stop(bundle=slice(1))
+        r1215_slice_stop_second = module.take_loading_stop(bundle=slice(1))
+        self.assertIsNot(r1215_slice_stop, r1215_slice_stop_second)
+        r1215_pattern_stop = module.take_loading_stop(bundle=re.compile("a pattern"))
+        r1215_pattern_stop_second = module.take_loading_stop(bundle=re.compile("a pattern"))
+        self.assertIsNot(r1215_pattern_stop, r1215_pattern_stop_second)
+        r1215_enum_stop = module.take_loading_stop(bundle=Enum("R1215Enum", {"member": 1}).member)
+        r1215_enum_stop_second = module.take_loading_stop(bundle=Enum("R1215Enum", {"member": 1}).member)
+        self.assertIsNot(r1215_enum_stop, r1215_enum_stop_second)
+        r1215_ipv4_stop = module.take_loading_stop(bundle=IPv4Address("1.2.3.4"))
+        r1215_ipv4_stop_second = module.take_loading_stop(bundle=IPv4Address("1.2.3.4"))
+        self.assertIsNot(r1215_ipv4_stop, r1215_ipv4_stop_second)
+        r1215_timezone_stop = module.take_loading_stop(bundle=timezone.utc)
+        r1215_timezone_stop_second = module.take_loading_stop(bundle=timezone.utc)
+        self.assertIsNot(r1215_timezone_stop, r1215_timezone_stop_second)
+
+        r1219_member = lambda: None
+        r1219_element = Element("tag")
+        r1219_element.append(Element("child"))
+        r1219_element_empty = Element("tag")
+        r1219_weakset = WeakSet([r1219_member])
+        r1219_weakset_empty = WeakSet()
+        r1219_weakkey = WeakKeyDictionary({r1219_member: "v"})
+        r1219_weakkey_empty = WeakKeyDictionary()
+        r1219_weakvalue = WeakValueDictionary({"k": r1219_member})
+        r1219_weakvalue_empty = WeakValueDictionary()
+        r1219_element_empty_stop = module.take_loading_stop(bundle=r1219_element_empty)
+        r1219_element_empty_stop_second = module.take_loading_stop(bundle=r1219_element_empty)
+        self.assertIsNot(r1219_element_empty_stop, r1219_element_empty_stop_second)
+        r1219_element_stop = module.take_loading_stop(bundle=r1219_element)
+        r1219_element_stop_second = module.take_loading_stop(bundle=r1219_element)
+        self.assertIsNot(r1219_element_stop, r1219_element_stop_second)
+        r1219_weakset_empty_stop = module.take_loading_stop(bundle=r1219_weakset_empty)
+        r1219_weakset_empty_stop_second = module.take_loading_stop(bundle=r1219_weakset_empty)
+        self.assertIsNot(r1219_weakset_empty_stop, r1219_weakset_empty_stop_second)
+        r1219_weakset_stop = module.take_loading_stop(bundle=r1219_weakset)
+        r1219_weakset_stop_second = module.take_loading_stop(bundle=r1219_weakset)
+        self.assertIsNot(r1219_weakset_stop, r1219_weakset_stop_second)
+        r1219_weakkey_empty_stop = module.take_loading_stop(bundle=r1219_weakkey_empty)
+        r1219_weakkey_empty_stop_second = module.take_loading_stop(bundle=r1219_weakkey_empty)
+        self.assertIsNot(r1219_weakkey_empty_stop, r1219_weakkey_empty_stop_second)
+        r1219_weakkey_stop = module.take_loading_stop(bundle=r1219_weakkey)
+        r1219_weakkey_stop_second = module.take_loading_stop(bundle=r1219_weakkey)
+        self.assertIsNot(r1219_weakkey_stop, r1219_weakkey_stop_second)
+        r1219_weakvalue_empty_stop = module.take_loading_stop(bundle=r1219_weakvalue_empty)
+        r1219_weakvalue_empty_stop_second = module.take_loading_stop(bundle=r1219_weakvalue_empty)
+        self.assertIsNot(r1219_weakvalue_empty_stop, r1219_weakvalue_empty_stop_second)
+        r1219_weakvalue_stop = module.take_loading_stop(bundle=r1219_weakvalue)
+        r1219_weakvalue_stop_second = module.take_loading_stop(bundle=r1219_weakvalue)
+        self.assertIsNot(r1219_weakvalue_stop, r1219_weakvalue_stop_second)
+
+        r1224_datetime_stop = module.take_loading_stop(bundle=datetime(2026, 11, 17, 12, 0))
+        r1224_datetime_stop_second = module.take_loading_stop(bundle=datetime(2026, 11, 17, 12, 0))
+        self.assertIsNot(r1224_datetime_stop, r1224_datetime_stop_second)
+        r1224_uuid_stop = module.take_loading_stop(bundle=UUID(int=1))
+        r1224_uuid_stop_second = module.take_loading_stop(bundle=UUID(int=1))
+        self.assertIsNot(r1224_uuid_stop, r1224_uuid_stop_second)
     def test_joint_precedence_of_repair_verification(self):
         module = require("ontoloop.ops")
         first_return = module.incident_append_order()
@@ -3114,6 +3442,31 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         r1121_stop_eight_tuple_second = module.incident_append_order(acts=("stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append"))
         self.assertIsNot(r1121_stop_eight_tuple, r1121_stop_eight_tuple_second)
         self.assertEqual(list(r1121_stop_eight_tuple), ["stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append"])
+
+        r1214_purge_nine_list = module.incident_append_order(acts=["purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append"])
+        r1214_purge_nine_list_second = module.incident_append_order(acts=["purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append"])
+        self.assertIsNot(r1214_purge_nine_list, r1214_purge_nine_list_second)
+        self.assertEqual(list(r1214_purge_nine_list), ["purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append"])
+        r1214_purge_nine_tuple = module.incident_append_order(acts=("purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append"))
+        r1214_purge_nine_tuple_second = module.incident_append_order(acts=("purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append"))
+        self.assertIsNot(r1214_purge_nine_tuple, r1214_purge_nine_tuple_second)
+        self.assertEqual(list(r1214_purge_nine_tuple), ["purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append", "purge append"])
+        r1214_repair_nine_list = module.incident_append_order(acts=["repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification"])
+        r1214_repair_nine_list_second = module.incident_append_order(acts=["repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification"])
+        self.assertIsNot(r1214_repair_nine_list, r1214_repair_nine_list_second)
+        self.assertEqual(list(r1214_repair_nine_list), ["repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification"])
+        r1214_repair_nine_tuple = module.incident_append_order(acts=("repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification"))
+        r1214_repair_nine_tuple_second = module.incident_append_order(acts=("repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification"))
+        self.assertIsNot(r1214_repair_nine_tuple, r1214_repair_nine_tuple_second)
+        self.assertEqual(list(r1214_repair_nine_tuple), ["repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification", "repair verification"])
+        r1214_stop_nine_list = module.incident_append_order(acts=["stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append"])
+        r1214_stop_nine_list_second = module.incident_append_order(acts=["stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append"])
+        self.assertIsNot(r1214_stop_nine_list, r1214_stop_nine_list_second)
+        self.assertEqual(list(r1214_stop_nine_list), ["stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append"])
+        r1214_stop_nine_tuple = module.incident_append_order(acts=("stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append"))
+        r1214_stop_nine_tuple_second = module.incident_append_order(acts=("stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append"))
+        self.assertIsNot(r1214_stop_nine_tuple, r1214_stop_nine_tuple_second)
+        self.assertEqual(list(r1214_stop_nine_tuple), ["stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append", "stop append"])
     def test_incident_append_order_on_a_proper_subset_of_the_acts(self):
         module = require("ontoloop.ops")
         order = list(module.incident_append_order(
@@ -4419,6 +4772,287 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         r1137_userstring_omitted = module.discovery_after_stop(r1137_userstring_omitted_stop)
         r1137_userstring_omitted_second = module.discovery_after_stop(r1137_userstring_omitted_stop)
         self.assertIsNot(r1137_userstring_omitted, r1137_userstring_omitted_second)
+
+        r1216_slice_stop = dict(stop)
+        r1216_slice_stop["effective_on_loading"] = slice(1)
+        r1216_slice = module.discovery_after_stop(r1216_slice_stop, bundle=bundle)
+        r1216_slice_second = module.discovery_after_stop(r1216_slice_stop, bundle=bundle)
+        self.assertIsNot(r1216_slice, r1216_slice_second)
+        self.assertEqual(r1216_slice["promotion"], bundle)
+        r1216_pattern_stop = dict(stop)
+        r1216_pattern_stop["effective_on_loading"] = re.compile("a pattern")
+        r1216_pattern = module.discovery_after_stop(r1216_pattern_stop, bundle=bundle)
+        r1216_pattern_second = module.discovery_after_stop(r1216_pattern_stop, bundle=bundle)
+        self.assertIsNot(r1216_pattern, r1216_pattern_second)
+        self.assertEqual(r1216_pattern["promotion"], bundle)
+        r1216_enum_stop = dict(stop)
+        r1216_enum_stop["effective_on_loading"] = Enum("R1216Enum", {"member": 1}).member
+        r1216_enum = module.discovery_after_stop(r1216_enum_stop, bundle=bundle)
+        r1216_enum_second = module.discovery_after_stop(r1216_enum_stop, bundle=bundle)
+        self.assertIsNot(r1216_enum, r1216_enum_second)
+        self.assertEqual(r1216_enum["promotion"], bundle)
+        r1216_ipv4_stop = dict(stop)
+        r1216_ipv4_stop["effective_on_loading"] = IPv4Address("1.2.3.4")
+        r1216_ipv4 = module.discovery_after_stop(r1216_ipv4_stop, bundle=bundle)
+        r1216_ipv4_second = module.discovery_after_stop(r1216_ipv4_stop, bundle=bundle)
+        self.assertIsNot(r1216_ipv4, r1216_ipv4_second)
+        self.assertEqual(r1216_ipv4["promotion"], bundle)
+        r1216_timezone_stop = dict(stop)
+        r1216_timezone_stop["effective_on_loading"] = timezone.utc
+        r1216_timezone = module.discovery_after_stop(r1216_timezone_stop, bundle=bundle)
+        r1216_timezone_second = module.discovery_after_stop(r1216_timezone_stop, bundle=bundle)
+        self.assertIsNot(r1216_timezone, r1216_timezone_second)
+        self.assertEqual(r1216_timezone["promotion"], bundle)
+
+        r1217_slice = module.discovery_after_stop(slice(1), bundle=bundle)
+        r1217_slice_second = module.discovery_after_stop(slice(1), bundle=bundle)
+        self.assertIsNot(r1217_slice, r1217_slice_second)
+        self.assertEqual(r1217_slice["promotion"], bundle)
+        self.assertEqual(r1217_slice["bundle"], bundle)
+        r1217_pattern = module.discovery_after_stop(re.compile("a pattern"), bundle=bundle)
+        r1217_pattern_second = module.discovery_after_stop(re.compile("a pattern"), bundle=bundle)
+        self.assertIsNot(r1217_pattern, r1217_pattern_second)
+        self.assertEqual(r1217_pattern["promotion"], bundle)
+        self.assertEqual(r1217_pattern["bundle"], bundle)
+        r1217_enum = module.discovery_after_stop(Enum("R1217Enum", {"member": 1}).member, bundle=bundle)
+        r1217_enum_second = module.discovery_after_stop(Enum("R1217Enum", {"member": 1}).member, bundle=bundle)
+        self.assertIsNot(r1217_enum, r1217_enum_second)
+        self.assertEqual(r1217_enum["promotion"], bundle)
+        self.assertEqual(r1217_enum["bundle"], bundle)
+        r1217_ipv4 = module.discovery_after_stop(IPv4Address("1.2.3.4"), bundle=bundle)
+        r1217_ipv4_second = module.discovery_after_stop(IPv4Address("1.2.3.4"), bundle=bundle)
+        self.assertIsNot(r1217_ipv4, r1217_ipv4_second)
+        self.assertEqual(r1217_ipv4["promotion"], bundle)
+        self.assertEqual(r1217_ipv4["bundle"], bundle)
+        r1217_timezone = module.discovery_after_stop(timezone.utc, bundle=bundle)
+        r1217_timezone_second = module.discovery_after_stop(timezone.utc, bundle=bundle)
+        self.assertIsNot(r1217_timezone, r1217_timezone_second)
+        self.assertEqual(r1217_timezone["promotion"], bundle)
+        self.assertEqual(r1217_timezone["bundle"], bundle)
+
+        r1220_member = lambda: None
+        r1220_element = Element("tag")
+        r1220_element.append(Element("child"))
+        r1220_element_empty = Element("tag")
+        r1220_weakset = WeakSet([r1220_member])
+        r1220_weakset_empty = WeakSet()
+        r1220_weakkey = WeakKeyDictionary({r1220_member: "v"})
+        r1220_weakkey_empty = WeakKeyDictionary()
+        r1220_weakvalue = WeakValueDictionary({"k": r1220_member})
+        r1220_weakvalue_empty = WeakValueDictionary()
+        r1220_element_empty_stop = dict(stop)
+        r1220_element_empty_stop["effective_on_loading"] = r1220_element_empty
+        r1220_element_empty = module.discovery_after_stop(r1220_element_empty_stop, bundle=bundle)
+        r1220_element_empty_second = module.discovery_after_stop(r1220_element_empty_stop, bundle=bundle)
+        self.assertIsNot(r1220_element_empty, r1220_element_empty_second)
+        r1220_element_stop = dict(stop)
+        r1220_element_stop["effective_on_loading"] = r1220_element
+        r1220_element = module.discovery_after_stop(r1220_element_stop, bundle=bundle)
+        r1220_element_second = module.discovery_after_stop(r1220_element_stop, bundle=bundle)
+        self.assertIsNot(r1220_element, r1220_element_second)
+        r1220_weakset_empty_stop = dict(stop)
+        r1220_weakset_empty_stop["effective_on_loading"] = r1220_weakset_empty
+        r1220_weakset_empty = module.discovery_after_stop(r1220_weakset_empty_stop, bundle=bundle)
+        r1220_weakset_empty_second = module.discovery_after_stop(r1220_weakset_empty_stop, bundle=bundle)
+        self.assertIsNot(r1220_weakset_empty, r1220_weakset_empty_second)
+        r1220_weakset_stop = dict(stop)
+        r1220_weakset_stop["effective_on_loading"] = r1220_weakset
+        r1220_weakset = module.discovery_after_stop(r1220_weakset_stop, bundle=bundle)
+        r1220_weakset_second = module.discovery_after_stop(r1220_weakset_stop, bundle=bundle)
+        self.assertIsNot(r1220_weakset, r1220_weakset_second)
+        r1220_weakkey_empty_stop = dict(stop)
+        r1220_weakkey_empty_stop["effective_on_loading"] = r1220_weakkey_empty
+        r1220_weakkey_empty = module.discovery_after_stop(r1220_weakkey_empty_stop, bundle=bundle)
+        r1220_weakkey_empty_second = module.discovery_after_stop(r1220_weakkey_empty_stop, bundle=bundle)
+        self.assertIsNot(r1220_weakkey_empty, r1220_weakkey_empty_second)
+        r1220_weakkey_stop = dict(stop)
+        r1220_weakkey_stop["effective_on_loading"] = r1220_weakkey
+        r1220_weakkey = module.discovery_after_stop(r1220_weakkey_stop, bundle=bundle)
+        r1220_weakkey_second = module.discovery_after_stop(r1220_weakkey_stop, bundle=bundle)
+        self.assertIsNot(r1220_weakkey, r1220_weakkey_second)
+        r1220_weakvalue_empty_stop = dict(stop)
+        r1220_weakvalue_empty_stop["effective_on_loading"] = r1220_weakvalue_empty
+        r1220_weakvalue_empty = module.discovery_after_stop(r1220_weakvalue_empty_stop, bundle=bundle)
+        r1220_weakvalue_empty_second = module.discovery_after_stop(r1220_weakvalue_empty_stop, bundle=bundle)
+        self.assertIsNot(r1220_weakvalue_empty, r1220_weakvalue_empty_second)
+        r1220_weakvalue_stop = dict(stop)
+        r1220_weakvalue_stop["effective_on_loading"] = r1220_weakvalue
+        r1220_weakvalue = module.discovery_after_stop(r1220_weakvalue_stop, bundle=bundle)
+        r1220_weakvalue_second = module.discovery_after_stop(r1220_weakvalue_stop, bundle=bundle)
+        self.assertIsNot(r1220_weakvalue, r1220_weakvalue_second)
+
+        r1225_proxy_none_stop = dict(stop)
+        r1225_proxy_none_stop["effective_on_loading"] = MappingProxyType({"k": "v"})
+        r1225_proxy_none = module.discovery_after_stop(r1225_proxy_none_stop, bundle=None)
+        r1225_proxy_none_second = module.discovery_after_stop(r1225_proxy_none_stop, bundle=None)
+        self.assertIsNot(r1225_proxy_none, r1225_proxy_none_second)
+        r1225_proxy_omitted_stop = dict(stop)
+        r1225_proxy_omitted_stop["effective_on_loading"] = MappingProxyType({"k": "v"})
+        r1225_proxy_omitted = module.discovery_after_stop(r1225_proxy_omitted_stop)
+        r1225_proxy_omitted_second = module.discovery_after_stop(r1225_proxy_omitted_stop)
+        self.assertIsNot(r1225_proxy_omitted, r1225_proxy_omitted_second)
+        r1225_namedtuple_none_stop = dict(stop)
+        r1225_namedtuple_none_stop["effective_on_loading"] = namedtuple("R1225Tuple", ["field"])(1)
+        r1225_namedtuple_none = module.discovery_after_stop(r1225_namedtuple_none_stop, bundle=None)
+        r1225_namedtuple_none_second = module.discovery_after_stop(r1225_namedtuple_none_stop, bundle=None)
+        self.assertIsNot(r1225_namedtuple_none, r1225_namedtuple_none_second)
+        r1225_namedtuple_omitted_stop = dict(stop)
+        r1225_namedtuple_omitted_stop["effective_on_loading"] = namedtuple("R1225Tuple", ["field"])(1)
+        r1225_namedtuple_omitted = module.discovery_after_stop(r1225_namedtuple_omitted_stop)
+        r1225_namedtuple_omitted_second = module.discovery_after_stop(r1225_namedtuple_omitted_stop)
+        self.assertIsNot(r1225_namedtuple_omitted, r1225_namedtuple_omitted_second)
+        r1225_keys_none_stop = dict(stop)
+        r1225_keys_none_stop["effective_on_loading"] = {"k": "v"}.keys()
+        r1225_keys_none = module.discovery_after_stop(r1225_keys_none_stop, bundle=None)
+        r1225_keys_none_second = module.discovery_after_stop(r1225_keys_none_stop, bundle=None)
+        self.assertIsNot(r1225_keys_none, r1225_keys_none_second)
+        r1225_keys_omitted_stop = dict(stop)
+        r1225_keys_omitted_stop["effective_on_loading"] = {"k": "v"}.keys()
+        r1225_keys_omitted = module.discovery_after_stop(r1225_keys_omitted_stop)
+        r1225_keys_omitted_second = module.discovery_after_stop(r1225_keys_omitted_stop)
+        self.assertIsNot(r1225_keys_omitted, r1225_keys_omitted_second)
+        r1225_values_none_stop = dict(stop)
+        r1225_values_none_stop["effective_on_loading"] = {"k": "v"}.values()
+        r1225_values_none = module.discovery_after_stop(r1225_values_none_stop, bundle=None)
+        r1225_values_none_second = module.discovery_after_stop(r1225_values_none_stop, bundle=None)
+        self.assertIsNot(r1225_values_none, r1225_values_none_second)
+        r1225_values_omitted_stop = dict(stop)
+        r1225_values_omitted_stop["effective_on_loading"] = {"k": "v"}.values()
+        r1225_values_omitted = module.discovery_after_stop(r1225_values_omitted_stop)
+        r1225_values_omitted_second = module.discovery_after_stop(r1225_values_omitted_stop)
+        self.assertIsNot(r1225_values_omitted, r1225_values_omitted_second)
+        r1225_intenum_none_stop = dict(stop)
+        r1225_intenum_none_stop["effective_on_loading"] = IntEnum("R1225Enum", {"member": 1}).member
+        r1225_intenum_none = module.discovery_after_stop(r1225_intenum_none_stop, bundle=None)
+        r1225_intenum_none_second = module.discovery_after_stop(r1225_intenum_none_stop, bundle=None)
+        self.assertIsNot(r1225_intenum_none, r1225_intenum_none_second)
+        r1225_intenum_omitted_stop = dict(stop)
+        r1225_intenum_omitted_stop["effective_on_loading"] = IntEnum("R1225Enum", {"member": 1}).member
+        r1225_intenum_omitted = module.discovery_after_stop(r1225_intenum_omitted_stop)
+        r1225_intenum_omitted_second = module.discovery_after_stop(r1225_intenum_omitted_stop)
+        self.assertIsNot(r1225_intenum_omitted, r1225_intenum_omitted_second)
+
+        r1226_items_none_stop = dict(stop)
+        r1226_items_none_stop["effective_on_loading"] = {"k": "v"}.items()
+        r1226_items_none = module.discovery_after_stop(r1226_items_none_stop, bundle=None)
+        r1226_items_none_second = module.discovery_after_stop(r1226_items_none_stop, bundle=None)
+        self.assertIsNot(r1226_items_none, r1226_items_none_second)
+        r1226_items_omitted_stop = dict(stop)
+        r1226_items_omitted_stop["effective_on_loading"] = {"k": "v"}.items()
+        r1226_items_omitted = module.discovery_after_stop(r1226_items_omitted_stop)
+        r1226_items_omitted_second = module.discovery_after_stop(r1226_items_omitted_stop)
+        self.assertIsNot(r1226_items_omitted, r1226_items_omitted_second)
+        r1226_items_empty_none_stop = dict(stop)
+        r1226_items_empty_none_stop["effective_on_loading"] = {}.items()
+        r1226_items_empty_none = module.discovery_after_stop(r1226_items_empty_none_stop, bundle=None)
+        r1226_items_empty_none_second = module.discovery_after_stop(r1226_items_empty_none_stop, bundle=None)
+        self.assertIsNot(r1226_items_empty_none, r1226_items_empty_none_second)
+        r1226_items_empty_omitted_stop = dict(stop)
+        r1226_items_empty_omitted_stop["effective_on_loading"] = {}.items()
+        r1226_items_empty_omitted = module.discovery_after_stop(r1226_items_empty_omitted_stop)
+        r1226_items_empty_omitted_second = module.discovery_after_stop(r1226_items_empty_omitted_stop)
+        self.assertIsNot(r1226_items_empty_omitted, r1226_items_empty_omitted_second)
+        r1226_intflag_none_stop = dict(stop)
+        r1226_intflag_none_stop["effective_on_loading"] = IntFlag("R1226Flag", {"member": 1}).member
+        r1226_intflag_none = module.discovery_after_stop(r1226_intflag_none_stop, bundle=None)
+        r1226_intflag_none_second = module.discovery_after_stop(r1226_intflag_none_stop, bundle=None)
+        self.assertIsNot(r1226_intflag_none, r1226_intflag_none_second)
+        r1226_intflag_omitted_stop = dict(stop)
+        r1226_intflag_omitted_stop["effective_on_loading"] = IntFlag("R1226Flag", {"member": 1}).member
+        r1226_intflag_omitted = module.discovery_after_stop(r1226_intflag_omitted_stop)
+        r1226_intflag_omitted_second = module.discovery_after_stop(r1226_intflag_omitted_stop)
+        self.assertIsNot(r1226_intflag_omitted, r1226_intflag_omitted_second)
+        r1226_intflag_zero_none_stop = dict(stop)
+        r1226_intflag_zero_none_stop["effective_on_loading"] = IntFlag("R1226Flag", {"member": 0}).member
+        r1226_intflag_zero_none = module.discovery_after_stop(r1226_intflag_zero_none_stop, bundle=None)
+        r1226_intflag_zero_none_second = module.discovery_after_stop(r1226_intflag_zero_none_stop, bundle=None)
+        self.assertIsNot(r1226_intflag_zero_none, r1226_intflag_zero_none_second)
+        r1226_intflag_zero_omitted_stop = dict(stop)
+        r1226_intflag_zero_omitted_stop["effective_on_loading"] = IntFlag("R1226Flag", {"member": 0}).member
+        r1226_intflag_zero_omitted = module.discovery_after_stop(r1226_intflag_zero_omitted_stop)
+        r1226_intflag_zero_omitted_second = module.discovery_after_stop(r1226_intflag_zero_omitted_stop)
+        self.assertIsNot(r1226_intflag_zero_omitted, r1226_intflag_zero_omitted_second)
+        r1226_strenum_none_stop = dict(stop)
+        r1226_strenum_none_stop["effective_on_loading"] = StrEnum("R1226StrEnum", {"member": "x"}).member
+        r1226_strenum_none = module.discovery_after_stop(r1226_strenum_none_stop, bundle=None)
+        r1226_strenum_none_second = module.discovery_after_stop(r1226_strenum_none_stop, bundle=None)
+        self.assertIsNot(r1226_strenum_none, r1226_strenum_none_second)
+        r1226_strenum_omitted_stop = dict(stop)
+        r1226_strenum_omitted_stop["effective_on_loading"] = StrEnum("R1226StrEnum", {"member": "x"}).member
+        r1226_strenum_omitted = module.discovery_after_stop(r1226_strenum_omitted_stop)
+        r1226_strenum_omitted_second = module.discovery_after_stop(r1226_strenum_omitted_stop)
+        self.assertIsNot(r1226_strenum_omitted, r1226_strenum_omitted_second)
+        r1226_strenum_empty_none_stop = dict(stop)
+        r1226_strenum_empty_none_stop["effective_on_loading"] = StrEnum("R1226StrEnum", {"member": ""}).member
+        r1226_strenum_empty_none = module.discovery_after_stop(r1226_strenum_empty_none_stop, bundle=None)
+        r1226_strenum_empty_none_second = module.discovery_after_stop(r1226_strenum_empty_none_stop, bundle=None)
+        self.assertIsNot(r1226_strenum_empty_none, r1226_strenum_empty_none_second)
+        r1226_strenum_empty_omitted_stop = dict(stop)
+        r1226_strenum_empty_omitted_stop["effective_on_loading"] = StrEnum("R1226StrEnum", {"member": ""}).member
+        r1226_strenum_empty_omitted = module.discovery_after_stop(r1226_strenum_empty_omitted_stop)
+        r1226_strenum_empty_omitted_second = module.discovery_after_stop(r1226_strenum_empty_omitted_stop)
+        self.assertIsNot(r1226_strenum_empty_omitted, r1226_strenum_empty_omitted_second)
+        r1226_flag_none_stop = dict(stop)
+        r1226_flag_none_stop["effective_on_loading"] = Flag("R1226PlainFlag", {"member": 1}).member
+        r1226_flag_none = module.discovery_after_stop(r1226_flag_none_stop, bundle=None)
+        r1226_flag_none_second = module.discovery_after_stop(r1226_flag_none_stop, bundle=None)
+        self.assertIsNot(r1226_flag_none, r1226_flag_none_second)
+        r1226_flag_omitted_stop = dict(stop)
+        r1226_flag_omitted_stop["effective_on_loading"] = Flag("R1226PlainFlag", {"member": 1}).member
+        r1226_flag_omitted = module.discovery_after_stop(r1226_flag_omitted_stop)
+        r1226_flag_omitted_second = module.discovery_after_stop(r1226_flag_omitted_stop)
+        self.assertIsNot(r1226_flag_omitted, r1226_flag_omitted_second)
+        r1226_flag_zero_none_stop = dict(stop)
+        r1226_flag_zero_none_stop["effective_on_loading"] = Flag("R1226PlainFlag", {"member": 0}).member
+        r1226_flag_zero_none = module.discovery_after_stop(r1226_flag_zero_none_stop, bundle=None)
+        r1226_flag_zero_none_second = module.discovery_after_stop(r1226_flag_zero_none_stop, bundle=None)
+        self.assertIsNot(r1226_flag_zero_none, r1226_flag_zero_none_second)
+        r1226_flag_zero_omitted_stop = dict(stop)
+        r1226_flag_zero_omitted_stop["effective_on_loading"] = Flag("R1226PlainFlag", {"member": 0}).member
+        r1226_flag_zero_omitted = module.discovery_after_stop(r1226_flag_zero_omitted_stop)
+        r1226_flag_zero_omitted_second = module.discovery_after_stop(r1226_flag_zero_omitted_stop)
+        self.assertIsNot(r1226_flag_zero_omitted, r1226_flag_zero_omitted_second)
+
+        r1227_values_none = module.discovery_after_stop({"k": "v"}.values(), bundle=None)
+        r1227_values_none_second = module.discovery_after_stop({"k": "v"}.values(), bundle=None)
+        self.assertIsNot(r1227_values_none, r1227_values_none_second)
+        r1227_values_omitted = module.discovery_after_stop({"k": "v"}.values())
+        r1227_values_omitted_second = module.discovery_after_stop({"k": "v"}.values())
+        self.assertIsNot(r1227_values_omitted, r1227_values_omitted_second)
+        r1227_intenum_none = module.discovery_after_stop(IntEnum("R1227Enum", {"member": 1}).member, bundle=None)
+        r1227_intenum_none_second = module.discovery_after_stop(IntEnum("R1227Enum", {"member": 1}).member, bundle=None)
+        self.assertIsNot(r1227_intenum_none, r1227_intenum_none_second)
+        r1227_intenum_omitted = module.discovery_after_stop(IntEnum("R1227Enum", {"member": 1}).member)
+        r1227_intenum_omitted_second = module.discovery_after_stop(IntEnum("R1227Enum", {"member": 1}).member)
+        self.assertIsNot(r1227_intenum_omitted, r1227_intenum_omitted_second)
+        r1227_range_none = module.discovery_after_stop(range(1), bundle=None)
+        r1227_range_none_second = module.discovery_after_stop(range(1), bundle=None)
+        self.assertIsNot(r1227_range_none, r1227_range_none_second)
+        r1227_range_omitted = module.discovery_after_stop(range(1))
+        r1227_range_omitted_second = module.discovery_after_stop(range(1))
+        self.assertIsNot(r1227_range_omitted, r1227_range_omitted_second)
+        r1227_datetime_none = module.discovery_after_stop(datetime(2026, 11, 17, 12, 0), bundle=None)
+        r1227_datetime_none_second = module.discovery_after_stop(datetime(2026, 11, 17, 12, 0), bundle=None)
+        self.assertIsNot(r1227_datetime_none, r1227_datetime_none_second)
+        r1227_datetime_omitted = module.discovery_after_stop(datetime(2026, 11, 17, 12, 0))
+        r1227_datetime_omitted_second = module.discovery_after_stop(datetime(2026, 11, 17, 12, 0))
+        self.assertIsNot(r1227_datetime_omitted, r1227_datetime_omitted_second)
+        r1227_uuid_none = module.discovery_after_stop(UUID(int=1), bundle=None)
+        r1227_uuid_none_second = module.discovery_after_stop(UUID(int=1), bundle=None)
+        self.assertIsNot(r1227_uuid_none, r1227_uuid_none_second)
+        r1227_uuid_omitted = module.discovery_after_stop(UUID(int=1))
+        r1227_uuid_omitted_second = module.discovery_after_stop(UUID(int=1))
+        self.assertIsNot(r1227_uuid_omitted, r1227_uuid_omitted_second)
+
+        r1228_chainmap = module.discovery_after_stop(ChainMap({"a stop key": "a stop value"}), bundle=bundle)
+        r1228_chainmap_second = module.discovery_after_stop(ChainMap({"a stop key": "a stop value"}), bundle=bundle)
+        self.assertIsNot(r1228_chainmap, r1228_chainmap_second)
+        r1228_userdict = module.discovery_after_stop(UserDict({"a stop key": "a stop value"}), bundle=bundle)
+        r1228_userdict_second = module.discovery_after_stop(UserDict({"a stop key": "a stop value"}), bundle=bundle)
+        self.assertIsNot(r1228_userdict, r1228_userdict_second)
+        r1228_defaultdict = module.discovery_after_stop(defaultdict(int, {"a stop key": 1}), bundle=bundle)
+        r1228_defaultdict_second = module.discovery_after_stop(defaultdict(int, {"a stop key": 1}), bundle=bundle)
+        self.assertIsNot(r1228_defaultdict, r1228_defaultdict_second)
     def test_loading_stop_record_boundary_and_journal_landing(self):
         module = require("ontoloop.ops")
         stop = module.take_loading_stop()
@@ -4746,6 +5380,63 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         r1138_memoryview_landed = module.journal_record_after_append(memoryview(bytearray(b"a stop standing as a memoryview")))
         r1138_memoryview_second_landed = module.journal_record_after_append(memoryview(bytearray(b"a stop standing as a memoryview")))
         self.assertIsNot(r1138_memoryview_landed, r1138_memoryview_second_landed)
+
+        r1218_slice_landed = module.journal_record_after_append(slice(1))
+        r1218_slice_landed_second = module.journal_record_after_append(slice(1))
+        self.assertIsNot(r1218_slice_landed, r1218_slice_landed_second)
+        r1218_pattern_landed = module.journal_record_after_append(re.compile("a pattern"))
+        r1218_pattern_landed_second = module.journal_record_after_append(re.compile("a pattern"))
+        self.assertIsNot(r1218_pattern_landed, r1218_pattern_landed_second)
+        r1218_enum_landed = module.journal_record_after_append(Enum("R1218Enum", {"member": 1}).member)
+        r1218_enum_landed_second = module.journal_record_after_append(Enum("R1218Enum", {"member": 1}).member)
+        self.assertIsNot(r1218_enum_landed, r1218_enum_landed_second)
+        r1218_ipv4_landed = module.journal_record_after_append(IPv4Address("1.2.3.4"))
+        r1218_ipv4_landed_second = module.journal_record_after_append(IPv4Address("1.2.3.4"))
+        self.assertIsNot(r1218_ipv4_landed, r1218_ipv4_landed_second)
+        r1218_timezone_landed = module.journal_record_after_append(timezone.utc)
+        r1218_timezone_landed_second = module.journal_record_after_append(timezone.utc)
+        self.assertIsNot(r1218_timezone_landed, r1218_timezone_landed_second)
+
+        r1229_values_none_landed = module.journal_record_after_append({"k": "v"}.values(), store=None)
+        r1229_values_none_landed_second = module.journal_record_after_append({"k": "v"}.values(), store=None)
+        self.assertIsNot(r1229_values_none_landed, r1229_values_none_landed_second)
+        r1229_intenum_none_landed = module.journal_record_after_append(IntEnum("R1229Enum", {"member": 1}).member, store=None)
+        r1229_intenum_none_landed_second = module.journal_record_after_append(IntEnum("R1229Enum", {"member": 1}).member, store=None)
+        self.assertIsNot(r1229_intenum_none_landed, r1229_intenum_none_landed_second)
+        r1229_range_none_landed = module.journal_record_after_append(range(1), store=None)
+        r1229_range_none_landed_second = module.journal_record_after_append(range(1), store=None)
+        self.assertIsNot(r1229_range_none_landed, r1229_range_none_landed_second)
+        r1229_datetime_none_landed = module.journal_record_after_append(datetime(2026, 11, 17, 12, 0), store=None)
+        r1229_datetime_none_landed_second = module.journal_record_after_append(datetime(2026, 11, 17, 12, 0), store=None)
+        self.assertIsNot(r1229_datetime_none_landed, r1229_datetime_none_landed_second)
+        r1229_uuid_none_landed = module.journal_record_after_append(UUID(int=1), store=None)
+        r1229_uuid_none_landed_second = module.journal_record_after_append(UUID(int=1), store=None)
+        self.assertIsNot(r1229_uuid_none_landed, r1229_uuid_none_landed_second)
+
+        r1230_items_landed = module.journal_record_after_append({"k": "v"}.items())
+        r1230_items_landed_second = module.journal_record_after_append({"k": "v"}.items())
+        self.assertIsNot(r1230_items_landed, r1230_items_landed_second)
+        r1230_items_empty_landed = module.journal_record_after_append({}.items())
+        r1230_items_empty_landed_second = module.journal_record_after_append({}.items())
+        self.assertIsNot(r1230_items_empty_landed, r1230_items_empty_landed_second)
+        r1230_intflag_landed = module.journal_record_after_append(IntFlag("R1230Flag", {"member": 1}).member)
+        r1230_intflag_landed_second = module.journal_record_after_append(IntFlag("R1230Flag", {"member": 1}).member)
+        self.assertIsNot(r1230_intflag_landed, r1230_intflag_landed_second)
+        r1230_intflag_zero_landed = module.journal_record_after_append(IntFlag("R1230Flag", {"member": 0}).member)
+        r1230_intflag_zero_landed_second = module.journal_record_after_append(IntFlag("R1230Flag", {"member": 0}).member)
+        self.assertIsNot(r1230_intflag_zero_landed, r1230_intflag_zero_landed_second)
+        r1230_strenum_landed = module.journal_record_after_append(StrEnum("R1230StrEnum", {"member": "x"}).member)
+        r1230_strenum_landed_second = module.journal_record_after_append(StrEnum("R1230StrEnum", {"member": "x"}).member)
+        self.assertIsNot(r1230_strenum_landed, r1230_strenum_landed_second)
+        r1230_strenum_empty_landed = module.journal_record_after_append(StrEnum("R1230StrEnum", {"member": ""}).member)
+        r1230_strenum_empty_landed_second = module.journal_record_after_append(StrEnum("R1230StrEnum", {"member": ""}).member)
+        self.assertIsNot(r1230_strenum_empty_landed, r1230_strenum_empty_landed_second)
+        r1230_flag_landed = module.journal_record_after_append(Flag("R1230PlainFlag", {"member": 1}).member)
+        r1230_flag_landed_second = module.journal_record_after_append(Flag("R1230PlainFlag", {"member": 1}).member)
+        self.assertIsNot(r1230_flag_landed, r1230_flag_landed_second)
+        r1230_flag_zero_landed = module.journal_record_after_append(Flag("R1230PlainFlag", {"member": 0}).member)
+        r1230_flag_zero_landed_second = module.journal_record_after_append(Flag("R1230PlainFlag", {"member": 0}).member)
+        self.assertIsNot(r1230_flag_zero_landed, r1230_flag_zero_landed_second)
     def test_loading_stop_journal_landing_with_a_store_passed(self):
         module = require("ontoloop.ops")
         stop = module.take_loading_stop(bundle="named bundle")
@@ -5059,6 +5750,37 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         r1134_defaultdict_standing_second_landed = module.journal_record_after_append(defaultdict(int, {"a stop key": 1}), store=standing_store)
         self.assertIsNot(r1134_defaultdict_standing_landed, r1134_defaultdict_standing_second_landed)
         self.assertIsNot(r1134_defaultdict_standing_landed["stop"], r1134_defaultdict_standing_second_landed["stop"])
+
+        r1229_values_empty_landed = module.journal_record_after_append({"k": "v"}.values(), store={})
+        r1229_values_empty_landed_second = module.journal_record_after_append({"k": "v"}.values(), store={})
+        self.assertIsNot(r1229_values_empty_landed, r1229_values_empty_landed_second)
+        r1229_values_standing_landed = module.journal_record_after_append({"k": "v"}.values(), store=standing_store)
+        r1229_values_standing_landed_second = module.journal_record_after_append({"k": "v"}.values(), store=standing_store)
+        self.assertIsNot(r1229_values_standing_landed, r1229_values_standing_landed_second)
+        r1229_intenum_empty_landed = module.journal_record_after_append(IntEnum("R1229Enum", {"member": 1}).member, store={})
+        r1229_intenum_empty_landed_second = module.journal_record_after_append(IntEnum("R1229Enum", {"member": 1}).member, store={})
+        self.assertIsNot(r1229_intenum_empty_landed, r1229_intenum_empty_landed_second)
+        r1229_intenum_standing_landed = module.journal_record_after_append(IntEnum("R1229Enum", {"member": 1}).member, store=standing_store)
+        r1229_intenum_standing_landed_second = module.journal_record_after_append(IntEnum("R1229Enum", {"member": 1}).member, store=standing_store)
+        self.assertIsNot(r1229_intenum_standing_landed, r1229_intenum_standing_landed_second)
+        r1229_range_empty_landed = module.journal_record_after_append(range(1), store={})
+        r1229_range_empty_landed_second = module.journal_record_after_append(range(1), store={})
+        self.assertIsNot(r1229_range_empty_landed, r1229_range_empty_landed_second)
+        r1229_range_standing_landed = module.journal_record_after_append(range(1), store=standing_store)
+        r1229_range_standing_landed_second = module.journal_record_after_append(range(1), store=standing_store)
+        self.assertIsNot(r1229_range_standing_landed, r1229_range_standing_landed_second)
+        r1229_datetime_empty_landed = module.journal_record_after_append(datetime(2026, 11, 17, 12, 0), store={})
+        r1229_datetime_empty_landed_second = module.journal_record_after_append(datetime(2026, 11, 17, 12, 0), store={})
+        self.assertIsNot(r1229_datetime_empty_landed, r1229_datetime_empty_landed_second)
+        r1229_datetime_standing_landed = module.journal_record_after_append(datetime(2026, 11, 17, 12, 0), store=standing_store)
+        r1229_datetime_standing_landed_second = module.journal_record_after_append(datetime(2026, 11, 17, 12, 0), store=standing_store)
+        self.assertIsNot(r1229_datetime_standing_landed, r1229_datetime_standing_landed_second)
+        r1229_uuid_empty_landed = module.journal_record_after_append(UUID(int=1), store={})
+        r1229_uuid_empty_landed_second = module.journal_record_after_append(UUID(int=1), store={})
+        self.assertIsNot(r1229_uuid_empty_landed, r1229_uuid_empty_landed_second)
+        r1229_uuid_standing_landed = module.journal_record_after_append(UUID(int=1), store=standing_store)
+        r1229_uuid_standing_landed_second = module.journal_record_after_append(UUID(int=1), store=standing_store)
+        self.assertIsNot(r1229_uuid_standing_landed, r1229_uuid_standing_landed_second)
     def test_loading_stop_journal_landing_with_an_appending_store(self):
         module = require("ontoloop.ops")
         store_module = require("ontoloop.store")
@@ -5230,6 +5952,22 @@ class TestUnrowed195IncidentEntryPoint(unittest.TestCase):
         r1134_defaultdict_appending_second_landed = module.journal_record_after_append(defaultdict(int, {"a stop key": 1}), store=appending_store)
         self.assertIsNot(r1134_defaultdict_appending_landed, r1134_defaultdict_appending_second_landed)
         self.assertIsNot(r1134_defaultdict_appending_landed["stop"], r1134_defaultdict_appending_second_landed["stop"])
+
+        r1229_values_appending_landed = module.journal_record_after_append({"k": "v"}.values(), store=appending_store)
+        r1229_values_appending_landed_second = module.journal_record_after_append({"k": "v"}.values(), store=appending_store)
+        self.assertIsNot(r1229_values_appending_landed, r1229_values_appending_landed_second)
+        r1229_intenum_appending_landed = module.journal_record_after_append(IntEnum("R1229Enum", {"member": 1}).member, store=appending_store)
+        r1229_intenum_appending_landed_second = module.journal_record_after_append(IntEnum("R1229Enum", {"member": 1}).member, store=appending_store)
+        self.assertIsNot(r1229_intenum_appending_landed, r1229_intenum_appending_landed_second)
+        r1229_range_appending_landed = module.journal_record_after_append(range(1), store=appending_store)
+        r1229_range_appending_landed_second = module.journal_record_after_append(range(1), store=appending_store)
+        self.assertIsNot(r1229_range_appending_landed, r1229_range_appending_landed_second)
+        r1229_datetime_appending_landed = module.journal_record_after_append(datetime(2026, 11, 17, 12, 0), store=appending_store)
+        r1229_datetime_appending_landed_second = module.journal_record_after_append(datetime(2026, 11, 17, 12, 0), store=appending_store)
+        self.assertIsNot(r1229_datetime_appending_landed, r1229_datetime_appending_landed_second)
+        r1229_uuid_appending_landed = module.journal_record_after_append(UUID(int=1), store=appending_store)
+        r1229_uuid_appending_landed_second = module.journal_record_after_append(UUID(int=1), store=appending_store)
+        self.assertIsNot(r1229_uuid_appending_landed, r1229_uuid_appending_landed_second)
     def test_loading_stop_journal_landing_records_the_append_content(self):
         module = require("ontoloop.ops")
         store_module = require("ontoloop.store")
