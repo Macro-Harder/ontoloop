@@ -81,6 +81,12 @@ EXPECTED_1986_METHODS = [
     "test_clean_case_at_promotion",
     "test_no_clearance_claim_until_a_promotion_record_carries_the_result",
 ]
+EXPECTED_UNROWED_C_COUNTS = {
+    "19.86": 8,
+    "19.87": 7,
+    "20.18": 7,
+}
+EXPECTED_UNROWED_C_TOTAL = 22
 
 failures = []
 class_count = [0]
@@ -353,8 +359,33 @@ def main():
     else:
         if entry_1986.get("methods") != EXPECTED_1986_METHODS:
             fail("c", "19.86", "B5", "methods not preserved as filed")
-        if entry_1986.get("test_count") != 7:
-            fail("c", "19.86", "B5", "test_count not preserved as filed")
+        if entry_1986.get("test_count") != EXPECTED_UNROWED_C_COUNTS["19.86"]:
+            fail("c", "19.86", "B5", "test_count not reconciled to the scope paper count")
+    if "c" in parts and isinstance(parts["c"].get("unrowed"), dict):
+        unrowed_c = parts["c"]["unrowed"]
+        counted_total = 0
+        for subsection, expected in sorted(EXPECTED_UNROWED_C_COUNTS.items()):
+            entry = unrowed_c.get(subsection)
+            if not isinstance(entry, dict):
+                fail("c", subsection, "B5", "unrowed entry missing for count reconciliation")
+                continue
+            if entry.get("test_count") != expected:
+                fail(
+                    "c",
+                    subsection,
+                    "B5",
+                    "test_count does not stand at the reconciled count %d" % expected,
+                )
+            else:
+                counted_total += entry["test_count"]
+        if counted_total != EXPECTED_UNROWED_C_TOTAL:
+            fail(
+                "c",
+                "unrowed",
+                "B5",
+                "unrowed counts total %d, expected the reconciled total %d"
+                % (counted_total, EXPECTED_UNROWED_C_TOTAL),
+            )
 
     # Assertion F: failure form and clean run counts.
     if failures:

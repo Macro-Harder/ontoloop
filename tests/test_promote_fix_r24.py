@@ -277,12 +277,14 @@ class TestPromoteFixR24GetitemAsChainMapItem(_WrapperCase):
 
     def test_clean_getitem_generator_in_list_clears(self):
         self._assert_pair_clears(
-            lambda: [_getitem_of(_clean_position())]
+            lambda: [_getitem_of(_clean_position())],
+            comparisons=0,
         )
 
     def test_getitem_nested_direct_in_list_stays_parity(self):
         self._assert_pair_clears(
-            lambda: [GetitemOnlyForm([_nested_position()])]
+            lambda: [GetitemOnlyForm([_nested_position()])],
+            comparisons=0,
         )
 
     def test_ruling_966_charged_form_stays_clearing(self):
@@ -646,7 +648,8 @@ class TestPromoteFixR24StringInsideContainerItem(_WrapperCase):
 
     def test_string_beside_mapping_in_list_clears(self):
         self._assert_pair_clears(
-            lambda: ["plainstring", {"k": "v"}]
+            lambda: ["plainstring", {"k": "v"}],
+            comparisons=1,
         )
 
     def test_string_in_list_in_list_clears(self):

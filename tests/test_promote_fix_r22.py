@@ -374,12 +374,14 @@ class TestPromoteFixR22DelegatingInsideContainerItem(
 
     def test_clean_list_carrying_list_subclass_clears(self):
         self._assert_pair_clears(
-            lambda: [ListSubclass([_clean_position()])]
+            lambda: [ListSubclass([_clean_position()])],
+            comparisons=1,
         )
 
     def test_clean_deque_carrying_sequence_clears(self):
         self._assert_pair_clears(
-            lambda: deque([SequenceSubclass([_clean_position()])])
+            lambda: deque([SequenceSubclass([_clean_position()])]),
+            comparisons=1,
         )
 
     def test_abstract_set_carrying_sequence_stays_parity(self):
@@ -564,14 +566,16 @@ class TestPromoteFixR22SinglePassInsideContainerItem(
 
     def test_clean_list_carrying_generator_clears(self):
         self._assert_pair_clears(
-            lambda: [_generator_of(_clean_position())]
+            lambda: [_generator_of(_clean_position())],
+            comparisons=0,
         )
 
     def test_clean_sequence_carrying_generator_clears(self):
         self._assert_pair_clears(
             lambda: SequenceSubclass(
                 [_generator_of(_clean_position())]
-            )
+            ),
+            comparisons=0,
         )
 
     def test_chainmap_carrying_generator_stays_parity(self):

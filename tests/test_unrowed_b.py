@@ -43,18 +43,50 @@ class TestUnrowed1917Preview(unittest.TestCase):
         module = require("ontoloop.ops")
         preview = module.purge_preview()
         self.assertTrue(preview["identities_affected"])
+        self.assertEqual(
+            preview["identities_affected"],
+            ["tombstoned identity a", "tombstoned identity b"],
+        )
 
     def test_preview_shows_datasets_and_promotions_to_be_marked(self):
         module = require("ontoloop.ops")
         preview = module.purge_preview()
         self.assertTrue(preview["datasets_to_be_marked"])
         self.assertTrue(preview["promotions_to_be_marked"])
+        self.assertEqual(
+            preview["datasets_to_be_marked"],
+            [
+                "dataset holding tombstoned identity a",
+                "dataset holding tombstoned identity b",
+            ],
+        )
+        self.assertEqual(
+            preview["promotions_to_be_marked"],
+            [
+                "promotion holding tombstoned identity a",
+                "promotion holding tombstoned identity b",
+            ],
+        )
 
     def test_preview_shows_exports_and_backups_presumed_holding(self):
         module = require("ontoloop.ops")
         preview = module.purge_preview()
         self.assertTrue(preview["exports_presumed_holding"])
         self.assertTrue(preview["backups_presumed_holding"])
+        self.assertEqual(
+            preview["exports_presumed_holding"],
+            [
+                "export presumed holding tombstoned identity a",
+                "export presumed holding tombstoned identity b",
+            ],
+        )
+        self.assertEqual(
+            preview["backups_presumed_holding"],
+            [
+                "backup presumed holding tombstoned identity a",
+                "backup presumed holding tombstoned identity b",
+            ],
+        )
 
     def test_preview_showing_stands_on_its_record_home(self):
         module = require("ontoloop.ops")
@@ -283,6 +315,10 @@ class TestUnrowed1934CalibrationPractice(unittest.TestCase):
         self.assertTrue(outcome["consumption_barred"])
         for act in ("dataset build", "evaluation", "promotion"):
             self.assertIn(act, outcome["barred_acts"])
+        self.assertEqual(
+            outcome["barred_acts"],
+            ["dataset build", "evaluation", "promotion"],
+        )
 
     def test_bar_lifts_only_on_fresh_pass_or_reasoned_decision(self):
         module = require("ontoloop.eval")
@@ -354,31 +390,37 @@ class TestUnrowed1935DatasetStamps(unittest.TestCase):
         module = require("ontoloop.dataset")
         stamps = module.stamps_attached(failure_share=0)
         self.assertIn("intake thin", stamps)
+        self.assertEqual(stamps, {"intake thin"})
 
     def test_intake_thin_does_not_attach_above_zero_failure_share(self):
         module = require("ontoloop.dataset")
         stamps = module.stamps_attached(failure_share=0.1)
         self.assertNotIn("intake thin", stamps)
+        self.assertEqual(stamps, set())
 
     def test_high_self_reported_share_attaches_above_one_third(self):
         module = require("ontoloop.dataset")
         stamps = module.stamps_attached(channel_share=0.5)
         self.assertIn("high self reported share", stamps)
+        self.assertEqual(stamps, {"high self reported share"})
 
     def test_high_self_reported_share_does_not_attach_at_one_third(self):
         module = require("ontoloop.dataset")
         stamps = module.stamps_attached(channel_share=1 / 3)
         self.assertNotIn("high self reported share", stamps)
+        self.assertEqual(stamps, set())
 
     def test_low_confidence_attaches_below_30_holdout_groups(self):
         module = require("ontoloop.dataset")
         stamps = module.stamps_attached(holdout_groups=29)
         self.assertIn("low confidence", stamps)
+        self.assertEqual(stamps, {"low confidence"})
 
     def test_low_confidence_does_not_attach_at_30_holdout_groups(self):
         module = require("ontoloop.dataset")
         stamps = module.stamps_attached(holdout_groups=30)
         self.assertNotIn("low confidence", stamps)
+        self.assertEqual(stamps, set())
 
     def test_no_stamp_attaches_off_every_trigger(self):
         module = require("ontoloop.dataset")
@@ -396,6 +438,7 @@ class TestUnrowed1935DatasetStamps(unittest.TestCase):
         outcome = module.attach_stamps_at_build(failure_share=0)
         self.assertEqual(outcome["record_home"], "dataset record")
         self.assertIn("intake thin", outcome["attached_stamps"])
+        self.assertEqual(outcome["attached_stamps"], {"intake thin"})
 
 
 # ------------------------------------------------------------------
@@ -485,6 +528,10 @@ class TestUnrowed1936DatasetCallPoint(unittest.TestCase):
         outcome = module.audit_at_build("flagged material in bundle")
         self.assertEqual(outcome["evaluation_state"], "not scored")
         self.assertTrue(outcome["typed_reason"])
+        self.assertEqual(
+            outcome["typed_reason"],
+            "refused on its presentation as flagged material",
+        )
 
     def test_record_home_at_the_build_point_is_evaluation_record(self):
         module = require("ontoloop.cross_split_audit")
@@ -522,6 +569,10 @@ class TestUnrowed1936EvaluationCallPoint(unittest.TestCase):
         outcome = module.audit_at_evaluation("flagged material in bundle")
         self.assertEqual(outcome["evaluation_state"], "not scored")
         self.assertTrue(outcome["typed_reason"])
+        self.assertEqual(
+            outcome["typed_reason"],
+            "refused on its presentation as flagged material",
+        )
 
     def test_the_candidate_bundle_is_refused_at_evaluation(self):
         module = require("ontoloop.cross_split_audit")
@@ -569,6 +620,15 @@ class TestUnrowed1936PromotionCallPoint(unittest.TestCase):
         outcome = module.audit_at_promotion("flagged material in bundle")
         self.assertTrue(outcome["candidate_bundle_refused"])
         self.assertFalse(outcome["promotion_proceeded"])
+
+    def test_evaluation_recorded_not_scored_with_its_typed_reason_at_promotion(self):
+        module = require("ontoloop.cross_split_audit")
+        outcome = module.audit_at_promotion("flagged material in bundle")
+        self.assertEqual(outcome["evaluation_state"], "not scored")
+        self.assertEqual(
+            outcome["typed_reason"],
+            "refused on its presentation as flagged material",
+        )
 
     def test_record_home_is_the_promotion_record(self):
         module = require("ontoloop.cross_split_audit")
@@ -695,6 +755,10 @@ class TestUnrowed1937CountForm(unittest.TestCase):
         outcome = module.reuse_warning_at_count(2, bound=3)
         self.assertTrue(outcome["decision_named"])
         self.assertTrue(outcome["surface_prints_decision_name"])
+        self.assertEqual(
+            outcome["decision"],
+            "whether the bundle is reused for a further promotion",
+        )
 
     def test_firing_changes_no_bound_and_blocks_no_act(self):
         module = require("ontoloop.promote")
@@ -1368,6 +1432,47 @@ class TestPromoteR2Pro1(unittest.TestCase):
             self.assertEqual(over["bound_after"], bound)
             self.assertFalse(over["act_blocked"])
 
+    def test_refusal_at_domain_bounds_beyond_the_next_ring_beyond_outermost_values(self):
+        module = require("ontoloop.promote")
+        cases = [
+            (0.94, "unknown reuse warning bound: 0.94"),
+            (0.51, "unknown reuse warning bound: 0.51"),
+            (-17, "unknown reuse warning bound: -17"),
+            (-999999999999999, "unknown reuse warning bound: -999999999999999"),
+            (0.0000000000000001, "unknown reuse warning bound: 1e-16"),
+            (0.999999999999997, "unknown reuse warning bound: 0.999999999999997"),
+            (-1000000000000000, "unknown reuse warning bound: -1000000000000000"),
+            (0.015625, "unknown reuse warning bound: 0.015625"),
+        ]
+        for bound, message in cases:
+            with self.assertRaises(ValueError) as caught:
+                module.reuse_warning_at_count(bound, bound=bound)
+            self.assertEqual(str(caught.exception), message)
+
+    def test_firing_at_domain_bounds_beyond_the_next_ring_beyond_outermost_bounds(self):
+        module = require("ontoloop.promote")
+        cases = [
+            (72, 54, 53, 54),
+            (73, 54, 53, 54),
+            (74, 55, 54, 55),
+            (76, 57, 56, 57),
+            (100012, 75009, 75008, 75009),
+            (1000011, 750008, 750007, 750008),
+            (10000010, 7500007, 7500006, 7500007),
+            (10000000000000000, 7500000000000000, 7499999999999999, 7500000000000000),
+        ]
+        for bound, point, below, at in cases:
+            under = module.reuse_warning_at_count(below, bound=bound)
+            self.assertFalse(under["fired"])
+            self.assertEqual(under["firing_point_count"], point)
+            self.assertEqual(under["bound_after"], bound)
+            self.assertFalse(under["act_blocked"])
+            over = module.reuse_warning_at_count(at, bound=bound)
+            self.assertTrue(over["fired"])
+            self.assertEqual(over["firing_point_count"], point)
+            self.assertEqual(over["bound_after"], bound)
+            self.assertFalse(over["act_blocked"])
+
 
 # ------------------------------------------------------------------
 # Subsection 19.37, the warning act: age form.
@@ -1400,6 +1505,11 @@ class TestUnrowed1937AgeForm(unittest.TestCase):
         outcome = module.stale_warning_at_age(days=67.5, bound_days=90)
         self.assertTrue(outcome["decision_named"])
         self.assertTrue(outcome["surface_prints_decision_name"])
+        self.assertEqual(
+            outcome["decision"],
+            "whether the stale holdout material is reaffirmed "
+            "or retired before the act in hand proceeds",
+        )
 
     def test_firing_changes_no_bound_and_blocks_no_act(self):
         module = require("ontoloop.dataset")
