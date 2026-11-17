@@ -96,6 +96,7 @@ def relations():
 
 import array as _array_module
 import collections as _collections_module
+import types as _types_module
 from collections import UserString as _UserString
 from collections.abc import ItemsView as _ItemsView
 from collections.abc import KeysView as _KeysView
@@ -479,17 +480,73 @@ def _is_delegating_container_subclass(value):
     return False
 
 
+def _seam_rebuilt_mapping(value, rebuilt):
+    """Return a rebuilt mapping in the form the seam
+    materialisation carries it in.
+
+    A mapping standing in its exact plain dict form
+    stands rebuilt as the plain dict it stands as. A
+    mapping standing in any other form stands carried
+    in a form carrying its mapping standing, in parity
+    with the direct act deciding the presentation
+    itself: a mapping standing as a ChainMap stands
+    carried in a ChainMap over its rebuilt maps, a
+    mapping standing in a dict subclass form, an
+    OrderedDict, a defaultdict, or a Counter among
+    them, stands rebuilt in its own class over its
+    rebuilt entries where that class stands rebuilt
+    from an iterable of pairs, a mapping standing as a
+    UserDict stands rebuilt in its own class over its
+    rebuilt entries, and a mapping standing in any
+    other form, a mapping proxy among them, stands
+    carried as it stands, its standing readings
+    governing it as they govern the presentation.
+    """
+    if type(value) is dict:
+        return rebuilt
+    if isinstance(value, _collections_module.ChainMap):
+        maps = []
+        for chained in value.maps:
+            carried = {
+                chained_key: rebuilt[chained_key]
+                for chained_key in chained
+                if chained_key in rebuilt
+            }
+            maps.append(carried)
+        if not maps:
+            maps = [{}]
+        return _collections_module.ChainMap(*maps)
+    if isinstance(value, _collections_module.UserDict):
+        try:
+            return type(value)(rebuilt)
+        except Exception:
+            return value
+    if type(value) is _types_module.MappingProxyType:
+        return rebuilt
+    if isinstance(value, dict):
+        try:
+            return type(value)(rebuilt)
+        except Exception:
+            return value
+    return value
+
+
 def _materialise_view_form_seam(value, ancestors=frozenset()):
     """Return a form of the value with its views carried,
     for the dataset instruction item surface.
 
     This reading stands as the reading above in every
-    form but one: a container standing in a delegating
+    form but two: a container standing in a delegating
     container subclass form stands as it stands, in
     parity with the direct act deciding that same
     presentation, so no view standing inside such a
     container stands carried by a rebuilding that
-    strips the subclass form it stands in. Every other
+    strips the subclass form it stands in, and a
+    mapping standing in a non plain form stands
+    rebuilt in a form carrying its mapping standing,
+    in the form the rebuilt mapping reading above
+    this one states, so no mapping stands dissolved
+    into the plain form before the direct act sees it. Every other
     form stands materialised as the reading above
     gives it, a dictionary view standing carried as a
     view of the same kind standing over a rebuilt
@@ -533,12 +590,13 @@ def _materialise_view_form_seam(value, ancestors=frozenset()):
                 rebuilt[chained_key] = _materialise_view_form_seam(
                     inner, child_ancestors
                 )
-        return rebuilt
+        return _seam_rebuilt_mapping(value, rebuilt)
     if kind == "mapping":
-        return {
+        rebuilt = {
             key: _materialise_view_form_seam(inner, child_ancestors)
             for key, inner in value.items()
         }
+        return _seam_rebuilt_mapping(value, rebuilt)
     return [
         _materialise_view_form_seam(element, child_ancestors)
         for element in list(value)
@@ -3286,6 +3344,112 @@ def _carries_keys_view(value, ancestors=frozenset()):
     return False
 
 
+def _carries_any_view(value, ancestors=frozenset()):
+    """Whether a listed form carries a dictionary view.
+
+    A keys view, an items view, or a values view standing
+    in the listed form itself, or inside a container or a
+    mapping standing in it, stands carried, an items view
+    and a values view standing read through the keys and
+    values of the mapping they stand over. An iterator
+    standing in the listed form stands in no part here,
+    in the form of the keys view reading above.
+    """
+    if isinstance(value, _KeysView):
+        return True
+    if isinstance(value, (_ItemsView, _ValuesView)):
+        underlying = getattr(value, "mapping", None)
+        if underlying is None:
+            underlying = getattr(value, "_mapping", None)
+        if isinstance(underlying, _Mapping):
+            return True
+        return False
+    if hasattr(value, "__next__"):
+        return False
+    if id(value) in ancestors:
+        return False
+    child_ancestors = ancestors | {id(value)}
+    if isinstance(value, _Mapping):
+        return any(
+            _carries_any_view(key, child_ancestors)
+            or _carries_any_view(inner, child_ancestors)
+            for key, inner in value.items()
+        )
+    if isinstance(
+        value,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ):
+        return any(
+            _carries_any_view(inner, child_ancestors)
+            for inner in value
+        )
+    return False
+
+
+def _is_indexed_only_container(value):
+    """Whether a value carries its elements by indexed
+    access alone.
+
+    A container standing with a length act and an item
+    access act, and standing with no iteration act and
+    no next act of its own, and standing in none of the
+    forms the neighbouring readings name, a text form, a
+    byte form, a mapping, a dictionary view, a range, or
+    a standing container form among them, carries its
+    elements in that form here.
+    """
+    if hasattr(value, "__next__") or hasattr(value, "__iter__"):
+        return False
+    if not hasattr(value, "__getitem__"):
+        return False
+    if not hasattr(value, "__len__"):
+        return False
+    if isinstance(
+        value,
+        (
+            str,
+            _UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+            _Mapping,
+            _KeysView,
+            _ItemsView,
+            _ValuesView,
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+            _Set,
+            _WeakSet,
+        ),
+    ):
+        return False
+    return True
+
+
+def _indexed_elements(value):
+    """Return the elements a container carrying its
+    elements by indexed access alone presents, in
+    presentation order, or None where that reading
+    stands refused on the form presented."""
+    try:
+        return [value[index] for index in range(len(value))]
+    except Exception:
+        return None
+
+
 def _is_generic_iterable_container(value):
     """Whether a value stands in a generic iterable form.
 
@@ -3346,7 +3510,12 @@ def _deep_listed_expansion(items, seen=frozenset()):
     at any depth the presentation nests those forms.
     The expansion also reports whether any node carries
     a keys view, a plain element carrying one standing
-    read by the standing keys view reading. An element
+    read by the standing keys view reading. The report
+    also stands where a plain element carries an items
+    view or a values view, read by the any view reading,
+    and an element carrying its elements by indexed
+    access alone stands as the expansion of its indexed
+    elements in the same way. An element
     standing inside itself stands as a plain value.
     Returns the nodes and the carrying report.
     """
@@ -3399,9 +3568,24 @@ def _deep_listed_expansion(items, seen=frozenset()):
                 )
             )
             carries = carries or child_carries
+        elif _is_indexed_only_container(inner):
+            if id(inner) in seen:
+                nodes.append(("value", inner, None))
+                continue
+            indexed = _indexed_elements(inner)
+            if indexed is None:
+                nodes.append(("value", inner, None))
+                continue
+            children, child_carries = _deep_listed_expansion(
+                indexed, seen | {id(inner)}
+            )
+            nodes.append(("listed", children, inner))
+            carries = carries or child_carries
         else:
             nodes.append(("value", inner, None))
-            if _carries_keys_view(inner):
+            if _carries_keys_view(inner) or _carries_any_view(
+                inner
+            ):
                 carries = True
     return nodes, carries
 
@@ -3494,6 +3678,41 @@ def _deep_carried_form(nodes):
     return carried
 
 
+def _deep_carried_view_form(element, ancestors=frozenset()):
+    """Return an expanded element with its views carried
+    in mapping form.
+
+    An items view or a values view standing in the
+    expanded form stands read in the mapping form the
+    view reading gives it, in parity with a keys view
+    standing in the same form, and an exact container
+    standing in the expanded form stands rebuilt in its
+    own form with its elements carried in the same way.
+    Any other element stands read in the deep view
+    reading in its standing form.
+    """
+    if isinstance(element, (_ItemsView, _ValuesView)):
+        return _view_mapping_form(element)
+    if type(element) in (
+        list,
+        tuple,
+        _collections_module.deque,
+        _collections_module.UserList,
+    ):
+        rebuilt = [
+            _deep_carried_view_form(inner, ancestors)
+            for inner in element
+        ]
+        if isinstance(element, tuple):
+            return tuple(rebuilt)
+        if isinstance(element, _collections_module.deque):
+            return _collections_module.deque(rebuilt)
+        if isinstance(element, _collections_module.UserList):
+            return _collections_module.UserList(rebuilt)
+        return rebuilt
+    return _view_mapping_form_deep(element, ancestors, top=False)
+
+
 def _view_mapping_form_deep(element, ancestors=frozenset(), top=True):
     """Return an element with its deep keys views carried.
 
@@ -3545,7 +3764,23 @@ def _view_mapping_form_deep(element, ancestors=frozenset(), top=True):
     mapping stands carried in the form the mapping
     value readings decide, in parity with the same
     keys view standing inside a carried container at
-    that value. A container standing inside
+    that value. A keys view standing at a value of a
+    plain mapping stands preserved as the view it
+    stands as, and a keys view standing inside a
+    container standing at such a value stands carried
+    in the carried form of its expansion, so a plain
+    mapping standing as an element of a container
+    stands read in the same way as the same mapping
+    standing at the position itself. An items view or
+    a values view standing inside a generic iterable
+    container, or inside a container carrying its
+    elements by indexed access alone, stands carried
+    in the mapping form of its expanded form, in
+    parity with the same view standing inside a
+    carried container form, and a keys view standing
+    inside a container carrying its elements by
+    indexed access alone stands read in the same way.
+    A container standing inside
     itself stands as it stands at the cyclic position.
     Any other element stands as it stands.
     """
@@ -3608,6 +3843,9 @@ def _view_mapping_form_deep(element, ancestors=frozenset(), top=True):
         child_ancestors = ancestors | {id(element)}
         rebuilt = {}
         for key, inner in element.items():
+            if isinstance(inner, _KeysView):
+                rebuilt[key] = inner
+                continue
             if _is_generic_iterable_container(
                 inner
             ) and not _carries_stored_iterator(inner):
@@ -3626,6 +3864,43 @@ def _view_mapping_form_deep(element, ancestors=frozenset(), top=True):
                 else:
                     rebuilt[key] = inner
                 continue
+            if isinstance(
+                inner,
+                (
+                    list,
+                    tuple,
+                    _collections_module.deque,
+                    _collections_module.UserList,
+                ),
+            ) and not _is_delegating_container(inner):
+                nodes, carries = _deep_listed_expansion(
+                    list(inner), child_ancestors | {id(inner)}
+                )
+                if carries:
+                    rebuilt[key] = _deep_carried_form(nodes)
+                    continue
+            elif hasattr(inner, "__next__"):
+                listed_inner = list(inner)
+                nodes, carries = _deep_listed_expansion(
+                    listed_inner, child_ancestors | {id(inner)}
+                )
+                if carries:
+                    rebuilt[key] = _deep_carried_form(nodes)
+                    continue
+                rebuilt[key] = (
+                    carried
+                    for carried in _deep_restored_form(nodes)
+                )
+                continue
+            elif _is_indexed_only_container(inner):
+                indexed = _indexed_elements(inner)
+                if indexed is not None:
+                    nodes, carries = _deep_listed_expansion(
+                        indexed, child_ancestors | {id(inner)}
+                    )
+                    if carries:
+                        rebuilt[key] = _deep_carried_form(nodes)
+                        continue
             rebuilt[key] = _view_mapping_form_deep(
                 inner, child_ancestors, top=False
             )
@@ -3643,9 +3918,7 @@ def _view_mapping_form_deep(element, ancestors=frozenset(), top=True):
                 inner for inner in _deep_restored_form(nodes)
             )
         return [
-            _view_mapping_form_deep(
-                inner, child_ancestors, top=False
-            )
+            _deep_carried_view_form(inner, child_ancestors)
             for inner in _deep_expanded_form(nodes)
         ]
     if _is_generic_iterable_container(
@@ -3665,9 +3938,23 @@ def _view_mapping_form_deep(element, ancestors=frozenset(), top=True):
                 )
             return element
         return [
-            _view_mapping_form_deep(
-                inner, child_ancestors, top=False
-            )
+            _deep_carried_view_form(inner, child_ancestors)
+            for inner in _deep_expanded_form(nodes)
+        ]
+    if _is_indexed_only_container(element):
+        if id(element) in ancestors:
+            return element
+        indexed = _indexed_elements(element)
+        if indexed is None:
+            return element
+        child_ancestors = ancestors | {id(element)}
+        nodes, carries = _deep_listed_expansion(
+            indexed, child_ancestors
+        )
+        if not carries:
+            return element
+        return [
+            _deep_carried_view_form(inner, child_ancestors)
             for inner in _deep_expanded_form(nodes)
         ]
     return element
@@ -3718,7 +4005,15 @@ def _preserved_beside_element(original, relisted, container_type):
     governing it. An iterator element stands rebuilt
     from its relisted form in the same way, the
     relisted form standing as the listing the readings
-    before this one took of it. Any other element
+    before this one took of it. A container element
+    standing in a generic iterable form stands rebuilt
+    from its elements in the same way, a single pass
+    element standing rebuilt from its relisted form
+    itself, and a container element carrying its
+    elements by indexed access alone stands rebuilt
+    from its indexed elements in the same way, a
+    generic element standing in a delegating form
+    standing in its relisted form. Any other element
     stands in its relisted form.
     """
     if isinstance(original, _KeysView):
@@ -3782,6 +4077,54 @@ def _preserved_beside_element(original, relisted, container_type):
             _preserved_beside_element(inner, inner, list)
             for inner in relisted_listed
         ]
+    if _is_generic_iterable_container(
+        original
+    ) and not _carries_stored_iterator(original):
+        try:
+            relisted_listed = list(relisted)
+        except Exception:
+            return relisted
+        if _is_single_pass_iterable(original):
+            return [
+                _preserved_beside_element(inner, inner, list)
+                for inner in relisted_listed
+            ]
+        try:
+            original_listed = list(original)
+        except Exception:
+            return relisted
+        if len(original_listed) != len(relisted_listed):
+            return relisted
+        return [
+            _preserved_beside_element(
+                inner_original,
+                inner_relisted,
+                list,
+            )
+            for inner_original, inner_relisted in zip(
+                original_listed, relisted_listed
+            )
+        ]
+    if _is_indexed_only_container(original):
+        original_listed = _indexed_elements(original)
+        if original_listed is None:
+            return relisted
+        try:
+            relisted_listed = list(relisted)
+        except Exception:
+            return relisted
+        if len(original_listed) != len(relisted_listed):
+            return relisted
+        return [
+            _preserved_beside_element(
+                inner_original,
+                inner_relisted,
+                list,
+            )
+            for inner_original, inner_relisted in zip(
+                original_listed, relisted_listed
+            )
+        ]
     return relisted
 
 
@@ -3812,7 +4155,19 @@ def _preserved_multi_replacement(original_value, relisted):
     before this one took of it. A position container
     standing in a delegating form, and a position
     container standing in any other form, keeps the
-    standing replacement in full.
+    standing replacement in full. Where the position
+    container stands in a generic iterable form, a
+    container carrying its elements by an iteration act
+    of its own and standing in none of the forms above,
+    the replacement stands rebuilt in the same way from
+    its listed elements, a single pass container standing
+    rebuilt from the relisted form itself, and where the
+    position container carries its elements by indexed
+    access alone the replacement stands rebuilt from its
+    indexed elements in the same way, in parity with the
+    same presentation standing inside a carried container
+    form, a generic container standing in a delegating
+    form standing as it stands.
     """
     multi = _multi_nested_replacement(relisted)
     if multi is None:
@@ -3833,6 +4188,54 @@ def _preserved_multi_replacement(original_value, relisted):
             _collections_module.UserList,
         ),
     ):
+        if _is_generic_iterable_container(
+            original_value
+        ) and not _carries_stored_iterator(original_value):
+            if _is_single_pass_iterable(original_value):
+                return {
+                    index: _preserved_beside_element(
+                        element, element, list
+                    )
+                    for index, element in enumerate(relisted)
+                }
+            try:
+                original_listed = list(original_value)
+            except Exception:
+                return multi
+            if len(original_listed) != len(relisted):
+                return multi
+            return {
+                index: _preserved_beside_element(
+                    original,
+                    relisted_element,
+                    list,
+                )
+                for index, (
+                    original,
+                    relisted_element,
+                ) in enumerate(
+                    zip(original_listed, relisted)
+                )
+            }
+        if _is_indexed_only_container(original_value):
+            original_listed = _indexed_elements(original_value)
+            if original_listed is None:
+                return multi
+            if len(original_listed) != len(relisted):
+                return multi
+            return {
+                index: _preserved_beside_element(
+                    original,
+                    relisted_element,
+                    list,
+                )
+                for index, (
+                    original,
+                    relisted_element,
+                ) in enumerate(
+                    zip(original_listed, relisted)
+                )
+            }
         return multi
     if _is_delegating_container(original_value):
         return multi
