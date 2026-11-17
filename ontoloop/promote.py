@@ -1511,6 +1511,201 @@ def _wrapper_subtree_has_iterator(value, ancestors):
     return False
 
 
+from collections.abc import Set as _WrapperSetFormBase
+
+
+class _WrapperMaterialisedSetForm(_WrapperSetFormBase):
+    """A re-iterable abstract Set form carrying listed elements.
+
+    The form carries the elements one listing of a
+    delegating abstract Set subclass yielded, and its
+    iteration act delegates in its turn to one stored
+    iterator over those elements, so the direct act
+    reads it in the delegating abstract Set form the
+    presentation presented, with its elements standing
+    in the key position a Set form presents them in,
+    while the one listing the materialisation spent
+    stands replaced by a reading that yields the same
+    elements once in the same delegating form.
+    """
+
+    def __init__(self, elements):
+        self._elements = list(elements)
+        self._stored = iter(list(elements))
+
+    def __len__(self):
+        return len(self._elements)
+
+    def __contains__(self, element):
+        return element in self._elements
+
+    def __iter__(self):
+        return self._stored
+
+
+def _wrapper_materialise_chainmap_nested(value, shared_module,
+                                         ancestors, depth):
+    """Materialise one value standing inside a ChainMap item.
+
+    A value standing inside a container standing as an
+    item of a delegating ChainMap subclass stands in
+    key position inside a container standing in key
+    position, and the direct act decides that position
+    by the wrapped key reading, so the value stands
+    materialised in the form that reading governs, in
+    the same form _wrapper_materialise_chainmap_item
+    states for an item itself. A delegating container
+    subclass standing in a form the wrapped key reading
+    reaches, a concrete container form or an abstract
+    Sequence form, stands listed once here, with every
+    element it carries standing materialised in this
+    same nested form, so the rebuilt form hands the
+    direct act the nested mapping that reading reaches,
+    in element position, where that act reaches it in
+    the same way. A delegating container subclass
+    standing in an abstract Set form alone, a form that
+    reading does not reach, stands carried in the
+    re-iterable Set form above holding the elements its
+    one listing yielded, in parity with both readings
+    of that position, save where its one element stands
+    in a single pass form, which stands carried in the
+    key form the single pass limb below states, because
+    the direct act lists a Set form standing in element
+    position in the rebuilt form and reaches a single
+    pass element it carries. A single pass iterable, an
+    iterator or a general iterable, stands carried as
+    the key of a one entry mapping carrying an empty
+    mapping as its value, unlisted, so the direct act
+    reads it in the key position the presentation
+    presents it in, a position that act does not list,
+    and a value standing unhashable in that form stands
+    materialised in its standing element form. A
+    delegating ChainMap subclass stands as it stands,
+    unlisted, in parity with both readings of that
+    position, and a mapping stands materialised in its
+    standing element form, so a value standing as a
+    mapping value inside it stands decided in its
+    standing mapping value form. A plain container
+    form, a list, a tuple, a set, a frozenset, a deque,
+    a UserList, an abstract Sequence, or an abstract
+    Set, stands rebuilt in its own form holding every
+    element it carries materialised in this same nested
+    form, a set or frozenset whose rebuilt form stands
+    unhashable standing carried in list form. Any other
+    value stands materialised in its standing element
+    form.
+    """
+    import collections as _collections_module
+
+    from collections.abc import Mapping as _Mapping
+    from collections.abc import Sequence as _Sequence
+    from collections.abc import Set as _Set
+
+    if _is_delegating_chainmap_subclass(value):
+        return value
+    if isinstance(value, _Mapping):
+        return _wrapper_materialise(
+            value, shared_module, ancestors, depth, "other"
+        )
+    if _is_delegating_container_subclass(value):
+        if isinstance(
+            value,
+            (
+                list,
+                tuple,
+                set,
+                frozenset,
+                _collections_module.deque,
+                _collections_module.UserList,
+            ),
+        ) or isinstance(value, _Sequence):
+            listed_once = list(value)
+            nested_ancestors = ancestors | {id(value)}
+            materialised = [
+                _wrapper_materialise_chainmap_nested(
+                    element, shared_module, nested_ancestors,
+                    depth + 1,
+                )
+                for element in listed_once
+            ]
+            if len(materialised) == 1 and isinstance(
+                materialised[0], _Mapping
+            ) and not any(
+                key in materialised[0]
+                for key in _WRAPPER_ITEM_FIELD_KEYS
+            ):
+                return tuple(materialised)
+            return materialised
+        listed_once = list(value)
+        if len(listed_once) == 1 and (
+            (
+                hasattr(listed_once[0], "__next__")
+                and hasattr(listed_once[0], "__iter__")
+            )
+            or (
+                _is_single_pass_iterable(listed_once[0])
+                and not _is_delegating_container_subclass(
+                    listed_once[0]
+                )
+            )
+        ):
+            try:
+                return {listed_once[0]: {}}
+            except TypeError:
+                return _wrapper_materialise(
+                    listed_once[0], shared_module, ancestors,
+                    depth, "other",
+                )
+        return _WrapperMaterialisedSetForm(listed_once)
+    if (
+        hasattr(value, "__next__") and hasattr(value, "__iter__")
+    ) or _is_single_pass_iterable(value):
+        try:
+            return {value: {}}
+        except TypeError:
+            return _wrapper_materialise(
+                value, shared_module, ancestors, depth, "other"
+            )
+    if isinstance(
+        value,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+            _Sequence,
+            _Set,
+        ),
+    ):
+        listed_once = list(value)
+        nested_ancestors = ancestors | {id(value)}
+        materialised = [
+            _wrapper_materialise_chainmap_nested(
+                element, shared_module, nested_ancestors, depth + 1
+            )
+            for element in listed_once
+        ]
+        if isinstance(value, tuple):
+            return tuple(materialised)
+        if isinstance(value, _collections_module.deque):
+            return _collections_module.deque(materialised)
+        if isinstance(value, _collections_module.UserList):
+            return _collections_module.UserList(materialised)
+        if isinstance(value, list):
+            return materialised
+        if isinstance(value, (set, frozenset)):
+            try:
+                return type(value)(materialised)
+            except TypeError:
+                return materialised
+        return materialised
+    return _wrapper_materialise(
+        value, shared_module, ancestors, depth, "other"
+    )
+
+
 def _wrapper_materialise_chainmap_item(element, shared_module,
                                        ancestors, depth):
     """Materialise one item of a delegating ChainMap subclass.
@@ -1539,40 +1734,20 @@ def _wrapper_materialise_chainmap_item(element, shared_module,
     presentation presents it in, a position that act does
     not list, and an item standing unhashable in that
     form stands materialised in its standing element
-    form. Any other item stands materialised in its
-    standing element form.
+    form. A container standing as an item, in a plain
+    container form or in a delegating container subclass
+    form alike, stands materialised with every value it
+    carries standing in the nested form
+    _wrapper_materialise_chainmap_nested states, in
+    parity with the direct act reading of the key
+    position inside a container standing in key
+    position, and the abstract Set form stands carried
+    in that nested form in the parity and single pass
+    forms that act states. Any other item stands
+    materialised in its standing element form.
     """
-    import collections as _collections_module
-
-    from collections.abc import Sequence as _Sequence
-
-    if _is_delegating_container_subclass(element):
-        if isinstance(
-            element,
-            (
-                list,
-                tuple,
-                set,
-                frozenset,
-                _collections_module.deque,
-                _collections_module.UserList,
-            ),
-        ) or isinstance(element, _Sequence):
-            return _wrapper_materialise(
-                element, shared_module, ancestors, depth, "mapping"
-            )
-        return element
-    if (
-        hasattr(element, "__next__") and hasattr(element, "__iter__")
-    ) or _is_single_pass_iterable(element):
-        try:
-            return {element: {}}
-        except TypeError:
-            return _wrapper_materialise(
-                element, shared_module, ancestors, depth, "other"
-            )
-    return _wrapper_materialise(
-        element, shared_module, ancestors, depth, "other"
+    return _wrapper_materialise_chainmap_nested(
+        element, shared_module, ancestors, depth
     )
 
 
