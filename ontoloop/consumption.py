@@ -1325,16 +1325,45 @@ def _bundle_copy(bundle):
     a class standing as a value inside such a value,
     or in the namespace of the class of an instance
     standing as a value inside such a value, stands
-    refused in the same form, the method functions
-    and descriptor members of a class namespace
-    standing in no part of that reading, a module
+    refused in the same form, a module
     standing in a class namespace standing as a
     binding of that module and not as a value the
     class carries, and a bound
     builtin callable read through the object it
     stands bound to, where that object stands as
     neither a module nor a type, stands under the
-    same reading in the view holding walk.
+    same reading in the view holding walk. The same
+    refusal stands where the view stands inside the
+    instance attribute storage of a branch matched
+    carrier in that mapping, a container typed item,
+    an exception, or a partial application among
+    them. A governed uncopyable value standing in
+    the state element of a reduce form of a plain
+    custom carrier, and a dictionary view standing
+    in the reduce arguments, in that state element,
+    in the state a custom getstate act returns, or
+    in the newargs or newargs ex reach of such a
+    carrier, stands refused in the same form, and a
+    governed uncopyable value standing in the
+    newargs or newargs ex reach stands refused in
+    the same form. A governed uncopyable value held
+    by the factory of a defaultdict standing inside
+    such a value stands refused in the same form. A
+    governed uncopyable value standing in the
+    defaults, keyword defaults, annotations,
+    attribute storage, closure, or globals of a
+    function member of a class namespace, of an
+    accessor function of a property member, or of
+    the carried function of a classmethod or
+    staticmethod member, and the accessor or carried
+    function itself standing as a governed
+    uncopyable callable, stands refused in the same
+    form, and a governed uncopyable value standing
+    in the namespace of a class standing nested in
+    a class namespace, at the depth the presentation
+    carries it, or standing in the namespace of the
+    metaclass of a class standing as a value inside
+    such a value, stands refused in the same form.
     A dictionary view standing at
     any position copies as a fresh list of copies of
     the material it carries, an items view as a fresh
@@ -2547,6 +2576,14 @@ def _bundle_copy(bundle):
             if not isinstance(
                 item, (_types_module.ModuleType, type)
             ):
+                attribute_map = getattr(
+                    item, "__dict__", None
+                )
+                if isinstance(attribute_map, dict):
+                    pending.append(attribute_map)
+            if not isinstance(
+                item, (_types_module.ModuleType, type)
+            ):
                 for klass in type(item).__mro__:
                     slots = klass.__dict__.get("__slots__")
                     if not slots:
@@ -2587,6 +2624,15 @@ def _bundle_copy(bundle):
             return reduced[0]
         return None
 
+    def _reduce_state(item):
+        try:
+            reduced = item.__reduce_ex__(4)
+        except Exception:
+            return None
+        if isinstance(reduced, tuple) and len(reduced) >= 3:
+            return reduced[2]
+        return None
+
     def _type_overrides(value, name):
         for klass in type(value).__mro__:
             if klass is object:
@@ -2595,24 +2641,72 @@ def _bundle_copy(bundle):
                 return True
         return False
 
-    def _class_namespace_values(cls):
+    def _unwrap_carried(carried):
+        seen_ids = set()
+        while not isinstance(
+            carried,
+            (
+                _types_module.FunctionType,
+                _types_module.BuiltinFunctionType,
+                _types_module.MethodType,
+            ),
+        ):
+            wrapped = getattr(carried, "__wrapped__", None)
+            if wrapped is None or id(carried) in seen_ids:
+                break
+            seen_ids.add(id(carried))
+            carried = wrapped
+        return carried
+
+    def _class_namespace_parts(cls):
         values = []
-        for klass in cls.__mro__:
+        member_functions = []
+        seen_classes = set()
+        pending_classes = list(cls.__mro__)
+        metaclass = type(cls)
+        if metaclass is not type:
+            for klass in metaclass.__mro__:
+                if klass is type or klass is object:
+                    continue
+                pending_classes.append(klass)
+        while pending_classes:
+            klass = pending_classes.pop()
+            if id(klass) in seen_classes:
+                continue
+            seen_classes.add(id(klass))
             namespace = klass.__dict__
             for key in namespace:
                 if key in ("__dict__", "__weakref__"):
                     continue
                 member = namespace[key]
                 if isinstance(
-                    member,
-                    (
-                        _types_module.FunctionType,
-                        _types_module.ModuleType,
-                        classmethod,
-                        staticmethod,
-                        property,
-                    ),
+                    member, _types_module.FunctionType
                 ):
+                    member_functions.append(member)
+                    continue
+                if isinstance(
+                    member, _types_module.ModuleType
+                ):
+                    continue
+                if isinstance(
+                    member, (classmethod, staticmethod)
+                ):
+                    carried = getattr(
+                        member, "__func__", None
+                    )
+                    if carried is not None:
+                        member_functions.append(
+                            _unwrap_carried(carried)
+                        )
+                    continue
+                if isinstance(member, property):
+                    for accessor in (
+                        member.fget, member.fset, member.fdel
+                    ):
+                        if accessor is not None:
+                            member_functions.append(
+                                _unwrap_carried(accessor)
+                            )
                     continue
                 if type(member).__name__ in (
                     "getset_descriptor",
@@ -2623,6 +2717,12 @@ def _bundle_copy(bundle):
                 ):
                     continue
                 values.append(member)
+                if isinstance(member, type):
+                    pending_classes.append(member)
+        return values, member_functions
+
+    def _class_namespace_values(cls):
+        values, member_functions = _class_namespace_parts(cls)
         return values
 
     def _fallback_holds_uncopyable(value):
@@ -2630,10 +2730,21 @@ def _bundle_copy(bundle):
         seen = set()
         globals_seen = set()
         namespace_reach = set()
+        view_reach = set()
         while pending:
             item = pending.pop()
             mark_from = len(pending)
             in_reach = id(item) in namespace_reach
+            in_view_reach = id(item) in view_reach
+            if in_view_reach and isinstance(
+                item,
+                (
+                    _abc_module.KeysView,
+                    _abc_module.ValuesView,
+                    _abc_module.ItemsView,
+                ),
+            ):
+                return True
             if isinstance(
                 item,
                 (
@@ -2784,6 +2895,12 @@ def _bundle_copy(bundle):
                 if isinstance(item, dict):
                     pending.extend(item.keys())
                     pending.extend(item.values())
+                    if isinstance(
+                        item, _collections.defaultdict
+                    ):
+                        factory = item.default_factory
+                        if factory is not None:
+                            pending.append(factory)
                 elif isinstance(item, _collections.ChainMap):
                     pending.extend(item.maps)
                 elif isinstance(item, _collections.UserDict):
@@ -2898,16 +3015,36 @@ def _bundle_copy(bundle):
                     pass
             if id(item) not in namespace_reach:
                 if isinstance(item, type):
-                    carried_values = _class_namespace_values(item)
+                    carried_values, member_functions = (
+                        _class_namespace_parts(item)
+                    )
                 elif type(item).__module__ != "builtins":
-                    carried_values = _class_namespace_values(
-                        type(item)
+                    carried_values, member_functions = (
+                        _class_namespace_parts(type(item))
                     )
                 else:
-                    carried_values = ()
+                    carried_values, member_functions = (), ()
                 for carried in carried_values:
                     namespace_reach.add(id(carried))
                     pending.append(carried)
+                for carried in member_functions:
+                    namespace_reach.add(id(carried))
+                    pending.append(carried)
+                    carried_globals = getattr(
+                        carried, "__globals__", None
+                    )
+                    if isinstance(carried_globals, dict):
+                        for globals_value in (
+                            carried_globals.values()
+                        ):
+                            if isinstance(
+                                globals_value,
+                                (
+                                    _types_module.BuiltinFunctionType,
+                                    _types_module.MethodType,
+                                ),
+                            ):
+                                pending.append(globals_value)
             for klass in type(item).__mro__:
                 slots = klass.__dict__.get("__slots__")
                 if not slots:
@@ -2928,11 +3065,9 @@ def _bundle_copy(bundle):
                     except Exception:
                         state = None
                     if state is not None:
+                        view_reach.add(id(state))
                         pending.append(state)
-                if (
-                    _type_overrides(item, "__reduce_ex__")
-                    or _type_overrides(item, "__reduce__")
-                ) and not isinstance(
+                plain_carrier = not isinstance(
                     item,
                     (
                         dict,
@@ -2968,11 +3103,45 @@ def _bundle_copy(bundle):
                         _xml_module.Element,
                         _xml_module.ElementTree,
                     ),
+                )
+                if plain_carrier and (
+                    _type_overrides(item, "__reduce_ex__")
+                    or _type_overrides(item, "__reduce__")
                 ):
-                    pending.extend(_reduce_carried(item))
+                    for carried in _reduce_carried(item):
+                        view_reach.add(id(carried))
+                        pending.append(carried)
+                    reduce_state = _reduce_state(item)
+                    if reduce_state is not None:
+                        view_reach.add(id(reduce_state))
+                        pending.append(reduce_state)
+                if plain_carrier and _type_overrides(
+                    item, "__getnewargs__"
+                ):
+                    try:
+                        newargs = item.__getnewargs__()
+                    except Exception:
+                        newargs = None
+                    if newargs is not None:
+                        view_reach.add(id(newargs))
+                        pending.append(newargs)
+                if plain_carrier and _type_overrides(
+                    item, "__getnewargs_ex__"
+                ):
+                    try:
+                        newargs_ex = item.__getnewargs_ex__()
+                    except Exception:
+                        newargs_ex = None
+                    if isinstance(newargs_ex, tuple):
+                        for part in newargs_ex:
+                            view_reach.add(id(part))
+                            pending.append(part)
             if in_reach:
                 for extra in pending[mark_from:]:
                     namespace_reach.add(id(extra))
+            if in_view_reach:
+                for extra in pending[mark_from:]:
+                    view_reach.add(id(extra))
         return False
 
     def _stitch_exception_chains(root, built, memo):
