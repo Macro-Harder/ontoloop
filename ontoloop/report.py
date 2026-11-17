@@ -1470,6 +1470,35 @@ _CLAIM_CONCEPT_ROOTS = (
     "unlin", "unpadd", "unsecur", 
     "unapprov", "unlicens", "uncorroborat", 
     "unformat", "unclassif", 
+    "exhum", "liquefi", "vaporis", 
+    "atomiz", "disintegrat", "eradicat", 
+    "plunder", "pillag", "scorch", 
+    "singe", "shackl", "embedd", 
+    "lodg", "wedg", "crimp", 
+    "hitch", "coupl", "hing", 
+    "pegg", "dowell", "mortis", 
+    "tenon", "brac", "buttress", 
+    "propp", "shor", "gird", 
+    "band", "strapp", "belt", 
+    "collar", "ring", "hoop", 
+    "cag", "corrall", "enclos", 
+    "encircl", "surround", "ringfenc", 
+    "hedg", "shelter", "hous", 
+    "quarter", "billet", "garrison", 
+    "mann", "patroll", "sentinell", 
+    "dropproof", "pierceproof", "cutproof", 
+    "wearproof", "peelproof", "breakproof", 
+    "dripproof", "decayproof", "lionproof", 
+    "tigerproof", "elephantproof", "horseproof", 
+    "roachproof", "amethystproof", "citrineproof", 
+    "aquamarineproof", "moonstoneproof", "sunstoneproof", 
+    "labradoriteproof", "hematiteproof", "magnetiteproof", 
+    "pyriteproof", "malachiteproof", "azuriteproof", 
+    "turquoiseproof", "lapisproof", "carnelianproof", 
+    "chalcedonyproof", "acrylicproof", "winterproof", 
+    "unhidd", "unglu", "untap", 
+    "unpinn", "unstapl", "unfold", 
+    "unbox", "uncover", 
 )
 
 # The exact assertion words, beside the assertion roots
@@ -1768,6 +1797,19 @@ _ASSERTION_WORDS = (
     "regulates", "oversees", "supervises", 
     "manages", "administers", "handles", 
     "operates", "runs", "guides", 
+    "pants", "wheezes", "coughs", 
+    "sneezes", "snores", "laughs", 
+    "giggles", "scoffs", "sneers", 
+    "jeers", "taunts", "derides", 
+    "ridicules", "mimics", "whistles", 
+    "writes", "prints", "posts", 
+    "gestures", "nods", "winks", 
+    "smiles", "chuckles", "sniffs", 
+    "hiccups", "burps", "yawns", 
+    "blinks", "stares", "glances", 
+    "peeks", "peers", "protests", 
+    "confesses", "allows", "urges", 
+    "pleads", "begs", 
 )
 
 # The assertion roots. A word beginning with one of
@@ -1949,6 +1991,43 @@ _UNCONDITIONAL_MARKERS = (
     "world without end", "henceforth and forever", 
     "now and forever", "under any circumstances", 
     "everlastingly", "now and always", 
+    "no matter the cost", "regardless", 
+    "through hell and high water", "whatever the weather", 
+    "in sickness and in health", "for richer or poorer", 
+    "through joy and sorrow", "for better or worse", 
+    "in good times and bad", "hell or high water", 
+    "by hook or by crook", "whatever it takes", 
+    "to the end of days", "until the end of days", 
+    "for keeps", "once for all", 
+    "endlessly", "perpetually", 
+    "always", "in any event", 
+    "without doubt", "unquestionably", 
+    "outright", "utterly", "wholly", 
+    "for perpetuity", "undyingly", 
+    "deathlessly", "imperishably", 
+    "indestructibly", "unchangeably", 
+    "completely", "entirely", "in full", 
+    "by all means", "for always", 
+    "always and forever", "one hundred percent", 
+    "totally", "downright", 
+    "through and through", "root and branch", 
+    "lock stock and barrel", "bag and baggage", 
+    "hook line and sinker", "in toto", 
+    "in its entirety", "without restriction", 
+    "unreservedly", "unqualifiedly", 
+    "flatly", "point blank", 
+    "unto perpetuity", "henceforth", 
+    "from henceforth", "from now on", 
+    "henceforward", "thenceforth", 
+    "thenceforward", "ever after", 
+    "hereafter", "for the duration", 
+    "for life", "lifelong", 
+    "perennially", "interminably", 
+    "ceaselessly", "incessantly", 
+    "unendingly", "unremittingly", 
+    "immortally", "undiminished", 
+    "undiminishing", "unabated", 
+    "unabating", 
 )
 
 # The wordings that carry the governed conditional form
@@ -2389,6 +2468,28 @@ _GOVERNING_CONDITION_PHRASES = (
     "at the suit of", "in the event", 
     "in the case", 
     "in spite of",
+    "on the order of", "by the consent of", 
+    "by the approval of", "by the instruction of", 
+    "by the say-so of", "by the say so of", 
+    "by the sayso of", "by the command of", 
+    "on the command of", "by the request of", 
+    "by the determination of", "on the determination of", 
+    "by the findings of", "on the findings of", 
+    "pursuant to the direction of", "following the direction of", 
+    "subject to the direction of", "by the oversight of", 
+    "on the oversight of", "by the supervision of", 
+    "under the urging of", "under the insistence of", 
+    "by the insistence of", "under the demand of", 
+    "by the demand of", "under the invitation of", 
+    "by the invitation of", "under the suggestion of", 
+    "by the suggestion of", "under the decision of", 
+    "at the decision of", "under the ruling of", 
+    "at the ruling of", "under the judgment of", 
+    "at the judgment of", "under the verdict of", 
+    "at the verdict of", "under the licence of", 
+    "at the licence of", "under the license of", 
+    "at the license of", "on the licence of", 
+    "on the license of", 
 )
 
 # The wordings that carry a negated form of a claim. A
@@ -2663,6 +2764,25 @@ def _clause_claim(clause):
         "brainwaveprint", "heartbeatprint", "skinprint", 
         "nailprint", "hairprint", "toothprint", 
         "boneprint", 
+        "teak", "oak", "pine", 
+        "cedar", "walnut", "opal", 
+        "turquoise", "hematite", "calcite", 
+        "agate", "jasper", "amethyst", 
+        "luna", "gastro", "nephro", 
+        "osteo", "ophthalmo", "techno", 
+        "chemo", "chrono", "litho", 
+        "phono", "seismo", "seleno", 
+        "baro", "hygro", "anemo", 
+        "ombro", "nepho", "chiro", 
+        "podo", "rhino", "oto", 
+        "stetho", "myo", "arthro", 
+        "encephalo", "hepato", "pneumo", 
+        "haemo", "hemo", "leuko", 
+        "erythro", "cyto", "histo", 
+        "embryo", "phyto", "myco", 
+        "bacterio", "viro", "protozoo", 
+        "entomo", "ichthyo", "ornitho", 
+        "herpeto", "malaco", "helmintho", 
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
@@ -2731,6 +2851,16 @@ def _clause_claim(clause):
         "contaminated", "frozen", "guarded", 
         "armoured", "armored", "fortified", 
         "walled", 
+        "exhumed", "liquefied", "vaporised", 
+        "plundered", "pillaged", 
+        "shackled", "embedded", "lodged", 
+        "wedged", "crimped", "hitched", 
+        "coupled", "pegged", "braced", 
+        "buttressed", "girded", "banded", 
+        "strapped", "caged", "corralled", 
+        "enclosed", "encircled", "surrounded", 
+        "hedged", "sheltered", "housed", 
+        "garrisoned", "patrolled", 
     ):
         if passive in words and "by" in words[
             words.index(passive) + 1:
@@ -3215,6 +3345,23 @@ def _clause_inability_form(clause):
     "guard", "armour", "armor", 
     "fortif", "fenc", "wall", 
     "moat", "turret", 
+    "exhum", "liquefi", "vaporis", 
+    "atomiz", "disintegrat", "eradicat", 
+    "plunder", "pillag", "scorch", 
+    "singe", "shackl", "anchor", 
+    "embedd", "lodg", "wedg", 
+    "crimp", "secur", "hitch", "coupl", 
+    "hing", "pegg", "dowell", 
+    "mortis", "tenon", "brac", 
+    "buttress", "propp", "shor", 
+    "gird", "band", "strapp", 
+    "belt", "collar", "ring", 
+    "hoop", "cag", "corrall", 
+    "enclos", "encircl", "surround", 
+    "ringfenc", "hedg", "shelter", 
+    "hous", "quarter", "billet", 
+    "garrison", "mann", "patroll", 
+    "sentinell", 
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -3446,6 +3593,21 @@ def _clause_inability_form(clause):
     "clumsily", "gracefully", "awkwardly", 
     "furiously", "desperately", "impatiently", 
     "hopelessly", 
+    "sluggishly", "mischievously", "solemnly", 
+    "ritually", "noisily", "frantically", 
+    "earnestly", "dispassionately", "unemotionally", 
+    "placidly", "tranquilly", "peacefully", 
+    "restfully", "purely", "obviously", 
+    "seemingly", "avowedly", "professedly", 
+    "smoothly", "steadily", "firmly", 
+    "fixedly", "resolutely", "steadfastly", 
+    "doggedly", "stubbornly", "obstinately", 
+    "mulishly", "pigheadedly", "wittingly", 
+    "consciously", "zoo", "muniment", 
+    "columbarium", "magazine", "coop", 
+    "hutch", "alcove", "cubicle", 
+    "booth", "stall", "larder", 
+    "cellarage", 
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -3579,6 +3741,37 @@ def _seal_claim_scan(assembly_text):
                     "conditional on " + complement
                 ):
                     continue
+            trailing_governed = False
+            if len(main_words) < len(clause_words):
+                trailing_markers = (
+                    ("if",), ("when",), ("whenever",),
+                    ("while",), ("whilst",), ("where",),
+                    ("as",), ("that",),
+                    ("in", "cases", "where"),
+                    ("in", "so", "far", "as"),
+                    ("to", "the", "extent", "that"),
+                )
+                for position in range(
+                    max(0, len(main_words) - 3), len(clause_words)
+                ):
+                    for marker in trailing_markers:
+                        if tuple(
+                            clause_words[
+                                position:position + len(marker)
+                            ]
+                        ) != marker:
+                            continue
+                        complement = " ".join(
+                            clause_words[position + len(marker):]
+                        )
+                        if _governing_condition_holds(
+                            "conditional on " + complement
+                        ):
+                            trailing_governed = True
+                    if trailing_governed:
+                        break
+            if trailing_governed:
+                continue
             if (
                 main_words
                 and len(main_words) < len(clause_words)
@@ -3824,6 +4017,12 @@ def _seal_claim_scan(assembly_text):
                                 words[aux] in (
                                     "was", "were", "is", "are",
                                     "been", "be",
+                                )
+                                and not (
+                                    words[aux] in ("is", "are", "be")
+                                    and words[aux + 1].startswith(
+                                        ("alter", "unalter")
+                                    )
                                 )
                                 and any(
                                     words[aux + 1].startswith(root)
