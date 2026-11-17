@@ -1427,6 +1427,7 @@ def _bundle_copy(bundle):
     import ctypes as _ctypes_module
     import datetime as _datetime_module
     import decimal as _decimal_module
+    import dis as _dis_module
     import enum as _enum_module
     import fractions as _fractions_module
     import functools as _functools_module
@@ -1541,6 +1542,62 @@ def _bundle_copy(bundle):
             ):
                 continue
             values.append(value)
+        return values
+
+    def _globals_map_is_module_dict(func, globals_map):
+        if _globals_is_home_module(func, globals_map):
+            return True
+        for module in list(_sys_module.modules.values()):
+            try:
+                if (
+                    module is not None
+                    and module.__dict__ is globals_map
+                ):
+                    return True
+            except Exception:
+                continue
+        return False
+
+    def _referenced_global_values(func, globals_map):
+        code = getattr(func, "__code__", None)
+        if code is None:
+            return []
+        names = set()
+        pending_codes = [code]
+        seen_codes = set()
+        while pending_codes:
+            current_code = pending_codes.pop()
+            if id(current_code) in seen_codes:
+                continue
+            seen_codes.add(id(current_code))
+            try:
+                instructions = _dis_module.get_instructions(
+                    current_code
+                )
+            except Exception:
+                instructions = ()
+            for instruction in instructions:
+                if instruction.opname in (
+                    "LOAD_GLOBAL",
+                    "LOAD_NAME",
+                ) and isinstance(instruction.argval, str):
+                    names.add(instruction.argval)
+            for const in current_code.co_consts:
+                if isinstance(const, _types_module.CodeType):
+                    pending_codes.append(const)
+        values = []
+        for name in names:
+            if name in globals_map:
+                value = globals_map[name]
+                if isinstance(
+                    value, _types_module.ModuleType
+                ):
+                    continue
+                if isinstance(
+                    value, _extra_uncopyable_types
+                ):
+                    continue
+                values.append(value)
         return values
 
     _accepted_bases = (
@@ -3045,6 +3102,23 @@ def _bundle_copy(bundle):
                                 ),
                             ):
                                 pending.append(globals_value)
+                        if _globals_map_is_module_dict(
+                            carried, carried_globals
+                        ):
+                            globals_values = (
+                                _referenced_global_values(
+                                    carried, carried_globals
+                                )
+                            )
+                        else:
+                            globals_values = (
+                                _globals_walk_values(carried)
+                            )
+                        for globals_value in globals_values:
+                            namespace_reach.add(
+                                id(globals_value)
+                            )
+                            pending.append(globals_value)
             for klass in type(item).__mro__:
                 slots = klass.__dict__.get("__slots__")
                 if not slots:
