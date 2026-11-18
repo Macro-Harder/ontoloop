@@ -510,7 +510,12 @@ def _seam_rebuilt_mapping(value, rebuilt):
     any of those forms: the presented mapping stands
     carried as it stands in that case, so no governed
     entry stands lost to a rebuild that succeeds in
-    an empty form.
+    an empty form. A rebuild standing blind to an
+    entry the presented mapping carries by its
+    governed readings, in the form the blind reading
+    below this one states, stands not carried as the
+    presented mapping in the same way, whether the
+    rebuilt form carries further entries or none.
     """
     if type(value) is dict:
         result = rebuilt
@@ -551,9 +556,13 @@ def _seam_rebuilt_mapping(value, rebuilt):
             result = value
     else:
         result = value
-    if result is not value and not _seam_result_carries_entries(
-        result
-    ) and _seam_presented_carries_entries(value):
+    if result is not value and (
+        (
+            not _seam_result_carries_entries(result)
+            and _seam_presented_carries_entries(value)
+        )
+        or _seam_rebuild_stands_blind(value, result)
+    ):
         return value
     return result
 
@@ -608,7 +617,101 @@ def _seam_presented_carries_entries(value):
             return True
     except Exception:
         pass
+    try:
+        for key in value:
+            try:
+                value[key]
+            except Exception:
+                continue
+            return True
+    except Exception:
+        pass
     return False
+
+
+def _seam_governed_entry_keys(mapping):
+    """List the entry keys a mapping carries by its
+    governed readings.
+
+    A mapping stands read through its items reading,
+    through the keys it carries and the values those
+    keys reach, and through the keys its own iteration
+    yields and the values those keys reach, a ChainMap
+    standing read through its maps and a UserDict
+    through the mapping it wraps in the same way. A
+    key stands listed once, in the order its first
+    reading presents it, and a reading that presents
+    no key stands in no part of the list.
+    """
+    keys = []
+
+    def _add(key):
+        try:
+            if key not in keys:
+                keys.append(key)
+        except Exception:
+            pass
+
+    try:
+        for key, _inner in mapping.items():
+            _add(key)
+    except Exception:
+        pass
+    if isinstance(mapping, _collections_module.ChainMap):
+        try:
+            for chained in mapping.maps:
+                for key, _inner in chained.items():
+                    _add(key)
+        except Exception:
+            pass
+    if isinstance(mapping, _collections_module.UserDict):
+        try:
+            for key, _inner in mapping.data.items():
+                _add(key)
+        except Exception:
+            pass
+    try:
+        for key in mapping.keys():
+            try:
+                mapping[key]
+            except Exception:
+                continue
+            _add(key)
+    except Exception:
+        pass
+    try:
+        for key in mapping:
+            try:
+                mapping[key]
+            except Exception:
+                continue
+            _add(key)
+    except Exception:
+        pass
+    return keys
+
+
+def _seam_rebuild_stands_blind(value, result):
+    """Whether a rebuilt mapping stands blind to an
+    entry the presented mapping carries.
+
+    A rebuild stands blind where an entry key the
+    presented mapping carries by its governed
+    readings stands in no entry key the rebuilt form
+    carries by the same readings, whether the rebuilt
+    form carries further entries or none, so a rebuild
+    standing in that blind form stands not carried as
+    the presented mapping in the guard above. A
+    presented mapping carrying no entry key in any of
+    those readings stands in no blind form here.
+    """
+    presented_keys = _seam_governed_entry_keys(value)
+    if not presented_keys:
+        return False
+    result_keys = _seam_governed_entry_keys(result)
+    return any(
+        key not in result_keys for key in presented_keys
+    )
 
 
 def _materialise_view_form_seam(value, ancestors=frozenset()):
@@ -4469,6 +4572,229 @@ def _preserved_multi_replacement(original_value, relisted):
     }
 
 
+class _ListedSinglePassForm:
+    """A single pass iterable standing over listed
+    elements, in the form of the single pass forms the
+    pairs position reading lists.
+
+    Its first listing yields its elements and its
+    later listings yield none, and it carries no next
+    act of its own, so a single pass form standing
+    listed by that reading stands restored in this
+    form with its elements standing as they stood.
+    """
+
+    def __init__(self, items):
+        self._items = list(items)
+        self._spent = False
+
+    def __iter__(self):
+        if self._spent:
+            return iter(())
+        self._spent = True
+        return iter(self._items)
+
+
+def _pairs_probe_element(element):
+    """Probe an element a pairs position carrier
+    carries, returning whether it carries a dictionary
+    view in substance, the restored element, and
+    whether the restored element stands in a changed
+    form.
+
+    A dictionary view stands carried in substance. An
+    iterator stands listed once, its elements standing
+    probed in the same way and standing restored as a
+    generator over their restored forms. A container
+    standing in an exact container form stands rebuilt
+    in that form over its probed elements. A single
+    pass iterable stands listed once and stands
+    restored in the listed single pass form above. A
+    Sequence form carrier, a generic iterable
+    container, and a container carrying its elements
+    by indexed access alone stand listed in the same
+    way, their elements standing probed, the carrier
+    itself standing restored as it stands where no
+    element it carries stands changed by the probing,
+    and standing in no restored form here where an
+    element does, its caller deciding that case. Any
+    other element stands as it stands, read for a
+    carried view in the standing way.
+    """
+    if isinstance(element, (_KeysView, _ItemsView, _ValuesView)):
+        return (True, element, False)
+    if hasattr(element, "__next__"):
+        probed = [
+            _pairs_probe_element(inner)
+            for inner in list(element)
+        ]
+        restored = (
+            inner for inner in [entry[1] for entry in probed]
+        )
+        return (
+            any(entry[0] for entry in probed),
+            restored,
+            True,
+        )
+    if isinstance(
+        element,
+        (
+            list,
+            tuple,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ):
+        probed = [
+            _pairs_probe_element(inner) for inner in element
+        ]
+        restored_list = [entry[1] for entry in probed]
+        if isinstance(element, tuple):
+            restored = tuple(restored_list)
+        elif isinstance(element, _collections_module.deque):
+            restored = _collections_module.deque(restored_list)
+        elif isinstance(element, _collections_module.UserList):
+            restored = _collections_module.UserList(
+                restored_list
+            )
+        else:
+            restored = restored_list
+        return (
+            any(entry[0] for entry in probed),
+            restored,
+            any(entry[2] for entry in probed),
+        )
+    if _is_single_pass_iterable(element):
+        probed = [
+            _pairs_probe_element(inner)
+            for inner in list(element)
+        ]
+        restored = _ListedSinglePassForm(
+            [entry[1] for entry in probed]
+        )
+        return (
+            any(entry[0] for entry in probed),
+            restored,
+            True,
+        )
+    if isinstance(element, _Sequence) or (
+        _is_generic_iterable_container(element)
+    ) or _is_indexed_only_container(element):
+        listed = _pairs_carrier_elements(element)
+        if listed is None:
+            return (_carries_any_view(element), element, False)
+        probed = [
+            _pairs_probe_element(inner) for inner in listed
+        ]
+        return (
+            any(entry[0] for entry in probed),
+            element,
+            any(entry[2] for entry in probed),
+        )
+    return (_carries_any_view(element), element, False)
+
+
+def _pairs_carrier_elements(old):
+    """List the elements a pairs position carrier
+    carries, in the form its own reading presents
+    them, or return None where it carries none in a
+    listed form."""
+    try:
+        if hasattr(old, "__next__"):
+            return list(old)
+        if _is_indexed_only_container(old) and not hasattr(
+            old, "__iter__"
+        ):
+            return _indexed_elements(old)
+        return list(old)
+    except Exception:
+        return None
+
+
+def _pairs_carried_entry(old):
+    """Return the carried form of a mapping value at
+    the pairs position, in two kinds.
+
+    A value standing in an exact or subclass container
+    form, a list, a tuple, a set, a frozenset, a deque,
+    or a UserList, a mapping, a dictionary view, or a
+    text or byte form stands in no part of this
+    reading, its standing readings governing it at the
+    pairs position as they stand: this reading returns
+    None for it and lists nothing it carries. A value
+    standing as an iterator, as a Sequence form
+    carrier, as a generic iterable container, or as a
+    container carrying its elements by indexed access
+    alone stands listed once here. Where an element it
+    carries stands as a dictionary view or carries one
+    in substance, the entry stands charged: this
+    reading returns the deep view form of its probed
+    elements, in the form the deep view reading
+    carries such a carrier, as the first element of
+    its return. Where no element carries a view, its
+    probed elements stand restored in their standing
+    kinds, as the second element of the return, so no
+    material stands lost to the listing: an iterator
+    stands restored as a generator over its probed
+    elements, a single pass iterable stands restored
+    in the listed single pass form, in the bounded
+    form of ruling 722, and a carrier standing
+    re-iterable with no element changed by the probing
+    stands as it stands, this reading returning None
+    for it.
+    """
+    if isinstance(
+        old,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+            _Mapping,
+            _KeysView,
+            _ItemsView,
+            _ValuesView,
+            str,
+            _UserString,
+            bytes,
+            bytearray,
+            memoryview,
+        ),
+    ):
+        return (None, None)
+    if not (
+        hasattr(old, "__next__")
+        or isinstance(old, _Sequence)
+        or _is_generic_iterable_container(old)
+        or _is_indexed_only_container(old)
+    ):
+        return (None, None)
+    listed = _pairs_carrier_elements(old)
+    if listed is None:
+        return (None, None)
+    probed = [
+        _pairs_probe_element(element) for element in listed
+    ]
+    restored_list = [entry[1] for entry in probed]
+    if any(entry[0] for entry in probed):
+        return (
+            _view_mapping_form_deep(restored_list),
+            None,
+        )
+    if hasattr(old, "__next__"):
+        return (
+            None,
+            (inner for inner in restored_list),
+        )
+    if _is_single_pass_iterable(old):
+        return (None, _ListedSinglePassForm(restored_list))
+    if any(entry[2] for entry in probed):
+        return (None, restored_list)
+    return (None, None)
+
+
 def _wrapped_nested_position_material(material):
     """Return the bundle with a wrapped nested position read.
 
@@ -4653,6 +4979,31 @@ def _wrapped_nested_position_material(material):
                             carried[carried_key] = old
                     if took:
                         replacement = carried
+            if key == "pairs" and isinstance(
+                value, _Mapping
+            ) and _is_plain_mapping(
+                value
+            ) and not any(
+                field in value for field in _ITEM_FIELD_KEYS
+            ):
+                carried = {}
+                took = False
+                touched = False
+                for carried_key, old in value.items():
+                    charged, restored = _pairs_carried_entry(
+                        old
+                    )
+                    if charged is not None:
+                        carried[carried_key] = charged
+                        took = True
+                        touched = True
+                    elif restored is not None:
+                        carried[carried_key] = restored
+                        touched = True
+                    else:
+                        carried[carried_key] = old
+                if took or touched:
+                    replacement = carried
         elif isinstance(
             value, (tuple, _collections_module.deque)
         ) or hasattr(value, "__next__"):
