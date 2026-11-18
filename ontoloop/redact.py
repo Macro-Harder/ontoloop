@@ -472,19 +472,22 @@ def _decoded_spans(text, layer, class_name):
     standing in the text in a decorated form, a token
     carrying decoration or a fused prefix at its edges
     at any count standing over a token that decides
-    definite, a token carrying commas in its
-    interior standing decided on the value it
-    carries after the interior commas stand
-    stripped, and in a line wrapped form, fragments
-    whose encoding cores, the dress at their edges
-    and any comma in a fragment interior standing
-    set aside, join to a form that decides definite,
-    each fragment carrying its own span, separator
-    tokens standing alone between fragments
-    standing transparent to the joining, and the
-    fragments after intervening tokens, two in
-    total for one assembly, standing joined to a
-    decided joining in the same form. A decorated or wrapped form standing with no
+    definite, a token carrying interior
+    characters outside the encoding alphabet,
+    commas standing in a run included, standing
+    decided on the value it carries after the
+    interior dress stands stripped, and in a line
+    wrapped form, fragments whose encoding cores,
+    the dress at their edges and any character
+    outside the encoding alphabet in a fragment
+    interior standing set aside, join to a form
+    that decides definite, each fragment carrying
+    its own span, separator tokens standing alone
+    between fragments standing transparent to the
+    joining, and the fragments after intervening
+    tokens, three in total for one assembly,
+    standing joined to a decided joining in the
+    same form. A decorated or wrapped form standing with no
     exactly resolved token beside it resolves nothing
     here, in its standing detection boundary form.
     Where no token decides definite and the text as a
@@ -527,11 +530,13 @@ def _decoded_spans(text, layer, class_name):
 def _decorated_token_span(start, token):
     """Return the span of a definite token inside a decorated token.
 
-    A token carrying a comma in its interior,
-    flanked on both sides by encoding alphabet
-    characters, stands first tried as the token
-    the interior commas stand stripped from, in
-    the span of the whole token. The forms tried
+    A token carrying an interior character
+    outside the encoding alphabet, a comma, a
+    semicolon, a dash, or any other such character,
+    commas standing in a run included, stands first
+    tried as the token the interior dress stands
+    stripped from, in the span of the segment
+    standing between the edge dress. The forms tried
     stand in order of the least edge
     characters set aside first, at any count at each
     edge severally and at any total, so a parenthesis,
@@ -553,27 +558,25 @@ def _decorated_token_span(start, token):
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz0123456789+/="
     )
-    stripped_chars = []
-    comma_removed = False
-    for position, char in enumerate(token):
-        if (
-            char == ","
-            and 0 < position < len(token) - 1
-            and token[position - 1] in alphabet
-            and token[position + 1] in alphabet
-        ):
-            comma_removed = True
-            continue
-        stripped_chars.append(char)
-    if comma_removed:
-        candidate = "".join(stripped_chars)
-        if len(candidate) >= 8:
+    core_positions = [
+        position
+        for position, char in enumerate(token)
+        if char in alphabet
+    ]
+    if core_positions:
+        core_lead = core_positions[0]
+        core_trail = core_positions[-1] + 1
+        segment = token[core_lead:core_trail]
+        candidate = "".join(
+            char for char in segment if char in alphabet
+        )
+        if candidate != segment and len(candidate) >= 8:
             resolved = _decode_candidate(candidate)
             if (
                 resolved["outcome"] == "definite hit"
                 and resolved["decoding_depth_reached"] >= 1
             ):
-                return (start, start + len(token))
+                return (start + core_lead, start + core_trail)
     for total in range(1, len(token) - 7):
         for lead in range(0, total + 1):
             trail = total - lead
@@ -601,16 +604,16 @@ def _wrapped_fragment_core(start, end, token):
     any other character standing outside the encoding
     alphabet at an edge, stands carried by the core
     standing between that dress, in the span the core
-    itself occupies. A comma standing in the fragment
-    interior stands set aside in the core text, and
-    the span covers the whole segment standing
-    between the dress, the comma included, so the
+    itself occupies. A character outside the alphabet
+    standing in the fragment interior, a comma, a
+    semicolon, a dash, or any other such character,
+    stands set aside in the core text, and the span
+    covers the whole segment standing between the
+    dress, the interior character included, so the
     interior dress carries no part of the definite
     value and stands in no journal byte. A token
-    whose interior carries any other character
-    outside the alphabet, or which carries no
-    alphabet character at all, carries no core and
-    stands returned as None.
+    which carries no alphabet character at all
+    carries no core and stands returned as None.
     """
     alphabet = set(
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -625,7 +628,9 @@ def _wrapped_fragment_core(start, end, token):
     core = token[lead:trail]
     if not core:
         return None
-    stripped = core.replace(",", "")
+    stripped = "".join(
+        char for char in core if char in alphabet
+    )
     if not stripped:
         return None
     if not re.fullmatch(r"[A-Za-z0-9+/=]+", stripped):
@@ -651,14 +656,14 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
     exact resolution already carries. Where no
     consecutive joining decides, a split joining
     stands tried in a window of twenty four stream
-    entries: a first run of fragments, one or two
+    entries: a first run of fragments, one to three
     intervening stream entries, and a second run,
     decided on the two runs joined together, so a
     wrapping interrupted after exactly one fragment
     stands decided as one wrapping. Where a joining
     decides definite, the fragments after intervening
     entries stand tried as an extension of the
-    decided joining, repeatedly, across at most two
+    decided joining, repeatedly, across at most three
     intervening stream entries in total for the one
     assembly, the split joining skip counting toward
     the same total: where the extended joining
@@ -721,7 +726,7 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
             for first in range(1, len(window)):
                 if assembly is not None:
                     break
-                for skip in (1, 2):
+                for skip in (1, 2, 3):
                     if assembly is not None:
                         break
                     second_start = first + skip
@@ -757,7 +762,7 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
             add_span(spans, cores[i])
         while end_pos < len(stream):
             extension = None
-            for skip in range(0, 2 - skips_used + 1):
+            for skip in range(0, 3 - skips_used + 1):
                 start = end_pos + skip
                 if start >= len(stream):
                     break
