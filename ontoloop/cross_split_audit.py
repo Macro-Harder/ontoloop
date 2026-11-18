@@ -795,7 +795,7 @@ def _seam_stored_carries_view(value, ancestors=frozenset()):
             _seam_stored_carries_view(
                 inner, child_ancestors
             )
-            for inner in value
+            for inner in _container_elements_preserved(value)
         )
     return False
 
@@ -944,7 +944,7 @@ def _seam_collect_views(value, from_storage, ancestors=frozenset()):
             _collections_module.UserList,
         ),
     ):
-        for inner in value:
+        for inner in _container_elements_preserved(value):
             views.extend(
                 _seam_collect_views(inner, from_storage, child_ancestors)
             )
@@ -4030,7 +4030,7 @@ def _carries_any_view(value, ancestors=frozenset()):
     ):
         return any(
             _carries_any_view(inner, child_ancestors)
-            for inner in value
+            for inner in _container_elements_preserved(value)
         )
     return False
 
@@ -5209,6 +5209,61 @@ def _pairs_carried_entry(old):
     return (None, None)
 
 
+def _delegating_container_elements(value):
+    """Return the elements a delegating container
+    subclass form carries, listed once through its
+    delegating iteration act.
+
+    The listing consumes the one stored iterator the
+    form delegates to, so that iterator stands restored
+    in the form store over the listed elements in the
+    same act, and the form stands readable again in its
+    standing form for every reading that follows, at
+    this surface and at every other governed surface.
+    A form whose iteration act raises stands in no part
+    here, its standing readings governing it as they
+    stand.
+    """
+    try:
+        elements = list(value)
+    except Exception:
+        return None
+    try:
+        stored = vars(value)
+    except Exception:
+        stored = None
+    if isinstance(stored, _Mapping):
+        for name, inner in list(stored.items()):
+            if hasattr(inner, "__next__"):
+                try:
+                    stored[name] = iter(elements)
+                except Exception:
+                    pass
+    return elements
+
+
+def _container_elements_preserved(value):
+    """Return the elements a container reading stands
+    to iterate, in a form that leaves the container
+    standing as it stands.
+
+    A container standing in a delegating container
+    subclass form stands listed through the delegating
+    container elements reading above, its stored
+    iterator standing restored over its listed
+    elements, so a reading that lists it to judge it
+    takes no material from it. A container standing in
+    any other form stands as it stands, its own
+    iteration act governing the listing in its standing
+    form.
+    """
+    if _is_delegating_container_subclass(value):
+        elements = _delegating_container_elements(value)
+        if elements is not None:
+            return elements
+    return value
+
+
 def _pairs_position_entry(old, ancestors=frozenset()):
     """Return the carried form of one mapping value at
     the pairs or holdout_items position, in two kinds,
@@ -5235,9 +5290,12 @@ def _pairs_position_entry(old, ancestors=frozenset()):
     rebuilt in its own container form over its carried
     elements where any element it carries stands
     carried, a container standing in a delegating
-    container subclass form standing as it stands in
-    no part of this limb, in the form the delegating
-    container subclass reading states, so a carrier
+    container subclass form standing read element by
+    element in the same way through the delegating
+    container elements reading above, its stored
+    iterator standing restored over its listed
+    elements so no material stands lost to the
+    listing, so a carrier
     standing inside a plain
     container at the entry, and a mapping standing
     inside a plain container at the entry carrying a
@@ -5324,16 +5382,32 @@ def _pairs_position_entry(old, ancestors=frozenset()):
             _collections_module.deque,
             _collections_module.UserList,
         ),
-    ) and not _is_delegating_container_subclass(old):
-        probed = [
-            _pairs_position_entry(inner, child_ancestors)
-            for inner in old
-        ]
+    ):
+        if _is_delegating_container_subclass(old):
+            elements = _delegating_container_elements(old)
+            if elements is None:
+                return (None, False)
+            probed = []
+            for inner in elements:
+                try:
+                    probed.append(
+                        _pairs_position_entry(
+                            inner, child_ancestors
+                        )
+                    )
+                except Exception:
+                    probed.append((None, False))
+        else:
+            elements = list(old)
+            probed = [
+                _pairs_position_entry(inner, child_ancestors)
+                for inner in elements
+            ]
         if any(entry_touched for _new, entry_touched in probed):
             rebuilt_list = [
                 new if entry_touched else inner
                 for (new, entry_touched), inner in zip(
-                    probed, old
+                    probed, elements
                 )
             ]
             if isinstance(old, tuple):
