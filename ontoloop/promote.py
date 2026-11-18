@@ -1816,6 +1816,59 @@ def _wrapper_materialise_chainmap_set_element(element, shared_module,
     return element
 
 
+def _wrapper_subtree_carries_mapping(value, ancestors):
+    """Return True where a mapping stands in the
+    subtree of a value in a position the element
+    position reading reaches: the value itself
+    standing as a mapping, a mapping standing as an
+    element of a container that reading lists, or a
+    mapping standing as a value of a mapping that
+    reading lists. A text form, a byte form, a
+    memoryview, an array, and a range stand as leaves
+    and carry no mapping. A single pass form and an
+    iterator stand never listed by this reading, and
+    a value standing on its own ancestor path carries
+    no further mapping for this reading.
+    """
+    import array as _array_module
+    import collections as _collections_module
+
+    from collections.abc import Mapping as _Mapping
+
+    if isinstance(value, _Mapping):
+        return True
+    if isinstance(
+        value,
+        (
+            str,
+            _collections_module.UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+        ),
+    ):
+        return False
+    if id(value) in ancestors:
+        return False
+    if hasattr(value, "__next__") and hasattr(value, "__iter__"):
+        return False
+    if _is_single_pass_iterable(value):
+        return False
+    ancestors = ancestors | {id(value)}
+    if hasattr(value, "__iter__"):
+        try:
+            elements = list(value)
+        except Exception:
+            return False
+        return any(
+            _wrapper_subtree_carries_mapping(element, ancestors)
+            for element in elements
+        )
+    return False
+
+
 def _wrapper_delegating_view_stands_in_element_form(value):
     """Return True where a dictionary view standing
     inside a delegating carrier stands in its element
@@ -1825,7 +1878,12 @@ def _wrapper_delegating_view_stands_in_element_form(value):
     carries a form that reading reaches in substance,
     a mapping standing in that position or a single
     pass form standing in the subtree of the carried
-    form. A byte form, a text form, and any other leaf
+    form. A mapping standing inside a plain container
+    standing in that position stands reached in the
+    same way, and an items view whose key carries a
+    mapping in its subtree stands in its element form
+    on the same ground. A byte form, a text form, and
+    any other leaf
     form standing in that position stand in no such
     form, and the view stands in its key form at that
     carrier in the parity the delegating element act
@@ -1836,7 +1894,15 @@ def _wrapper_delegating_view_stands_in_element_form(value):
     from collections.abc import ValuesView as _ValuesView
 
     if isinstance(value, _ItemsView):
-        reached = [pair[1] for pair in list(value)]
+        pairs = list(value)
+        reached = [pair[1] for pair in pairs]
+        if any(
+            _wrapper_subtree_carries_mapping(
+                pair[0], frozenset()
+            )
+            for pair in pairs
+        ):
+            return True
     elif isinstance(value, _ValuesView):
         reached = list(value)
     else:
@@ -1844,8 +1910,191 @@ def _wrapper_delegating_view_stands_in_element_form(value):
     return any(
         isinstance(carried, _Mapping)
         or _wrapper_subtree_has_iterator(carried, frozenset())
+        or _wrapper_subtree_carries_mapping(
+            carried, frozenset()
+        )
         for carried in reached
     )
+
+
+def _wrapper_delegating_carrier_chainmap_form(element,
+                                              shared_module,
+                                              ancestors, depth):
+    """Materialise a delegating concrete container
+    subclass standing as an element, in the composed
+    carrier form.
+
+    The subclass stands listed once here. Where a
+    delegating ChainMap subclass stands in its
+    subtree, through its elements, through plain
+    containers and mappings standing among them, and
+    through delegating concrete container subclasses
+    standing among them, the subclass stands rebuilt
+    in plain list form holding its elements in the
+    forms _wrapper_element_carries_chainmap_form and
+    _wrapper_chainmap_delegating_element state, so
+    the ChainMap subclass stands carried in the key
+    form that search act states and the wrapper
+    decides the presentation in parity with the
+    direct act, and the carried form stands returned
+    beside True.
+    Where no such subclass stands in its subtree, the
+    subclass stands in the delegating list form over
+    the elements its one listing yielded, in the
+    delegating container form the presentation
+    presented, and the carried form stands returned
+    beside False.
+    """
+    listed_once = list(element)
+    nested_ancestors = ancestors | {id(element)}
+    parts = []
+    found = False
+    for inner in listed_once:
+        part, inner_found = (
+            _wrapper_element_carries_chainmap_form(
+                inner, shared_module, nested_ancestors,
+                depth + 1,
+            )
+        )
+        parts.append((inner, part, inner_found))
+        found = found or inner_found
+    if not found:
+        return (
+            _WrapperMaterialisedDelegatingListForm(listed_once),
+            False,
+        )
+    final = []
+    for inner, part, inner_found in parts:
+        if inner_found:
+            final.append(part)
+        else:
+            final.append(
+                _wrapper_chainmap_delegating_element(
+                    inner, shared_module, nested_ancestors,
+                    depth + 1, delegating_carrier=True,
+                )
+            )
+    return final, True
+
+
+def _wrapper_element_carries_chainmap_form(element,
+                                           shared_module,
+                                           ancestors, depth):
+    """Return the carried form of one element beside
+    whether a delegating ChainMap subclass stands
+    carried in it.
+
+    A delegating ChainMap subclass stands carried in
+    the key form the nested materialisation states
+    for a value standing in key position, as the key
+    of a one entry mapping carrying an empty mapping
+    as its value, beside True, because at the composed
+    carrier positions the direct act reads the
+    subclass in key position and reaches no comparison
+    on the material it carries, while a reading
+    through its mapping views raises on that material
+    in place of a decision. A delegating concrete
+    container subclass stands in the composed carrier
+    form _wrapper_delegating_carrier_chainmap_form
+    states, beside the standing of that act. A
+    delegating container subclass standing in an
+    abstract form alone stands as it stands, beside
+    False, in parity with both readings of its
+    composed positions. A mapping and a plain
+    container stand searched value by value and
+    element by element in this same form: where a
+    ChainMap subclass stands carried inside one, it
+    stands rebuilt in its own form holding the
+    carried forms, beside True, and where none
+    stands, it stands as it stands, beside False. A
+    dictionary view stands as it stands, beside
+    False, its carried forms standing decided by the
+    view limbs of the delegating element act. Any
+    other element stands as it stands, beside False.
+    """
+    import collections as _collections_module
+
+    from collections.abc import ItemsView as _ItemsView
+    from collections.abc import KeysView as _KeysView
+    from collections.abc import Mapping as _Mapping
+    from collections.abc import Sequence as _Sequence
+    from collections.abc import Set as _Set
+    from collections.abc import ValuesView as _ValuesView
+
+    if _is_delegating_chainmap_subclass(element):
+        return (
+            {_WrapperMaterialisedKeyForm(element): {}},
+            True,
+        )
+    if _is_delegating_concrete_container_subclass(element):
+        return _wrapper_delegating_carrier_chainmap_form(
+            element, shared_module, ancestors, depth
+        )
+    if _is_delegating_container_subclass(element):
+        return element, False
+    if isinstance(
+        element, (_KeysView, _ValuesView, _ItemsView)
+    ):
+        return element, False
+    if isinstance(element, _Mapping):
+        nested_ancestors = ancestors | {id(element)}
+        parts = []
+        found = False
+        for key, inner in element.items():
+            part, inner_found = (
+                _wrapper_element_carries_chainmap_form(
+                    inner, shared_module, nested_ancestors,
+                    depth + 1,
+                )
+            )
+            parts.append((key, part))
+            found = found or inner_found
+        if not found:
+            return element, False
+        return {key: part for key, part in parts}, True
+    if isinstance(
+        element,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+            _Sequence,
+            _Set,
+        ),
+    ):
+        listed_once = list(element)
+        nested_ancestors = ancestors | {id(element)}
+        parts = []
+        found = False
+        for inner in listed_once:
+            part, inner_found = (
+                _wrapper_element_carries_chainmap_form(
+                    inner, shared_module, nested_ancestors,
+                    depth + 1,
+                )
+            )
+            parts.append(part)
+            found = found or inner_found
+        if not found:
+            return element, False
+        if isinstance(element, tuple):
+            return tuple(parts), True
+        if isinstance(element, _collections_module.deque):
+            return _collections_module.deque(parts), True
+        if isinstance(element, _collections_module.UserList):
+            return _collections_module.UserList(parts), True
+        if isinstance(element, list):
+            return parts, True
+        if isinstance(element, (set, frozenset)):
+            try:
+                return type(element)(parts), True
+            except TypeError:
+                return parts, True
+        return parts, True
+    return element, False
 
 
 def _wrapper_chainmap_delegating_element(element, shared_module,
@@ -1879,12 +2128,25 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
     reading of a view reaches in substance. An items
     view carrying a nested mapping in its value
     stands in that same element form on the same
-    ground. A delegating ChainMap subclass standing
+    ground. A keys view standing inside the
+    delegating carrier whose keys carry a mapping in
+    their subtree stands carried as the list of its
+    materialised keys, so the material its keys carry
+    reaches the wrapper reading in substance. A
+    delegating ChainMap subclass standing
     as an element stands carried in the decided form
     _wrapper_chainmap_decided_form states, because a
     reading through its mapping views takes its
     yielded material as keys and raises on it in
-    place of a decision.
+    place of a decision. A delegating concrete
+    container subclass standing as an element stands
+    carried in the form
+    _wrapper_delegating_carrier_chainmap_form states,
+    so a delegating ChainMap subclass standing inside
+    it stands carried in the key form that act states
+    at the composed carrier positions, and a
+    delegating container subclass standing in an
+    abstract form alone stands as it stands.
     """
     import array as _array_module
     import collections as _collections_module
@@ -1920,6 +2182,17 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
             element, shared_module, ancestors, depth
         )
     if isinstance(element, _KeysView):
+        if delegating_carrier and any(
+            _wrapper_subtree_carries_mapping(key, frozenset())
+            for key in list(element)
+        ):
+            return [
+                _wrapper_materialise(
+                    key, shared_module, ancestors, depth,
+                    "other",
+                )
+                for key in list(element)
+            ]
         materialised_view = _wrapper_materialise(
             element, shared_module, ancestors, depth, "other"
         )
@@ -1949,7 +2222,16 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
             element, shared_module, ancestors, depth, "other"
         )
     if _is_delegating_container_subclass(element):
-        return element
+        if not _is_delegating_concrete_container_subclass(
+            element
+        ):
+            return element
+        carried_form, _chainmap_carried = (
+            _wrapper_delegating_carrier_chainmap_form(
+                element, shared_module, ancestors, depth
+            )
+        )
+        return carried_form
     if (
         hasattr(element, "__next__") and hasattr(element, "__iter__")
     ) or _is_single_pass_iterable(element):
@@ -2173,10 +2455,12 @@ def _wrapper_chainmap_plain_element(element, shared_module,
     _wrapper_chainmap_single_pass_value states for a
     plain carrier, a getitem only form stands in the
     key form the nested materialisation states, a
-    delegating container subclass stands as it
-    stands, and a plain container stands rebuilt in
-    its own form holding its elements in this same
-    plain form. A text form stands in the key form
+    delegating container subclass stands in the form
+    _wrapper_delegating_carrier_chainmap_form states,
+    in the parity the delegating element act states
+    for that form, and a plain container stands
+    rebuilt in its own form holding its elements in
+    this same plain form. A text form stands in the key form
     the nested materialisation states, in parity with
     both readings of a text element at this position.
     """
@@ -2233,7 +2517,16 @@ def _wrapper_chainmap_plain_element(element, shared_module,
             element, shared_module, ancestors, depth, "other"
         )
     if _is_delegating_container_subclass(element):
-        return element
+        if not _is_delegating_concrete_container_subclass(
+            element
+        ):
+            return element
+        carried_form, _chainmap_carried = (
+            _wrapper_delegating_carrier_chainmap_form(
+                element, shared_module, ancestors, depth
+            )
+        )
+        return carried_form
     if (
         hasattr(element, "__next__") and hasattr(element, "__iter__")
     ) or _is_single_pass_iterable(element):
