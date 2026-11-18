@@ -815,20 +815,159 @@ def _seam_view_underlying_keys(view):
         return None
 
 
+def _seam_material_equal(left, right, ancestors=frozenset()):
+    """Whether two forms stand equal in substance.
+
+    A form stands equal to itself. Two dictionary views
+    stand equal where the view match reading below
+    judges them matched. Two mappings stand equal where
+    their entry keys stand equal in order and their
+    values stand equal in substance entry by entry. Two
+    plain containers stand equal where their elements
+    stand equal in substance in order. Any other two
+    forms stand equal where their own equality reading
+    returns true. A form standing inside itself stands
+    in no part here at the cyclic position.
+    """
+    if left is right:
+        return True
+    if isinstance(
+        left, (_KeysView, _ItemsView, _ValuesView)
+    ) and isinstance(
+        right, (_KeysView, _ItemsView, _ValuesView)
+    ):
+        return _seam_view_forms_match(left, right)
+    if id(left) in ancestors or id(right) in ancestors:
+        return False
+    child_ancestors = ancestors | {id(left), id(right)}
+    if isinstance(left, _Mapping) and isinstance(
+        right, _Mapping
+    ):
+        try:
+            left_items = list(left.items())
+            right_items = list(right.items())
+        except Exception:
+            return False
+        if len(left_items) != len(right_items):
+            return False
+        for (left_key, left_inner), (
+            right_key,
+            right_inner,
+        ) in zip(left_items, right_items):
+            if not _seam_material_equal(
+                left_key, right_key, child_ancestors
+            ):
+                return False
+            if not _seam_material_equal(
+                left_inner, right_inner, child_ancestors
+            ):
+                return False
+        return True
+    if isinstance(
+        left,
+        (
+            list,
+            tuple,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ) and isinstance(
+        right,
+        (
+            list,
+            tuple,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ):
+        if len(left) != len(right):
+            return False
+        return all(
+            _seam_material_equal(
+                left_inner, right_inner, child_ancestors
+            )
+            for left_inner, right_inner in zip(left, right)
+        )
+    try:
+        result = left == right
+    except Exception:
+        return False
+    return result if isinstance(result, bool) else False
+
+
+def _seam_collect_views(value, from_storage, ancestors=frozenset()):
+    """List the dictionary views a form carries in
+    substance, in the order they stand in it.
+
+    A form standing as a dictionary view in its own
+    form stands listed as itself. A mapping stands read
+    through the entries its storage carries where the
+    storage form is asked for, and through the entries
+    its items reading presents where it is not, so a
+    view standing inside a plain container in the
+    storage of a mapping, or inside a mapping standing
+    in that storage, stands listed in the same way. A
+    plain container stands read element by element. A
+    form standing inside itself stands in no part here
+    at the cyclic position.
+    """
+    if isinstance(value, (_KeysView, _ItemsView, _ValuesView)):
+        return [value]
+    if id(value) in ancestors:
+        return []
+    child_ancestors = ancestors | {id(value)}
+    views = []
+    if isinstance(value, _Mapping):
+        if from_storage:
+            entries = _seam_storage_entries(value)
+        else:
+            try:
+                entries = dict(value.items())
+            except Exception:
+                entries = {}
+        for key, inner in entries.items():
+            views.extend(
+                _seam_collect_views(key, from_storage, child_ancestors)
+            )
+            views.extend(
+                _seam_collect_views(inner, from_storage, child_ancestors)
+            )
+        return views
+    if isinstance(
+        value,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ):
+        for inner in value:
+            views.extend(
+                _seam_collect_views(inner, from_storage, child_ancestors)
+            )
+    return views
+
+
 def _seam_view_forms_match(presented, rebuilt):
     """Whether a rebuilt dictionary view stands in the
     material form of the view it rebuilds.
 
     Two views standing as views in their own forms
-    stand matched where the mappings they stand over
-    carry the same entry keys, key for key, in the
-    order they present them, a rebuilt view standing
-    over a rebuilt mapping whose keys stand as they
-    stood standing matched in that form. A form
-    standing in no view form of its own, or a view
-    whose underlying mapping stands unreadable here,
-    stands in no mismatch here, its standing readings
-    governing it as they stand.
+    stand matched where they stand in the same view
+    kind, where the mappings they stand over carry the
+    same entry keys, key for key, in the order they
+    present them, and, for an items view or a values
+    view, where the values those mappings carry stand
+    equal in substance entry by entry in the same
+    order, a rebuilt view standing over a rebuilt
+    mapping whose entries stand as they stood standing
+    matched in that form. A form standing in no view
+    form of its own, or a view whose underlying mapping
+    stands unreadable here, stands in no mismatch here,
+    its standing readings governing it as they stand.
     """
     if not isinstance(
         presented, (_KeysView, _ItemsView, _ValuesView)
@@ -838,6 +977,15 @@ def _seam_view_forms_match(presented, rebuilt):
         rebuilt, (_KeysView, _ItemsView, _ValuesView)
     ):
         return True
+    if type(presented) is not type(rebuilt) and not (
+        isinstance(presented, _KeysView)
+        == isinstance(rebuilt, _KeysView)
+        and isinstance(presented, _ItemsView)
+        == isinstance(rebuilt, _ItemsView)
+        and isinstance(presented, _ValuesView)
+        == isinstance(rebuilt, _ValuesView)
+    ):
+        return False
     presented_keys = _seam_view_underlying_keys(presented)
     rebuilt_keys = _seam_view_underlying_keys(rebuilt)
     if presented_keys is None or rebuilt_keys is None:
@@ -855,6 +1003,34 @@ def _seam_view_forms_match(presented, rebuilt):
         except Exception:
             pass
         return False
+    if isinstance(presented, (_ItemsView, _ValuesView)):
+        presented_underlying = getattr(presented, "mapping", None)
+        if presented_underlying is None:
+            presented_underlying = getattr(
+                presented, "_mapping", None
+            )
+        rebuilt_underlying = getattr(rebuilt, "mapping", None)
+        if rebuilt_underlying is None:
+            rebuilt_underlying = getattr(rebuilt, "_mapping", None)
+        if isinstance(
+            presented_underlying, _Mapping
+        ) and isinstance(rebuilt_underlying, _Mapping):
+            try:
+                presented_values = list(
+                    presented_underlying.values()
+                )
+                rebuilt_values = list(rebuilt_underlying.values())
+            except Exception:
+                return True
+            if len(presented_values) != len(rebuilt_values):
+                return False
+            for presented_value, rebuilt_value in zip(
+                presented_values, rebuilt_values
+            ):
+                if not _seam_material_equal(
+                    presented_value, rebuilt_value
+                ):
+                    return False
     return True
 
 
@@ -888,8 +1064,17 @@ def _seam_rebuild_stands_blind(value, result):
     view standing over entry keys other than the keys
     the presented view stands over, stands lost to
     the rebuild in substance in the same way. A
-    presented mapping carrying no entry key in any of
-    those readings stands in no blind form here.
+    rebuild stands blind in the same way where the
+    view its storage carries stands in a wrapped or
+    nested form, inside a plain container in that
+    storage or inside a mapping standing in that
+    storage, and the rebuilt value carries no view
+    standing matched with it in the form the view
+    match reading states, the views of each side
+    standing collected in substance in the form the
+    collected views reading above states. A presented
+    mapping carrying no entry key in any of those
+    readings stands in no blind form here.
     """
     presented_keys = _seam_governed_entry_keys(value)
     if not presented_keys:
@@ -917,6 +1102,22 @@ def _seam_rebuild_stands_blind(value, result):
             rebuilt_inner
         ):
             return True
+        stored_views = _seam_collect_views(inner, True)
+        if stored_views:
+            rebuilt_views = _seam_collect_views(
+                rebuilt_inner, False
+            )
+            if any(
+                not any(
+                    _seam_view_forms_match(
+                        stored_view, rebuilt_view
+                    )
+                    for rebuilt_view in rebuilt_views
+                )
+                for stored_view in stored_views
+            ):
+                return True
+            continue
         if not _seam_view_forms_match(inner, rebuilt_inner):
             return True
     return False
@@ -5024,19 +5225,27 @@ def _pairs_position_entry(old, ancestors=frozenset()):
     carried in substance in the same form. An entry
     standing as a UserDict or a ChainMap carrying no
     item field of its own stands read entry by entry
-    in the same way. An entry standing in a plain
-    container form, a list, a tuple, a deque, or a
-    UserList in its exact form, stands read element
-    by element in the same way and stands rebuilt in
-    its own container form over its carried elements
-    where any element it carries stands carried, so a
-    carrier standing inside a plain container at the
-    entry, and a mapping standing inside a plain
-    container at the entry carrying a carrier at its
-    own value, stand carried in substance in the same
-    form. An entry standing inside itself stands
-    untouched at the cyclic position. An entry
-    standing in any other form stands untouched here.
+    in the same way. An entry standing as a mapping in
+    a mappingproxy form, or in a custom Mapping form,
+    stands read entry by entry in the same way. An
+    entry standing in a plain container form, a list,
+    a tuple, a deque, or a UserList, in its exact form
+    or in a subclass form of one of those, stands read
+    element by element in the same way and stands
+    rebuilt in its own container form over its carried
+    elements where any element it carries stands
+    carried, a container standing in a delegating
+    container subclass form standing as it stands in
+    no part of this limb, in the form the delegating
+    container subclass reading states, so a carrier
+    standing inside a plain
+    container at the entry, and a mapping standing
+    inside a plain container at the entry carrying a
+    carrier at its own value, stand carried in
+    substance in the same form. An entry standing
+    inside itself stands untouched at the cyclic
+    position. An entry standing in any other form
+    stands untouched here.
     """
     charged, restored = _pairs_carried_entry(old)
     if charged is not None:
@@ -5069,12 +5278,53 @@ def _pairs_position_entry(old, ancestors=frozenset()):
                 carried[carried_key] = inner
         if touched:
             return (carried, True)
-    if type(old) in (
-        list,
-        tuple,
-        _collections_module.deque,
-        _collections_module.UserList,
+    if isinstance(
+        old, _types_module.MappingProxyType
+    ) or (
+        isinstance(old, _Mapping)
+        and not isinstance(
+            old,
+            (
+                dict,
+                _collections_module.UserDict,
+                _collections_module.ChainMap,
+            ),
+        )
     ):
+        try:
+            other_items = list(old.items())
+        except Exception:
+            other_items = None
+        if other_items is not None:
+            try:
+                has_item_field = any(
+                    field in old for field in _ITEM_FIELD_KEYS
+                )
+            except Exception:
+                has_item_field = False
+            if not has_item_field:
+                carried = {}
+                touched = False
+                for carried_key, inner in other_items:
+                    new, inner_touched = _pairs_position_entry(
+                        inner, child_ancestors
+                    )
+                    if inner_touched:
+                        carried[carried_key] = new
+                        touched = True
+                    else:
+                        carried[carried_key] = inner
+                if touched:
+                    return (carried, True)
+    if isinstance(
+        old,
+        (
+            list,
+            tuple,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ) and not _is_delegating_container_subclass(old):
         probed = [
             _pairs_position_entry(inner, child_ancestors)
             for inner in old
