@@ -485,7 +485,7 @@ def _decoded_spans(text, layer, class_name):
     its own span, separator tokens standing alone
     between fragments standing transparent to the
     joining, and the fragments after intervening
-    tokens, five in total for one assembly,
+    tokens, seven in total for one assembly,
     standing joined to a decided joining in the
     same form. A decorated or wrapped form standing with no
     exactly resolved token beside it resolves nothing
@@ -656,14 +656,14 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
     exact resolution already carries. Where no
     consecutive joining decides, a split joining
     stands tried in a window of twenty four stream
-    entries: a first run of fragments, one to five
+    entries: a first run of fragments, one to seven
     intervening stream entries, and a second run,
     decided on the two runs joined together, so a
     wrapping interrupted after exactly one fragment
     stands decided as one wrapping. Where a joining
     decides definite, the fragments after intervening
     entries stand tried as an extension of the
-    decided joining, repeatedly, across at most five
+    decided joining, repeatedly, across at most seven
     intervening stream entries in total for the one
     assembly, the split joining skip counting toward
     the same total: where the extended joining
@@ -726,7 +726,7 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
             for first in range(1, len(window)):
                 if assembly is not None:
                     break
-                for skip in (1, 2, 3, 4, 5):
+                for skip in (1, 2, 3, 4, 5, 6, 7):
                     if assembly is not None:
                         break
                     second_start = first + skip
@@ -762,7 +762,7 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
             add_span(spans, cores[i])
         while end_pos < len(stream):
             extension = None
-            for skip in range(0, 5 - skips_used + 1):
+            for skip in range(0, 7 - skips_used + 1):
                 start = end_pos + skip
                 if start >= len(stream):
                     break
