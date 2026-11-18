@@ -1816,6 +1816,38 @@ def _wrapper_materialise_chainmap_set_element(element, shared_module,
     return element
 
 
+def _wrapper_delegating_view_stands_in_element_form(value):
+    """Return True where a dictionary view standing
+    inside a delegating carrier stands in its element
+    form: the position the element position reading of
+    a view reaches, the value position of an items
+    view and the carried position of a values view,
+    carries a form that reading reaches in substance,
+    a mapping standing in that position or a single
+    pass form standing in the subtree of the carried
+    form. A byte form, a text form, and any other leaf
+    form standing in that position stand in no such
+    form, and the view stands in its key form at that
+    carrier in the parity the delegating element act
+    states.
+    """
+    from collections.abc import ItemsView as _ItemsView
+    from collections.abc import Mapping as _Mapping
+    from collections.abc import ValuesView as _ValuesView
+
+    if isinstance(value, _ItemsView):
+        reached = [pair[1] for pair in list(value)]
+    elif isinstance(value, _ValuesView):
+        reached = list(value)
+    else:
+        return False
+    return any(
+        isinstance(carried, _Mapping)
+        or _wrapper_subtree_has_iterator(carried, frozenset())
+        for carried in reached
+    )
+
+
 def _wrapper_chainmap_delegating_element(element, shared_module,
                                           ancestors, depth,
                                           delegating_carrier=False):
@@ -1837,7 +1869,22 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
     where the view carries a single pass form in its
     value, which stands in its standing element form,
     the one form in which the element position
-    reading of a view reaches that value.
+    reading of a view reaches that value. A values
+    view standing inside the delegating carrier
+    stands carried in that same key form on the same
+    ground, save where the form it carries stands in
+    the element form the view reading above states, a
+    single pass form or a nested mapping standing in
+    its carried position, which the element position
+    reading of a view reaches in substance. An items
+    view carrying a nested mapping in its value
+    stands in that same element form on the same
+    ground. A delegating ChainMap subclass standing
+    as an element stands carried in the decided form
+    _wrapper_chainmap_decided_form states, because a
+    reading through its mapping views takes its
+    yielded material as keys and raises on it in
+    place of a decision.
     """
     import array as _array_module
     import collections as _collections_module
@@ -1864,6 +1911,10 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
         return _wrapper_materialise_chainmap_nested(
             element, shared_module, ancestors, depth
         )
+    if _is_delegating_chainmap_subclass(element):
+        return _wrapper_chainmap_decided_form(
+            element, shared_module, ancestors, depth
+        )
     if isinstance(element, _Mapping):
         return _wrapper_materialise_chainmap_nested(
             element, shared_module, ancestors, depth
@@ -1875,7 +1926,9 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
         return _WrapperMaterialisedSetForm([materialised_view])
     if isinstance(element, _ItemsView):
         if delegating_carrier and not (
-            _wrapper_view_carries_single_pass(element)
+            _wrapper_delegating_view_stands_in_element_form(
+                element
+            )
         ):
             return _wrapper_materialise_chainmap_nested(
                 element, shared_module, ancestors, depth
@@ -1884,12 +1937,18 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
             element, shared_module, ancestors, depth, "other"
         )
     if isinstance(element, _ValuesView):
+        if delegating_carrier and not (
+            _wrapper_delegating_view_stands_in_element_form(
+                element
+            )
+        ):
+            return _wrapper_materialise_chainmap_nested(
+                element, shared_module, ancestors, depth
+            )
         return _wrapper_materialise(
             element, shared_module, ancestors, depth, "other"
         )
-    if _is_delegating_container_subclass(
-        element
-    ) or _is_delegating_chainmap_subclass(element):
+    if _is_delegating_container_subclass(element):
         return element
     if (
         hasattr(element, "__next__") and hasattr(element, "__iter__")
@@ -1964,7 +2023,12 @@ def _wrapper_chainmap_single_pass_value(value, shared_module,
     carrier at that position in element position.
     Where it stands inside a delegating carrier, in
     the form delegating_carrier states, its elements
-    stand in the delegating form of that carrier.
+    stand in the plain form
+    _wrapper_chainmap_plain_element states, because
+    the direct act reaches an element standing inside
+    a single pass form inside a delegating carrier in
+    element position, in the same form as an element
+    of a plain carrier at that position.
     """
     from collections.abc import Mapping as _Mapping
 
@@ -1980,9 +2044,9 @@ def _wrapper_chainmap_single_pass_value(value, shared_module,
         ]
     elif delegating_carrier:
         transformed = [
-            _wrapper_chainmap_delegating_element(
+            _wrapper_chainmap_plain_element(
                 element, shared_module, nested_ancestors,
-                depth + 1, delegating_carrier=True,
+                depth + 1,
             )
             for element in listed_once
         ]
@@ -2749,7 +2813,20 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0,
     _wrapper_materialise_chainmap_item states, in
     parity with the direct act reading of the key
     position the iteration of a ChainMap form
-    presents its items in. A set or frozenset
+    presents its items in. A delegating ChainMap
+    subclass standing as an element of a delegating
+    container subclass standing at a mapping
+    presented position stands listed in that same
+    form at that position, because a reading through
+    its mapping views takes its yielded material as
+    keys and raises on it in place of a decision,
+    save where the carrier stands in a deeper
+    position, a value of a mapping standing inside
+    the top mapping, where the subclass stands
+    carried in the key form the key form class
+    states, a form no reading reaches in element
+    position, in parity with the direct act clearing
+    on the presentation at that depth. A set or frozenset
     stands rebuilt from its elements materialised
     once and carried in a list, so where the rebuilt
     form stands unhashable and the rebuild fails, the
@@ -2801,6 +2878,13 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0,
                 element, shared_module, subclass_ancestors,
                 depth + 1, "other",
             )
+            if not _is_delegating_chainmap_subclass(element)
+            else _wrapper_materialise(
+                element, shared_module, subclass_ancestors,
+                depth + 1, "mapping",
+            )
+            if depth <= 1
+            else {_WrapperMaterialisedKeyForm(element): {}}
             for element in listed_once
         ]
         from collections.abc import Mapping as _SubclassMapping
@@ -2810,6 +2894,7 @@ def _wrapper_materialise(value, shared_module, ancestors, depth=0,
                 element, frozenset()
             )
             for element in listed_once
+            if not _is_delegating_chainmap_subclass(element)
         ) or any(
             _wrapper_subtree_carries_view(
                 element, frozenset()
