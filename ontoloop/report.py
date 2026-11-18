@@ -1644,6 +1644,26 @@ _CLAIM_CONCEPT_ROOTS = (
     "induct", "pledg", "vow", "guarante", 
     "warrant", "insur", "bond", 
     "underwrit", "syndicat", 
+    "acetylat", "alkylat", "amidat", "aminat", 
+    "carboxylat", "decarboxylat", "deuterat", 
+    "esterifi", "ethoxylat", "glycosylat", 
+    "halogenat", "hydroxylat", "methylat", 
+    "peroxid", "phosphorylat", "propoxylat", 
+    "saponifi", "sulfuriz", "thiolat", "vulcanis", 
+    "drill", "frost", "moisten", "polish", "sand", 
+    "stretch", "thaw", "wett", "whiten", 
+    "unvent", "unalarmed", "uncurtained", "undoored", 
+    "ungated", "unkeyed", "unshaded", "unwalled", 
+    "pickpocketproof", "solventresistant", 
+    "cutresistant", "frostresistant", "iceresistant", 
+    "mudresistant", "pressureresistant", 
+    "sandresistant", "snowresistant", "stabproof", 
+    "excerpt", "leas", "sublicens", "franchis", 
+    "monetiz", "reprint", "resold", "mortgag", 
+    "bequeath", "lent", "subtitl", "dubb", "rekey", 
+    "relabell", "renumber", "reclassif", "reindex", 
+    "rescann", "textabl", "bank", "cabl", "radio", 
+    "warehous", 
 )
 
 # The exact assertion words, beside the assertion roots
@@ -2019,6 +2039,7 @@ _ASSERTION_WORDS = (
     "weeps", "baaes", "lowes", "whickers", 
     "drools", "crawls", "creeps", 
     "dances", "marches", "shudders", "sweats", 
+    "salivates", 
 )
 
 # The assertion roots. A word beginning with one of
@@ -2362,6 +2383,20 @@ _UNCONDITIONAL_MARKERS = (
     "no matter what befalls", 
     "as long as time lasts", 
     "through all generations", "while time endures", 
+    "under all skies", "under any skies", 
+    "come what might", "no matter the weather", 
+    "in season and out of season", 
+    "through prosperity and adversity", 
+    "by day and by night", "day in day out", 
+    "year in year out", "without let or hindrance", 
+    "in any weather", "till the world ends", 
+    "so long as the sun shines", "while grass grows", 
+    "till hell freezes over", "do or die", 
+    "be the cost what it may", 
+    "at all events whatsoever", 
+    "through all generations to come", 
+    "for all the ages", "through all the ages", 
+    "till judgment day", 
 )
 
 # The wordings that carry the governed conditional form
@@ -2948,6 +2983,13 @@ _GOVERNING_CONDITION_PHRASES = (
     "under the suzerainty of", 
     "under the hegemony of", 
     "by the statute of", "under the statute of", 
+    "under the jurisdiction of", 
+    "by the jurisdiction of", "under the wardship of", 
+    "under the imperium of", "by the bull of", 
+    "by the concession of", "by the firman of", 
+    "by the franchise of", "by the letters patent of", 
+    "by the proclamation of", "by the rescript of", 
+    "by the ukase of", 
 )
 
 # The wordings that carry a negated form of a claim. A
@@ -3324,7 +3366,11 @@ def _clause_claim(clause):
         "meso", "contra", "de", "dis", 
         "ana", "ortho", 
         "ecto", "cis", 
+        "biblio", "dactylo", "psycho", "socio", 
+        "mechano", "microbio", 
         "ebonite", "rattan", "wicker", 
+        "ipe", "cumaru", "goncalo", "ashwood", 
+        "birchwood", "elmwood", 
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
@@ -3474,6 +3520,16 @@ def _clause_claim(clause):
         "sulfonated", "polymerized", 
         "ozonized", "brominated", "iodized", 
         "silicified", "drenched", "scuffed", 
+        "acetylated", "alkylated", "amidated", 
+        "aminated", "carboxylated", "deuterated", 
+        "esterified", "ethoxylated", "glycosylated", 
+        "halogenated", "hydroxylated", "methylated", 
+        "peroxidized", "phosphorylated", 
+        "propoxylated", "saponified", "thiolated", 
+        "decarboxylated", "sulfurized", "vulcanised", 
+        "drilled", "frosted", "moistened", "polished", 
+        "sanded", "stretched", "thawed", "wetted", 
+        "whitened", 
     ):
         if passive in words and "by" in words[
             words.index(passive) + 1:
@@ -4033,6 +4089,14 @@ def _clause_inability_form(clause):
     "fluorin", "nitrat", "sulfonat", 
     "polymeriz", "ozoniz", "bromin", 
     "iodiz", "silicifi", "drench", "scuff", 
+    "acetylat", "alkylat", "amidat", "aminat", 
+    "carboxylat", "decarboxylat", "deuterat", 
+    "esterifi", "ethoxylat", "glycosylat", 
+    "halogenat", "hydroxylat", "methylat", 
+    "peroxid", "phosphorylat", "propoxylat", 
+    "saponifi", "sulfuriz", "thiolat", "vulcanis", 
+    "drill", "frost", "moisten", "polish", "sand", 
+    "stretch", "thaw", "wett", "whiten", 
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -4343,6 +4407,9 @@ def _clause_inability_form(clause):
     "covetously", "distractedly", "greedily", 
     "grudgingly", "indignantly", "wrathfully", 
     "slaughterhouse", 
+    "nonchalantly", "petulantly", "querulously", 
+    "waspishly", "surlily", "tiredly", 
+    "unwillingly", "zealously", "millhouse", 
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -4467,7 +4534,8 @@ def _seal_claim_scan(assembly_text):
             if any(
                 marker in clause
                 and not (
-                    marker in ("at all times", "in all places")
+                    marker in ("at all times", "in all places",
+                        "at all places")
                     and _governing_condition_holds(
                         "conditional on "
                         + clause.split(marker, 1)[1].strip()
@@ -4533,6 +4601,13 @@ def _seal_claim_scan(assembly_text):
                     ("when", "and", "whenever"),
                     ("whenever", "and", "wheresoever"),
                     ("where", "and", "whenever"),
+                    ("at", "whatever", "place"),
+                    ("in", "whatever", "time"),
+                    ("through", "every", "time"),
+                    ("at", "every", "place"),
+                    ("through", "all", "places"),
+                    ("at", "all", "places"),
+                    ("for", "whatever", "time"),
                 )
                 for position in range(
                     max(0, len(main_words) - 9), len(clause_words)
@@ -4593,7 +4668,8 @@ def _seal_claim_scan(assembly_text):
             if (
                 clause_words
                 and clause_words[-1]
-                in ("as", "when", "where", "whenever")
+                in ("as", "when", "where", "whenever",
+                    "if", "whensoever")
                 and any(
                     _clause_words(other)[:1]
                     in (["where"], ["when"], ["wherever"],
@@ -4641,7 +4717,7 @@ def _seal_claim_scan(assembly_text):
                 and any(
                     _clause_words(other)[:1]
                     in (["whenever"], ["when"], ["where"],
-                        ["wherever"])
+                        ["wherever"], ["wheresoever"])
                     and _governing_condition_holds(
                         "conditional on "
                         + " ".join(_clause_words(other)[1:])
@@ -5120,7 +5196,24 @@ def _seal_claim_scan(assembly_text):
                                          "replicat", "fetch",
                                          "list", "retriev",
                                          "aire", "narrat",
-                                         "recit", "syndicat")
+                                         "recit", "syndicat",
+                                         "pawn", "auction",
+                                         "box", "crat",
+                                         "digitis", "digitiz",
+                                         "fil", "shelv",
+                                         "stor", "text",
+                                         "vault", "excerpt",
+                                         "leas", "sublicens",
+                                         "franchis", "monetiz",
+                                         "reprint", "resold",
+                                         "mortgag", "bequeath",
+                                         "lent", "subtitl",
+                                         "dubb", "rekey",
+                                         "relabell", "renumber",
+                                         "reclassif", "reindex",
+                                         "rescann", "textabl",
+                                         "bank", "cabl",
+                                         "radio", "warehous")
                                     )
                                 )
                                 and any(
