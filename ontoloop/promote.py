@@ -1943,7 +1943,12 @@ def _wrapper_delegating_carrier_chainmap_form(element,
     the elements its one listing yielded, in the
     delegating container form the presentation
     presented, and the carried form stands returned
-    beside False.
+    beside False, save that an element standing in a
+    single pass form stands in the rebuilt form the
+    search act states for it in that return, the one
+    listing of the search act standing spent, so a
+    plain payload standing inside the single pass
+    form reaches the wrapper reading in substance.
     """
     listed_once = list(element)
     nested_ancestors = ancestors | {id(element)}
@@ -1959,10 +1964,27 @@ def _wrapper_delegating_carrier_chainmap_form(element,
         parts.append((inner, part, inner_found))
         found = found or inner_found
     if not found:
-        return (
-            _WrapperMaterialisedDelegatingListForm(listed_once),
-            False,
-        )
+        if all(
+            part is inner for inner, part, inner_found in parts
+        ):
+            return (
+                _WrapperMaterialisedDelegatingListForm(
+                    listed_once
+                ),
+                False,
+            )
+        final = []
+        for inner, part, inner_found in parts:
+            if part is not inner:
+                final.append(part)
+            else:
+                final.append(
+                    _wrapper_chainmap_delegating_element(
+                        inner, shared_module, nested_ancestors,
+                        depth + 1, delegating_carrier=True,
+                    )
+                )
+        return final, False
     final = []
     for inner, part, inner_found in parts:
         if inner_found:
@@ -2009,9 +2031,38 @@ def _wrapper_element_carries_chainmap_form(element,
     stands, it stands as it stands, beside False. A
     dictionary view stands as it stands, beside
     False, its carried forms standing decided by the
-    view limbs of the delegating element act. Any
+    view limbs of the delegating element act. A text
+    form, a byte form, a memoryview, an array, and a
+    range stand as leaves, beside False: a text form
+    stands a Sequence whose listing yields its
+    characters, each character standing a text form
+    again, so no search stands made over its listing.
+    A single pass form stands listed once here and
+    searched element by element in this same form:
+    where a ChainMap subclass stands carried inside
+    one, the form stands rebuilt over its listed
+    elements in the plain form
+    _wrapper_chainmap_plain_element states, beside
+    True, so the subclass reaches the wrapper reading
+    in substance in the element position the direct
+    act reads a single pass element in; and where
+    none stands, the rebuilt form stands returned
+    beside False in place of the spent form, so a
+    plain payload standing inside the single pass
+    form reaches the wrapper reading in substance in
+    that same position. An items view standing inside
+    the single pass form stands in the list of its
+    pairs in that rebuilt form, the form in which the
+    direct act counts the pair of the view once in
+    that position. A mapping and a plain
+    container standing searched in this same form
+    stand rebuilt over the carried forms of their
+    elements where an element stands carried in a
+    rebuilt form, a single pass element among them,
+    beside the standing of the search over it. Any
     other element stands as it stands, beside False.
     """
+    import array as _array_module
     import collections as _collections_module
 
     from collections.abc import ItemsView as _ItemsView
@@ -2026,6 +2077,19 @@ def _wrapper_element_carries_chainmap_form(element,
             {_WrapperMaterialisedKeyForm(element): {}},
             True,
         )
+    if isinstance(
+        element,
+        (
+            str,
+            _collections_module.UserString,
+            bytes,
+            bytearray,
+            memoryview,
+            _array_module.array,
+            range,
+        ),
+    ):
+        return element, False
     if _is_delegating_concrete_container_subclass(element):
         return _wrapper_delegating_carrier_chainmap_form(
             element, shared_module, ancestors, depth
@@ -2047,11 +2111,47 @@ def _wrapper_element_carries_chainmap_form(element,
                     depth + 1,
                 )
             )
-            parts.append((key, part))
+            parts.append((key, inner, part))
             found = found or inner_found
         if not found:
-            return element, False
-        return {key: part for key, part in parts}, True
+            if all(part is inner for key, inner, part in parts):
+                return element, False
+            return (
+                {key: part for key, inner, part in parts},
+                False,
+            )
+        return {key: part for key, inner, part in parts}, True
+    if (
+        hasattr(element, "__next__") and hasattr(element, "__iter__")
+    ) or _is_single_pass_iterable(element):
+        listed_once = list(element)
+        nested_ancestors = ancestors | {id(element)}
+        found = False
+        for inner in listed_once:
+            _part, inner_found = (
+                _wrapper_element_carries_chainmap_form(
+                    inner, shared_module, nested_ancestors,
+                    depth + 1,
+                )
+            )
+            found = found or inner_found
+        transformed = [
+            list(inner)
+            if isinstance(inner, _ItemsView)
+            else _wrapper_chainmap_plain_element(
+                inner, shared_module, nested_ancestors,
+                depth + 1,
+            )
+            for inner in listed_once
+        ]
+        if len(transformed) == 1 and isinstance(
+            transformed[0], _Mapping
+        ) and not any(
+            key in transformed[0]
+            for key in _WRAPPER_ITEM_FIELD_KEYS
+        ):
+            return tuple(transformed), found
+        return transformed, found
     if isinstance(
         element,
         (
@@ -2079,7 +2179,20 @@ def _wrapper_element_carries_chainmap_form(element,
             parts.append(part)
             found = found or inner_found
         if not found:
-            return element, False
+            if all(
+                part is inner
+                for part, inner in zip(parts, listed_once)
+            ):
+                return element, False
+            if isinstance(element, tuple):
+                return tuple(parts), False
+            if isinstance(element, _collections_module.deque):
+                return _collections_module.deque(parts), False
+            if isinstance(element, _collections_module.UserList):
+                return _collections_module.UserList(parts), False
+            if isinstance(element, list):
+                return parts, False
+            return parts, False
         if isinstance(element, tuple):
             return tuple(parts), True
         if isinstance(element, _collections_module.deque):
