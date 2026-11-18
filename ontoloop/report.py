@@ -1664,6 +1664,45 @@ _CLAIM_CONCEPT_ROOTS = (
     "relabell", "renumber", "reclassif", "reindex", 
     "rescann", "textabl", "bank", "cabl", "radio", 
     "warehous", 
+    "iodinated", "dehydrogenated", "isomerized", 
+    "depolymerized", "pelletized", "micronized", 
+    "silanized", "brushed", "buffed", "oiled", 
+    "greased", "rinsed", "scrubbed", "dusted", 
+    "vacuumed", "ironed", "knitted", "soaped", 
+    "mopped", "swept", "hosed", "shotblasted", 
+    "tempered", "folded", "brined", "brightened", 
+    "chiseled", "colored", "coloured", "covered", 
+    "crocheted", "darkened", "dulled", 
+    "embroidered", "greened", "hydrated", 
+    "inlaid", "layered", "lightened", "lined", 
+    "lubricated", "marinated", "moisturized", 
+    "molded", "monogrammed", "overlaid", 
+    "packaged", "padded", "pleated", "quilted", 
+    "reddened", "saturated", "shellacked", 
+    "steeped", "surfaced", "tinted", "trimmed", 
+    "veneered", "blued", 
+    "unattended", "unsupervised", "unpatrolled", 
+    "unmanned", "unstaffed", "unattired", 
+    "wearresistant", "crushresistant", 
+    "pestresistant", "alcoholresistant", "axeproof", 
+    "dirtresistant", "slipresistant", 
+    "sweatresistant", "wrinkleresistant", 
+    "unboarded", "unbricked", "unfloored", 
+    "ungrilled", "unhedged", "unhoused", 
+    "unlatticed", "unnetted", "unpaved", "unrailed", 
+    "unshingled", "unslatted", "unblanketed", 
+    "uncanopied", "uncarpeted", "unceiled", 
+    "unawned", 
+    "clippabl", "linkabl", "wireabl", 
+    "couriered", "airmailed", "telegraphed", 
+    "telephoned", "inventoried", "forked", 
+    "queued", "routed", "remitted", "assigned", 
+    "deeded", "titled", "blogg", "codable", 
+    "messageable", "messaged", "pageable", 
+    "paged", "phonable", "phoned", "sendable", 
+    "tweetable", "watchable", "droned", "ferried", 
+    "freighted", "hauled", "jetted", "taxied", 
+    "trucked", "wagoned", 
 )
 
 # The exact assertion words, beside the assertion roots
@@ -2040,6 +2079,24 @@ _ASSERTION_WORDS = (
     "drools", "crawls", "creeps", 
     "dances", "marches", "shudders", "sweats", 
     "salivates", 
+    "bleeds", "drips", "seeps", "excretes", 
+    "secretes", "vomits", "rocks", "glistens", 
+    "glitters", "sparkles", "shimmers", "gleams", 
+    "glows", "flickers", "blazes", "smoulders", 
+    "steams", "smokes", "bubbles", "foams", 
+    "froths", "boils", "simmers", "percolates", 
+    "ferments", "putrefies", "rots", "decays", 
+    "moulders", "crumbles", "withers", "wilts", 
+    "droops", "sags", "swells", "palpitates", 
+    "resonates", "burns", "floats", "floods", 
+    "flows", "freezes", "glides", "itches", 
+    "leaks", "melts", "sinks", "sizzles", 
+    "sleeps", "slides", "slithers", "sparks", 
+    "splashes", "stings", "stinks", "stoops", 
+    "swims", "swings", "ticks", "tingles", 
+    "trickles", "trips", "trudges", "twinkles", 
+    "waddles", "wanders", "warms", "waves", 
+    "wiggles", 
 )
 
 # The assertion roots. A word beginning with one of
@@ -2397,6 +2454,34 @@ _UNCONDITIONAL_MARKERS = (
     "through all generations to come", 
     "for all the ages", "through all the ages", 
     "till judgment day", 
+    "till the end of the world", 
+    "until the end of the world", 
+    "through rain and shine", "snow or shine", 
+    "through calm and storm", "at any hazard", 
+    "in any clime", "in every clime", 
+    "through all climes", "till time shall be no more", 
+    "while time shall last", 
+    "as long as time shall last", "to ages of ages", 
+    "relentlessly", "indefatigably", "night or day", 
+    "winter or summer", "in winter and in summer", 
+    "through winter and summer", 
+    "in sickness or in health", 
+    "in life and in death", "through life and death", 
+    "by land and by sea", "on land and sea", 
+    "by sea and by land", "in heaven and on earth", 
+    "on earth and in heaven", 
+    "through heaven and earth", "to heaven and back", 
+    "till the seas run dry", "until the seas run dry", 
+    "till the rivers run dry", "while the rivers run", 
+    "so long as the rivers run", 
+    "till the mountains crumble", 
+    "while the mountains stand", 
+    "as long as the mountains stand", 
+    "till the sun burns out", "while the sun burns", 
+    "as long as the sun burns", "till the moon falls", 
+    "while the moon shines", "as long as the moon shines", 
+    "forevermore", "in all ages", "in every age", 
+    "through every generation", "until the last trump", 
 )
 
 # The wordings that carry the governed conditional form
@@ -2409,6 +2494,7 @@ _UNCONDITIONAL_MARKERS = (
 # asserts something else governs that other assertion,
 # not the claim, and excuses nothing.
 _GOVERNING_CONDITION_PHRASES = (
+    "where the deployment confinement fact holds",
     "conditional on",
     "conditioned on",
     "conditional upon",
@@ -2990,6 +3076,24 @@ _GOVERNING_CONDITION_PHRASES = (
     "by the franchise of", "by the letters patent of", 
     "by the proclamation of", "by the rescript of", 
     "by the ukase of", 
+    "under the government of", "under the hand of", 
+    "under the seal of", "by the seal of", 
+    "under the sign manual of", 
+    "by the anathema of", "under the anathema of", 
+    "by the assize of", "under the assize of", 
+    "by the ban of", "under the ban of", 
+    "by the breve of", "under the breve of", 
+    "by the cession of", "under the cession of", 
+    "by the concord of", "under the concord of", 
+    "by the concordat of", "under the concordat of", 
+    "by the decretal of", "under the decretal of", 
+    "by the diktat of", "under the diktat of", 
+    "by the encyclical of", "under the encyclical of", 
+    "by the fatwa of", "under the fatwa of", 
+    "by the injunction of", "under the injunction of", 
+    "by the interdict of", "under the interdict of", 
+    "by the levy of", "under the levy of", 
+    "by the subpoena of", "under the subpoena of", 
 )
 
 # The wordings that carry a negated form of a claim. A
@@ -3371,6 +3475,18 @@ def _clause_claim(clause):
         "ebonite", "rattan", "wicker", 
         "ipe", "cumaru", "goncalo", "ashwood", 
         "birchwood", "elmwood", 
+        "archaeo", "sym", "dermo", 
+        "linden", "pearwood", "applewood", 
+        "cherrywood", "plumwood", "dogwood", 
+        "wengewood", "acacia", "balsawood", "cane", 
+        "cedarwood", "celluloid", "clay", "ebonywood", 
+        "felt", "galalith", "gutta", "hemlock", 
+        "ivorine", "laurel", "mahoganywood", 
+        "mimosa", "mud", "myrtle", "oakwood", 
+        "osier", "pinewood", "reed", "rush", 
+        "sassafras", "straw", "tamarack", "teakwood", 
+        "thatch", "tupelo", "vulcanite", "walnutwood", 
+        "wax", "xylonite", "butternut", 
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
@@ -3530,6 +3646,23 @@ def _clause_claim(clause):
         "drilled", "frosted", "moistened", "polished", 
         "sanded", "stretched", "thawed", "wetted", 
         "whitened", 
+        "iodinated", "dehydrogenated", "isomerized", 
+        "depolymerized", "pelletized", "micronized", 
+        "silanized", "brushed", "buffed", "oiled", 
+        "greased", "rinsed", "scrubbed", "dusted", 
+        "vacuumed", "ironed", "knitted", "soaped", 
+        "mopped", "swept", "hosed", "shotblasted", 
+        "tempered", "folded", "brined", "brightened", 
+        "chiseled", "colored", "coloured", "covered", 
+        "crocheted", "darkened", "dulled", 
+        "embroidered", "greened", "hydrated", 
+        "inlaid", "layered", "lightened", "lined", 
+        "lubricated", "marinated", "moisturized", 
+        "molded", "monogrammed", "overlaid", 
+        "packaged", "padded", "pleated", "quilted", 
+        "reddened", "saturated", "shellacked", 
+        "steeped", "surfaced", "tinted", "trimmed", 
+        "veneered", "blued", 
     ):
         if passive in words and "by" in words[
             words.index(passive) + 1:
@@ -3581,6 +3714,7 @@ _SUBORDINATE_INTRODUCERS = (
     "whenever",
     "wherever",
     "whensoever",
+    "howsoever",
     "provided",
     "alongside",
     "whilst",
@@ -4097,6 +4231,23 @@ def _clause_inability_form(clause):
     "saponifi", "sulfuriz", "thiolat", "vulcanis", 
     "drill", "frost", "moisten", "polish", "sand", 
     "stretch", "thaw", "wett", "whiten", 
+    "iodinated", "dehydrogenated", "isomerized", 
+    "depolymerized", "pelletized", "micronized", 
+    "silanized", "brushed", "buffed", "oiled", 
+    "greased", "rinsed", "scrubbed", "dusted", 
+    "vacuumed", "ironed", "knitted", "soaped", 
+    "mopped", "swept", "hosed", "shotblasted", 
+    "tempered", "folded", "brined", "brightened", 
+    "chiseled", "colored", "coloured", "covered", 
+    "crocheted", "darkened", "dulled", 
+    "embroidered", "greened", "hydrated", 
+    "inlaid", "layered", "lightened", "lined", 
+    "lubricated", "marinated", "moisturized", 
+    "molded", "monogrammed", "overlaid", 
+    "packaged", "padded", "pleated", "quilted", 
+    "reddened", "saturated", "shellacked", 
+    "steeped", "surfaced", "tinted", "trimmed", 
+    "veneered", "blued", 
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -4410,6 +4561,20 @@ def _clause_inability_form(clause):
     "nonchalantly", "petulantly", "querulously", 
     "waspishly", "surlily", "tiredly", 
     "unwillingly", "zealously", "millhouse", 
+    "sourly", "fretfully", "longingly", 
+    "offhandedly", "acidly", "caustically", 
+    "cautiously", "curiously", "diligently", 
+    "gladly", "gratefully", "hastily", "hopefully", 
+    "idly", "joyfully", "lazily", "politely", 
+    "promptly", "seriously", "thankfully", 
+    "thoughtfully", "wisely", "yearningly", 
+    "alehouse", "birdhouse", "cookhouse", 
+    "customhouse", "doghouse", "dollhouse", 
+    "firehouse", "glasshouse", "henhouse", 
+    "icehouse", "madhouse", "manor", 
+    "meetinghouse", "penthouse", "roadhouse", 
+    "roundhouse", "statehouse", "teahouse", 
+    "tollhouse", "townhouse", "treehouse", 
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -4575,6 +4740,7 @@ def _seal_claim_scan(assembly_text):
                     ("whereas",), ("before",),
                     ("in", "case"), ("with",), ("pending",),
                     ("wherever",), ("whensoever",),
+                    ("howsoever",),
                     ("when", "and", "where"),
                     ("where", "and", "when"),
                     ("as", "and", "where"),
@@ -4608,6 +4774,16 @@ def _seal_claim_scan(assembly_text):
                     ("through", "all", "places"),
                     ("at", "all", "places"),
                     ("for", "whatever", "time"),
+                    ("in", "all", "places", "where"),
+                    ("through", "whatsoever", "place"),
+                    ("whatsoever", "place"),
+                    ("in", "whatsoever", "place"),
+                    ("at", "whatsoever", "time"),
+                    ("for", "whatsoever", "time"),
+                    ("by", "whatever", "place"),
+                    ("under", "whatever", "place"),
+                    ("whencesoever",),
+                    ("thencesoever",),
                 )
                 for position in range(
                     max(0, len(main_words) - 9), len(clause_words)
@@ -4718,6 +4894,22 @@ def _seal_claim_scan(assembly_text):
                     _clause_words(other)[:1]
                     in (["whenever"], ["when"], ["where"],
                         ["wherever"], ["wheresoever"])
+                    and _governing_condition_holds(
+                        "conditional on "
+                        + " ".join(_clause_words(other)[1:])
+                    )
+                    for other in clauses
+                    if other != clause
+                )
+            ):
+                continue
+            if (
+                clause_words
+                and clause_words[-1]
+                in ("if", "once", "when", "whenever")
+                and any(
+                    _clause_words(other)[:1]
+                    in (["howsoever"], ["whensoever"])
                     and _governing_condition_holds(
                         "conditional on "
                         + " ".join(_clause_words(other)[1:])
@@ -5213,7 +5405,53 @@ def _seal_claim_scan(assembly_text):
                                          "reclassif", "reindex",
                                          "rescann", "textabl",
                                          "bank", "cabl",
-                                         "radio", "warehous")
+                                         "radio", "warehous",
+                                         "book", "enter",
+                                         "wir", "bagg",
+                                         "bottl", "braid",
+                                         "buckl", "buri",
+                                         "button", "cann",
+                                         "cement", "clamp",
+                                         "clasp", "clipp",
+                                         "cork", "docket",
+                                         "encas", "enshrin",
+                                         "entomb", "envelop",
+                                         "fenc", "fram",
+                                         "gild",
+                                         "hook", "interr",
+                                         "jarr", "knott",
+                                         "lacquer", "lash",
+                                         "letter", "microfich",
+                                         "moat", "moor",
+                                         "nail", "outlin",
+                                         "padlock", "past",
+                                         "pictur", "pinn",
+                                         "plait", "plugg",
+                                         "rivet", "screw",
+                                         "sew", "stapl",
+                                         "stitch", "stopper",
+                                         "tack", "tether",
+                                         "tinn", "tool",
+                                         "turret", "weld",
+                                         "wov", "wrapp",
+                                         "zipp", "clippabl",
+                                         "linkabl", "wireabl",
+                                         "couriered", "airmailed",
+                                         "telegraphed", "telephoned",
+                                         "inventoried", "forked",
+                                         "queued", "routed",
+                                         "remitted", "assigned",
+                                         "deeded", "titled",
+                                         "blogg", "codable",
+                                         "messageable", "messaged",
+                                         "pageable", "paged",
+                                         "phonable", "phoned",
+                                         "sendable", "tweetable",
+                                         "watchable", "droned",
+                                         "ferried", "freighted",
+                                         "hauled", "jetted",
+                                         "taxied", "trucked",
+                                         "wagoned")
                                     )
                                 )
                                 and any(
@@ -5230,6 +5468,17 @@ def _seal_claim_scan(assembly_text):
                 )
             )
             if _clause_inability_form(clause):
+                negated = False
+            if (
+                negated
+                and "can" in words
+                and any(
+                    words[pos] == "be"
+                    and pos + 1 < len(words)
+                    and words[pos + 1].startswith("hidd")
+                    for pos in range(len(words) - 1)
+                )
+            ):
                 negated = False
             if negated:
                 continue
