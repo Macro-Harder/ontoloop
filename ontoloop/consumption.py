@@ -1630,6 +1630,36 @@ def _bundle_copy(bundle):
                     return False
             except Exception:
                 return False
+            try:
+                relative_file = owner_file[
+                    len(stdlib_dir) + 1:
+                ]
+                file_parts = relative_file.split(
+                    _os_module.path.sep
+                )
+                if file_parts[-1] == "__init__.py":
+                    file_parts = file_parts[:-1]
+                elif file_parts[-1].endswith(".py"):
+                    file_parts[-1] = (
+                        _os_module.path.splitext(
+                            file_parts[-1]
+                        )[0]
+                    )
+                else:
+                    file_parts = None
+                if file_parts is not None:
+                    genuine_name = ".".join(file_parts)
+                    genuine_module = (
+                        _sys_module.modules.get(genuine_name)
+                    )
+                    if genuine_module is None:
+                        return False
+                    if getattr(
+                        genuine_module, "__file__", None
+                    ) != owner_file:
+                        return False
+            except Exception:
+                return False
             return True
 
         if _map_is_stdlib(globals_map):
@@ -2043,6 +2073,20 @@ def _bundle_copy(bundle):
             ).values():
                 if isinstance(default_value, str):
                     default_strs.append(default_value)
+            closure_strs = []
+            for cell in (
+                getattr(current_func, "__closure__", None)
+                or ()
+            ):
+                try:
+                    cell_value = cell.cell_contents
+                except Exception:
+                    continue
+                if isinstance(cell_value, str):
+                    closure_strs.append(cell_value)
+            extra_carried = set(default_strs) | set(
+                closure_strs
+            )
             carried_names = set()
             for loaded_name in names:
                 loaded_value = current_map.get(loaded_name)
@@ -2066,6 +2110,10 @@ def _bundle_copy(bundle):
                     if default_str in current_map:
                         candidate_names.add(default_str)
                         resolved = True
+                for closure_str in closure_strs:
+                    if closure_str in current_map:
+                        candidate_names.add(closure_str)
+                        resolved = True
             if "exec" in names:
                 for default_str in default_strs:
                     try:
@@ -2080,6 +2128,22 @@ def _bundle_copy(bundle):
                             candidate_names.add(inner_name)
                             resolved = True
                     for inner_const in default_facts[1]:
+                        if inner_const in current_map:
+                            candidate_names.add(inner_const)
+                            resolved = True
+                for closure_str in closure_strs:
+                    try:
+                        closure_code = compile(
+                            closure_str, "<referenced>", "exec"
+                        )
+                    except Exception:
+                        continue
+                    closure_facts = _code_facts(closure_code)
+                    for inner_name in closure_facts[0]:
+                        if inner_name in current_map:
+                            candidate_names.add(inner_name)
+                            resolved = True
+                    for inner_const in closure_facts[1]:
                         if inner_const in current_map:
                             candidate_names.add(inner_const)
                             resolved = True
@@ -2102,6 +2166,7 @@ def _bundle_copy(bundle):
                         set(consts)
                         | carried_names
                         | set(default_strs)
+                        | set(closure_strs)
                     )
                     for exec_str in exec_strs:
                         try:
@@ -2366,6 +2431,12 @@ def _bundle_copy(bundle):
                                 module_map[carried_key]
                             )
                             resolved = True
+                    for carried_key in extra_carried:
+                        if carried_key in module_map:
+                            _append_reached(
+                                module_map[carried_key]
+                            )
+                            resolved = True
                 for base_name, first_attr, second_attr in (
                     chains
                 ):
@@ -2401,6 +2472,49 @@ def _bundle_copy(bundle):
                     ):
                         _append_reached(reached)
                         resolved = True
+                for base_name, first_attr, second_attr in (
+                    chains
+                ):
+                    if second_attr != "__dict__":
+                        continue
+                    if base_name not in current_map:
+                        continue
+                    base_value = current_map[base_name]
+                    if not isinstance(
+                        base_value, _types_module.ModuleType
+                    ):
+                        continue
+                    first_map = getattr(
+                        base_value, "__dict__", None
+                    )
+                    if not isinstance(first_map, dict):
+                        continue
+                    inner_value = first_map.get(first_attr)
+                    if not isinstance(
+                        inner_value, _types_module.ModuleType
+                    ):
+                        continue
+                    inner_map = getattr(
+                        inner_value, "__dict__", None
+                    )
+                    if not isinstance(inner_map, dict):
+                        continue
+                    if _map_is_stdlib(inner_map):
+                        continue
+                    for const in consts:
+                        if const in inner_map:
+                            _append_reached(
+                                inner_map[const]
+                            )
+                            resolved = True
+                    for carried_key in (
+                        carried_names | extra_carried
+                    ):
+                        if carried_key in inner_map:
+                            _append_reached(
+                                inner_map[carried_key]
+                            )
+                            resolved = True
                 if "getattr" in names or vars_with_arg:
                     for target_name in act_targets:
                         if target_name not in current_map:
@@ -2440,6 +2554,12 @@ def _bundle_copy(bundle):
                                     target_map[carried_key]
                                 )
                                 resolved = True
+                        for carried_key in extra_carried:
+                            if carried_key in target_map:
+                                _append_reached(
+                                    target_map[carried_key]
+                                )
+                                resolved = True
                     for base_name, first_attr in act_chains:
                         if base_name not in current_map:
                             continue
@@ -2472,6 +2592,12 @@ def _bundle_copy(bundle):
                                 )
                                 resolved = True
                         for carried_key in carried_names:
+                            if carried_key in inner_map:
+                                _append_reached(
+                                    inner_map[carried_key]
+                                )
+                                resolved = True
+                        for carried_key in extra_carried:
                             if carried_key in inner_map:
                                 _append_reached(
                                     inner_map[carried_key]
