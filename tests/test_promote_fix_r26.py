@@ -383,8 +383,8 @@ class TestPromoteFixR26ViewInSinglePassElement(_WrapperCase):
         outcome = self._wrapper(make())
         self._assert_fires(outcome)
         direct_outcome = self._direct(make())
-        self.assertFalse(direct_outcome["fired"])
-        self.assertEqual(direct_outcome["comparisons"], 0)
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
         dataset_outcome = self._dataset(make())
         self.assertTrue(dataset_outcome["fired"])
 
