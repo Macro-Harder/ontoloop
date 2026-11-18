@@ -472,12 +472,18 @@ def _decoded_spans(text, layer, class_name):
     standing in the text in a decorated form, a token
     carrying decoration or a fused prefix at its edges
     at any count standing over a token that decides
-    definite, and in a line wrapped form, consecutive
-    whitespace separated fragments whose encoding
-    cores, the dress at their edges standing set
-    aside, join to a form that decides definite, each
-    fragment carrying its own span, the fragments
-    after one intervening token standing joined to a
+    definite, a token carrying commas in its
+    interior standing decided on the value it
+    carries after the interior commas stand
+    stripped, and in a line wrapped form, fragments
+    whose encoding cores, the dress at their edges
+    and any comma in a fragment interior standing
+    set aside, join to a form that decides definite,
+    each fragment carrying its own span, separator
+    tokens standing alone between fragments
+    standing transparent to the joining, and the
+    fragments after intervening tokens, two in
+    total for one assembly, standing joined to a
     decided joining in the same form. A decorated or wrapped form standing with no
     exactly resolved token beside it resolves nothing
     here, in its standing detection boundary form.
@@ -521,7 +527,12 @@ def _decoded_spans(text, layer, class_name):
 def _decorated_token_span(start, token):
     """Return the span of a definite token inside a decorated token.
 
-    The forms tried stand in order of the least edge
+    A token carrying a comma in its interior,
+    flanked on both sides by encoding alphabet
+    characters, stands first tried as the token
+    the interior commas stand stripped from, in
+    the span of the whole token. The forms tried
+    stand in order of the least edge
     characters set aside first, at any count at each
     edge severally and at any total, so a parenthesis,
     a quotation mark, a bracket, a trailing comma,
@@ -538,6 +549,31 @@ def _decorated_token_span(start, token):
     the inner token, or None where no such inner
     token decides definite.
     """
+    alphabet = set(
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz0123456789+/="
+    )
+    stripped_chars = []
+    comma_removed = False
+    for position, char in enumerate(token):
+        if (
+            char == ","
+            and 0 < position < len(token) - 1
+            and token[position - 1] in alphabet
+            and token[position + 1] in alphabet
+        ):
+            comma_removed = True
+            continue
+        stripped_chars.append(char)
+    if comma_removed:
+        candidate = "".join(stripped_chars)
+        if len(candidate) >= 8:
+            resolved = _decode_candidate(candidate)
+            if (
+                resolved["outcome"] == "definite hit"
+                and resolved["decoding_depth_reached"] >= 1
+            ):
+                return (start, start + len(token))
     for total in range(1, len(token) - 7):
         for lead in range(0, total + 1):
             trail = total - lead
@@ -565,9 +601,15 @@ def _wrapped_fragment_core(start, end, token):
     any other character standing outside the encoding
     alphabet at an edge, stands carried by the core
     standing between that dress, in the span the core
-    itself occupies. A token whose interior carries a
-    character outside the alphabet, or which carries
-    no alphabet character at all, carries no core and
+    itself occupies. A comma standing in the fragment
+    interior stands set aside in the core text, and
+    the span covers the whole segment standing
+    between the dress, the comma included, so the
+    interior dress carries no part of the definite
+    value and stands in no journal byte. A token
+    whose interior carries any other character
+    outside the alphabet, or which carries no
+    alphabet character at all, carries no core and
     stands returned as None.
     """
     alphabet = set(
@@ -583,103 +625,161 @@ def _wrapped_fragment_core(start, end, token):
     core = token[lead:trail]
     if not core:
         return None
-    if not re.fullmatch(r"[A-Za-z0-9+/=]+", core):
+    stripped = core.replace(",", "")
+    if not stripped:
         return None
-    return (start + lead, start + trail, core)
+    if not re.fullmatch(r"[A-Za-z0-9+/=]+", stripped):
+        return None
+    return (start + lead, start + trail, stripped)
 
 
 def _wrapped_token_spans(tokens, exact, layer, class_name):
     """Return the fragment spans of line wrapped definite tokens.
 
-    Consecutive tokens stand joined on the encoding
-    cores their dress leaves, the longest joining
-    first, across as many fragments as the tokens
-    present, and where the joined form decides
+    The joining runs over the stream of tokens that
+    carry an encoding core. A token carrying no core,
+    a separator token standing alone between
+    fragments, a comma, a semicolon, or a dash as its
+    own token, or any other punctuation only token,
+    stands transparent to the joining: it carries no
+    span and breaks no group. Consecutive stream
+    entries stand joined on their cores, the longest
+    joining first, across as many fragments as the
+    tokens present, and where the joined form decides
     definite every fragment of the joining carries
     its core as its span, beside the fragments an
-    exact resolution already carries. The joining
-    stands decided on the joined value resolving
-    definite in substance, and not on a fragment of
-    the joining resolving exactly. Where a joining
-    that decides definite stands interrupted by one
-    intervening token, the fragments after that token
-    stand tried as an extension of the decided
-    joining, across the one intervening token alone:
-    where the extended joining, the decided cores
-    joined with the cores after the intervening
-    token, decides definite, every fragment after the
-    intervening token carries its core as its span as
-    well, and the intervening token itself carries no
-    span. The extension tries each count of following
-    fragments once for each decided joining, so the
-    joining search stands in the same growth order
-    the standing form states. A wrapped token standing
-    alone still carries no span here, because the
-    caller reaches this act only beside an exactly
-    resolved token, in the standing detection
-    boundary form.
+    exact resolution already carries. Where no
+    consecutive joining decides, a split joining
+    stands tried in a window of twenty four stream
+    entries: a first run of fragments, one or two
+    intervening stream entries, and a second run,
+    decided on the two runs joined together, so a
+    wrapping interrupted after exactly one fragment
+    stands decided as one wrapping. Where a joining
+    decides definite, the fragments after intervening
+    entries stand tried as an extension of the
+    decided joining, repeatedly, across at most two
+    intervening stream entries in total for the one
+    assembly, the split joining skip counting toward
+    the same total: where the extended joining
+    decides definite, every fragment after the
+    intervening entries carries its core as its span
+    as well, and an intervening entry itself carries
+    no span. The joining stands decided on the joined
+    value resolving definite in substance, and not on
+    a fragment of the joining resolving exactly, and
+    a candidate stands put to a full trial only where
+    a first decoding round can run on it at all, in
+    the form the decoding engine states. A wrapped
+    token standing alone still carries no span here,
+    because the caller reaches this act only beside
+    an exactly resolved token, in the standing
+    detection boundary form.
     """
     cores = [
         _wrapped_fragment_core(start, end, token)
         for start, end, token in tokens
     ]
+    stream = [
+        index for index, core in enumerate(cores)
+        if core is not None
+    ]
+    hex_digits = set("0123456789abcdefABCDEF")
+
+    def decides(joined):
+        if len(joined) < 16:
+            return False
+        viable = len(joined) % 4 == 0 or (
+            len(joined) % 2 == 0
+            and all(char in hex_digits for char in joined)
+        )
+        if not viable:
+            return False
+        resolved = _decode_candidate(joined)
+        return (
+            resolved["outcome"] == "definite hit"
+            and resolved["decoding_depth_reached"] >= 1
+        )
+
+    def add_span(spans, core):
+        span = (core[0], core[1], layer, class_name)
+        if span not in spans:
+            spans.append(span)
+
     spans = []
-    index = 0
-    while index < len(tokens):
-        joined_span = None
-        joined_text = None
-        for count in range(len(tokens) - index, 1, -1):
-            group = cores[index:index + count]
-            if len(group) < count:
-                continue
-            if any(core is None for core in group):
-                continue
-            joined = "".join(core[2] for core in group)
-            if len(joined) < 16:
-                continue
-            resolved = _decode_candidate(joined)
-            if (
-                resolved["outcome"] == "definite hit"
-                and resolved["decoding_depth_reached"] >= 1
-            ):
-                joined_span = group
-                joined_text = joined
+    pos = 0
+    while pos < len(stream):
+        assembly = None
+        for count in range(len(stream) - pos, 1, -1):
+            group = stream[pos:pos + count]
+            joined = "".join(cores[i][2] for i in group)
+            if decides(joined):
+                assembly = (group, joined, 0, pos + count)
                 break
-        if joined_span is None:
-            index += 1
-            continue
-        for core_start, core_end, _core in joined_span:
-            span = (core_start, core_end, layer, class_name)
-            if span not in spans:
-                spans.append(span)
-        index += len(joined_span)
-        if index < len(tokens):
-            after = index + 1
-            extension = None
-            extension_text = None
-            for count in range(len(tokens) - after, 0, -1):
-                group = cores[after:after + count]
-                if len(group) < count:
-                    continue
-                if any(core is None for core in group):
-                    continue
-                joined = joined_text + "".join(
-                    core[2] for core in group
-                )
-                resolved = _decode_candidate(joined)
-                if (
-                    resolved["outcome"] == "definite hit"
-                    and resolved["decoding_depth_reached"] >= 1
-                ):
-                    extension = group
-                    extension_text = joined
+        if assembly is None:
+            window = stream[pos:pos + 24]
+            for first in range(1, len(window)):
+                if assembly is not None:
                     break
-            if extension is not None:
-                for core_start, core_end, _core in extension:
-                    span = (core_start, core_end, layer, class_name)
-                    if span not in spans:
-                        spans.append(span)
-                index = after + len(extension)
+                for skip in (1, 2):
+                    if assembly is not None:
+                        break
+                    second_start = first + skip
+                    if second_start >= len(window):
+                        continue
+                    for second in range(
+                        len(window) - second_start, 0, -1
+                    ):
+                        group = (
+                            window[:first]
+                            + window[
+                                second_start:second_start + second
+                            ]
+                        )
+                        if len(group) < 2:
+                            continue
+                        joined = "".join(
+                            cores[i][2] for i in group
+                        )
+                        if decides(joined):
+                            assembly = (
+                                group,
+                                joined,
+                                skip,
+                                pos + second_start + second,
+                            )
+                            break
+        if assembly is None:
+            pos += 1
+            continue
+        taken, joined_text, skips_used, end_pos = assembly
+        for i in taken:
+            add_span(spans, cores[i])
+        while end_pos < len(stream):
+            extension = None
+            for skip in range(0, 2 - skips_used + 1):
+                start = end_pos + skip
+                if start >= len(stream):
+                    break
+                for count in range(len(stream) - start, 0, -1):
+                    group = stream[start:start + count]
+                    joined = joined_text + "".join(
+                        cores[i][2] for i in group
+                    )
+                    if decides(joined):
+                        extension = (
+                            group, joined, skip, start + count
+                        )
+                        break
+                if extension is not None:
+                    break
+            if extension is None:
+                break
+            group, joined_text, skip, end_pos = extension
+            skips_used += skip
+            for i in group:
+                add_span(spans, cores[i])
+        pos = end_pos
     return spans
 
 
