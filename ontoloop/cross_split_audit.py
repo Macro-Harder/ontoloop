@@ -576,6 +576,53 @@ def _seam_result_carries_entries(result):
         return True
 
 
+def _seam_storage_entries(mapping):
+    """Return the entries a mapping carries in its
+    storage, read past its presented readings.
+
+    A dict form stands read through the storage the
+    dict act itself carries, so an entry its items
+    reading, its keys reading, and its iteration each
+    omit or present in a substituted form stands listed
+    here in the form it stands in that storage. A
+    UserDict stands read through the storage of the
+    mapping it wraps in the same way, and a ChainMap
+    through the storage of its maps, a later map
+    standing behind an earlier one in the order the
+    chain presents them. A mapping carrying no storage
+    in any of those forms stands in no part here.
+    """
+    entries = {}
+    if isinstance(mapping, _collections_module.UserDict):
+        data = mapping.data
+        if isinstance(data, dict):
+            for key, inner in dict.items(data):
+                entries[key] = inner
+        else:
+            try:
+                for key, inner in data.items():
+                    entries[key] = inner
+            except Exception:
+                pass
+        return entries
+    if isinstance(mapping, _collections_module.ChainMap):
+        for chained in reversed(mapping.maps):
+            if isinstance(chained, dict):
+                for key, inner in dict.items(chained):
+                    entries[key] = inner
+            else:
+                try:
+                    for key, inner in chained.items():
+                        entries[key] = inner
+                except Exception:
+                    pass
+        return entries
+    if isinstance(mapping, dict):
+        for key, inner in dict.items(mapping):
+            entries[key] = inner
+    return entries
+
+
 def _seam_presented_carries_entries(value):
     """Whether a presented mapping carries any entry by
     its governed readings.
@@ -587,14 +634,20 @@ def _seam_presented_carries_entries(value):
     act reaches the governed entry of such a mapping,
     a ChainMap standing read through its maps and a
     UserDict through the mapping it wraps in the same
-    way. A mapping carrying no entry in any of those
-    readings stands in no entry form here.
+    way. A mapping stands read through the entries its
+    storage carries in the same way, so a form whose
+    presented readings present no entry stands read as
+    carrying the entries its storage carries. A mapping
+    carrying no entry in any of those readings stands
+    in no entry form here.
     """
     try:
         if len(list(value.items())) > 0:
             return True
     except Exception:
         pass
+    if _seam_storage_entries(value):
+        return True
     if isinstance(value, _collections_module.ChainMap):
         try:
             return any(
@@ -688,6 +741,8 @@ def _seam_governed_entry_keys(mapping):
             _add(key)
     except Exception:
         pass
+    for key in _seam_storage_entries(mapping):
+        _add(key)
     return keys
 
 
@@ -702,16 +757,45 @@ def _seam_rebuild_stands_blind(value, result):
     form carries further entries or none, so a rebuild
     standing in that blind form stands not carried as
     the presented mapping in the guard above. A
-    presented mapping carrying no entry key in any of
-    those readings stands in no blind form here.
+    rebuild stands blind in the same way where it
+    substitutes a clean value at a governed entry: an
+    entry whose value in the storage the presented
+    mapping carries carries a dictionary view in
+    substance, whose rebuilt value carries no view in
+    substance, stands lost to the rebuild in
+    substance, so a rebuild standing in that
+    substituted form stands not carried as the
+    presented mapping in the same way. A presented
+    mapping carrying no entry key in any of those
+    readings stands in no blind form here.
     """
     presented_keys = _seam_governed_entry_keys(value)
     if not presented_keys:
         return False
     result_keys = _seam_governed_entry_keys(result)
-    return any(
+    if any(
         key not in result_keys for key in presented_keys
+    ):
+        return True
+    presented_storage = _seam_storage_entries(value)
+    if not presented_storage:
+        return False
+    result_storage = (
+        _seam_storage_entries(result)
+        if isinstance(result, _Mapping)
+        else {}
     )
+    for key, inner in presented_storage.items():
+        rebuilt_inner = result_storage.get(key)
+        if rebuilt_inner is inner:
+            continue
+        if not _carries_any_view(inner):
+            continue
+        if rebuilt_inner is None or not _carries_any_view(
+            rebuilt_inner
+        ):
+            return True
+    return False
 
 
 def _materialise_view_form_seam(value, ancestors=frozenset()):
@@ -2568,6 +2652,8 @@ def _mapping_key_sides(value):
             return sides[0], sides[1]
         return None
     listed = list(value.keys())
+    if len(listed) != 2:
+        return None
     return listed[0], listed[1]
 
 
@@ -3207,7 +3293,10 @@ def _direct_bundle_extra_holdout(bundle, seen_ids=frozenset()):
                     extra.extend(_unwrapped_items(key_sides[1]))
                 else:
                     listed_keys = list(value.keys())
-                    extra.extend(_unwrapped_items(listed_keys[1]))
+                    if len(listed_keys) == 2:
+                        extra.extend(
+                            _unwrapped_items(listed_keys[1])
+                        )
             elif values is not None:
                 keyed_sides = None
                 for element in values:
@@ -4795,6 +4884,75 @@ def _pairs_carried_entry(old):
     return (None, None)
 
 
+def _pairs_position_entry(old):
+    """Return the carried form of one mapping value at
+    the pairs or holdout_items position, in two kinds,
+    beside whether the entry stands touched at all.
+
+    An entry standing in the carrier forms the pairs
+    carried entry reading governs stands carried or
+    restored in the form that reading states. An entry
+    standing as a dict form carrying no item field of
+    its own stands read entry by entry in the same
+    way, at any mapping depth the presentation nests
+    it, so a carrier standing at a value of a mapping
+    standing at a value of the position mapping stands
+    carried in substance in the same form. An entry
+    standing in any other form stands untouched here.
+    """
+    charged, restored = _pairs_carried_entry(old)
+    if charged is not None:
+        return (charged, True)
+    if restored is not None:
+        return (restored, True)
+    if isinstance(old, dict) and not any(
+        field in old for field in _ITEM_FIELD_KEYS
+    ):
+        carried = {}
+        touched = False
+        for carried_key, inner in old.items():
+            new, inner_touched = _pairs_position_entry(inner)
+            if inner_touched:
+                carried[carried_key] = new
+                touched = True
+            else:
+                carried[carried_key] = inner
+        if touched:
+            return (carried, True)
+    return (None, False)
+
+
+def _holdout_carried_form(new):
+    """Return a carried form of a holdout_items entry
+    with its items views standing in mapping form.
+
+    An items view standing carried in a listed form at
+    this position stands read by both the partitioning
+    act and the extra holdout reading in that form, so
+    its material stands counted twice where every
+    other view form at this position stands counted
+    once. An items view therefore stands carried here
+    as the mapping it stands over, in the form the
+    view mapping reading gives it, in parity with the
+    keys view form of the same presentation. Any other
+    form stands as it stands.
+    """
+    if isinstance(new, _ItemsView):
+        return _view_mapping_form(new)
+    if isinstance(new, list):
+        return [_holdout_carried_form(inner) for inner in new]
+    if isinstance(new, tuple):
+        return tuple(
+            _holdout_carried_form(inner) for inner in new
+        )
+    if isinstance(new, dict):
+        return {
+            key: _holdout_carried_form(inner)
+            for key, inner in new.items()
+        }
+    return new
+
+
 def _wrapped_nested_position_material(material):
     """Return the bundle with a wrapped nested position read.
 
@@ -4979,7 +5137,7 @@ def _wrapped_nested_position_material(material):
                             carried[carried_key] = old
                     if took:
                         replacement = carried
-            if key == "pairs" and isinstance(
+            if key in ("pairs", "holdout_items") and isinstance(
                 value, _Mapping
             ) and _is_plain_mapping(
                 value
@@ -4987,22 +5145,19 @@ def _wrapped_nested_position_material(material):
                 field in value for field in _ITEM_FIELD_KEYS
             ):
                 carried = {}
-                took = False
                 touched = False
                 for carried_key, old in value.items():
-                    charged, restored = _pairs_carried_entry(
+                    new, entry_touched = _pairs_position_entry(
                         old
                     )
-                    if charged is not None:
-                        carried[carried_key] = charged
-                        took = True
-                        touched = True
-                    elif restored is not None:
-                        carried[carried_key] = restored
+                    if entry_touched:
+                        if key == "holdout_items":
+                            new = _holdout_carried_form(new)
+                        carried[carried_key] = new
                         touched = True
                     else:
                         carried[carried_key] = old
-                if took or touched:
+                if touched:
                     replacement = carried
         elif isinstance(
             value, (tuple, _collections_module.deque)
