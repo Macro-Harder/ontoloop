@@ -485,9 +485,9 @@ def _decoded_spans(text, layer, class_name):
     its own span, separator tokens standing alone
     between fragments standing transparent to the
     joining, and the fragments after intervening
-    tokens, nine in total for one assembly,
-    standing joined to a decided joining in the
-    same form. A decorated or wrapped form standing with no
+    tokens standing joined to a decided joining
+    in the same form, no total of intervening
+    tokens standing against the one assembly. A decorated or wrapped form standing with no
     exactly resolved token beside it resolves nothing
     here, in its standing detection boundary form.
     Where no token decides definite and the text as a
@@ -656,17 +656,20 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
     exact resolution already carries. Where no
     consecutive joining decides, a split joining
     stands tried in a window of twenty four stream
-    entries: a first run of fragments, one to nine
-    intervening stream entries, and a second run,
-    decided on the two runs joined together, so a
-    wrapping interrupted after exactly one fragment
-    stands decided as one wrapping. Where a joining
-    decides definite, the fragments after intervening
-    entries stand tried as an extension of the
-    decided joining, repeatedly, across at most nine
-    intervening stream entries in total for the one
-    assembly, the split joining skip counting toward
-    the same total: where the extended joining
+    entries: a first run of fragments, intervening
+    stream entries standing inside the window, and
+    a second run, decided on the two runs joined
+    together, so a wrapping interrupted after
+    exactly one fragment stands decided as one
+    wrapping. Where a joining decides definite, the
+    fragments after intervening entries stand tried
+    as an extension of the decided joining,
+    repeatedly, each extension skip standing
+    bounded by the window of twenty four stream
+    entries in its own right and no total of
+    intervening entries standing against the one
+    assembly, the split joining skip counting
+    toward no total: where the extended joining
     decides definite, every fragment after the
     intervening entries carries its core as its span
     as well, and an intervening entry itself carries
@@ -719,14 +722,14 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
             group = stream[pos:pos + count]
             joined = "".join(cores[i][2] for i in group)
             if decides(joined):
-                assembly = (group, joined, 0, pos + count)
+                assembly = (group, joined, pos + count)
                 break
         if assembly is None:
             window = stream[pos:pos + 24]
             for first in range(1, len(window)):
                 if assembly is not None:
                     break
-                for skip in (1, 2, 3, 4, 5, 6, 7, 8, 9):
+                for skip in range(1, len(window)):
                     if assembly is not None:
                         break
                     second_start = first + skip
@@ -750,19 +753,18 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
                             assembly = (
                                 group,
                                 joined,
-                                skip,
                                 pos + second_start + second,
                             )
                             break
         if assembly is None:
             pos += 1
             continue
-        taken, joined_text, skips_used, end_pos = assembly
+        taken, joined_text, end_pos = assembly
         for i in taken:
             add_span(spans, cores[i])
         while end_pos < len(stream):
             extension = None
-            for skip in range(0, 9 - skips_used + 1):
+            for skip in range(0, 25):
                 start = end_pos + skip
                 if start >= len(stream):
                     break
@@ -773,15 +775,14 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
                     )
                     if decides(joined):
                         extension = (
-                            group, joined, skip, start + count
+                            group, joined, start + count
                         )
                         break
                 if extension is not None:
                     break
             if extension is None:
                 break
-            group, joined_text, skip, end_pos = extension
-            skips_used += skip
+            group, joined_text, end_pos = extension
             for i in group:
                 add_span(spans, cores[i])
         pos = end_pos
