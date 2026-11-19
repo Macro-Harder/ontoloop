@@ -153,154 +153,224 @@ class TestPromoteFixR26ViewInSinglePassElement(_WrapperCase):
         self.assertFalse(dataset_outcome["fired"])
 
     def test_kv_gen_deleg_list_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": ListSubclass(
                         [_generator_of(_keys_view())]
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_gen_deleg_list_pairs_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "pairs": {
                     "k": ListSubclass(
                         [_generator_of(_keys_view())]
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_gen_deleg_list_holdout_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "holdout_items": {
                     "k": ListSubclass(
                         [_generator_of(_keys_view())]
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_gen_deleg_tuple_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": TupleSubclass(
                         [_generator_of(_keys_view())]
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_gen_deleg_set_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": SetSubclass(
                         [_generator_of(_keys_view())]
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_gen_deleg_deque_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": DequeSubclass(
                         [_generator_of(_keys_view())]
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_gen_deleg_userlist_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": UserListSubclass(
                         [_generator_of(_keys_view())]
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_gen_deleg_sequence_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": SequenceSubclass(
                         [_generator_of(_keys_view())]
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_iterator_deleg_list_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": ListSubclass([iter([_keys_view()])])
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_single_pass_deleg_list_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": ListSubclass(
                         [SinglePassIterable([_keys_view()])]
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_zip_deleg_list_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": ListSubclass([zip([_keys_view()])])
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_map_deleg_list_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": ListSubclass(
                         [map(lambda x: x, [_keys_view()])]
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_items_view_gen_deleg_list_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": ListSubclass(
                         [_generator_of(_items_view())]
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_in_list_in_gen_deleg_list_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": ListSubclass(
                         [_generator_of([_keys_view()])]
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_gen_deleg_list_nested_mapping_clears(self):
         self._assert_three_surface_clears(
@@ -336,8 +406,7 @@ class TestPromoteFixR26ViewInSinglePassElement(_WrapperCase):
         self.assertTrue(outcome["bundle_proceeds"])
 
     def test_clean_kv_gen_deleg_list_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
+        make_holdout = lambda: {
                 "items": {
                     "k": ListSubclass(
                         [
@@ -350,7 +419,13 @@ class TestPromoteFixR26ViewInSinglePassElement(_WrapperCase):
                     )
                 }
             }
-        )
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertFalse(dataset_outcome["fired"])
 
     def test_clean_text_against_carrier_clears(self):
         outcome = self._wrapper(

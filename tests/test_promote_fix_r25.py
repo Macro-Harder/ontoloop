@@ -141,9 +141,14 @@ class TestPromoteFixR25SpanMappingValue(_WrapperCase):
         )
 
     def test_keys_view_deleg_list_mapping_value_pairs_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {"pairs": {"k": ListSubclass([_keys_view()])}}
-        )
+        make_holdout = lambda: {"pairs": {"k": ListSubclass([_keys_view()])}}
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_keys_view_deleg_tuple_mapping_value_items_clears(self):
         self._assert_three_surface_clears(
@@ -158,9 +163,14 @@ class TestPromoteFixR25SpanMappingValue(_WrapperCase):
         )
 
     def test_keys_view_deleg_set_mapping_value_items_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {"items": {"k": SetSubclass([_keys_view()])}}
-        )
+        make_holdout = lambda: {"items": {"k": SetSubclass([_keys_view()])}}
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_items_view_deleg_list_mapping_value_items_clears(self):
         self._assert_three_surface_clears(
