@@ -1811,6 +1811,161 @@ _CLAIM_CONCEPT_ROOTS = (
     "traversed", "triggered", "unloaded", "upgraded", 
     "used", "versioned", "written", 
 
+    "pressed", "wrung", "scoured", 
+    "iced", "sugared", "basted", 
+    "swaged", "knurled", "reamed", 
+    "planed", "chiselled", "whittled", 
+    "lathed", "cast", "extruded", 
+    "calendered", "marquetried", "spiced", 
+    "starched", "antiqued", "appliqued", 
+    "barbed", "beaded", "bevelled", 
+    "blotched", "cambered", "chased", 
+    "cleated", "clinched", "coiled", 
+    "encrusted", "featherstitched", "ferruled", 
+    "filigreed", "filleted", "ribbed", 
+    "scalloped", "scrolled", "seamed", 
+    "spangled", "splinted", "studded", 
+    "tasselled", "tessellated", "thatched", 
+    "trellised", "tufted", "veined", 
+    "wattled", "whorled", "winged", 
+    "zoned", "felted", "spindled", 
+    "spiralled", "stencilled", "unwebbed", 
+    "unthatched", "unslated", "unstuccoed", 
+    "unwainscoted", "undomed", "unarched", 
+    "uncolumned", "unbalustraded", "unditched", 
+    "untrenched", "unbanked", "undammed", 
+    "undleveed", "unbermed", "unreveted", 
+    "unfaced", "uninsulated", "unlagged", 
+    "unclad", "wrinkeresistant", "verminresistant", 
+    "borerproof", "lightningresistant", "quakeresistant", 
+    "vandalresistant", "theftresistant", "coalproof", 
+    "cobwebproof", "featherproof", "filthproof", 
+    "forkproof", "gallproof", "goreproof", 
+    "gravelproof", "hookproof", "lanceproof", 
+    "leafproof", "nettleproof", "oakproof", 
+    "pebbleproof", "pitchproof", "quillproof", 
+    "razorproof", "reedproof", "resinproof", 
+    "rootproof", "sapproof", "screwproof", 
+    "seaproof", "serpentproof", "shaleproof", 
+    "siltproof", "soapproof", "spongeproof", 
+    "springproof", "sproutproof", "stakeproof", 
+    "strawproof", "stringproof", "swampproof", 
+    "tarproof", "timberproof", "trapproof", 
+    "treeproof", "trenchproof", "troutproof", 
+    "twigproof", "vineproof", "wadproof", 
+    "walnutproof", "wandproof", "waxproof", 
+    "yeastproof", "arrowresistant", "bladeresistant", 
+    "blizzardresistant", "cinderresistant", "clawresistant", 
+    "climateresistant", "coalresistant", "cobwebresistant", 
+    "daggerresistant", "dewresistant", "emberresistant", 
+    "fangresistant", "featherresistant", "filthresistant", 
+    "foamresistant", "fogresistant", "forkresistant", 
+    "gallresistant", "goreresistant", "gravelresistant", 
+    "gritresistant", "hookresistant", "ironresistant", 
+    "lanceresistant", "leafresistant", "leatherresistant", 
+    "nailresistant", "needleresistant", "nettleresistant", 
+    "oakresistant", "pebbleresistant", "pineresistant", 
+    "pitchresistant", "pollenresistant", "quillresistant", 
+    "razorresistant", "reedresistant", "resinresistant", 
+    "rockresistant", "rootresistant", "sapresistant", 
+    "scaleresistant", "scorpionresistant", "screwresistant", 
+    "searesistant", "serpentresistant", "shaleresistant", 
+    "shellresistant", "siltresistant", "slateresistant", 
+    "sleetresistant", "snailresistant", "snakeresistant", 
+    "soapresistant", "spearresistant", "spiderresistant", 
+    "spikeresistant", "splashresistant", "spongeresistant", 
+    "sprayresistant", "springresistant", "sproutresistant", 
+    "stabresistant", "stakeresistant", "steelresistant", 
+    "stingresistant", "stoneresistant", "stormresistant", 
+    "strawresistant", "stringresistant", "surgeresistant", 
+    "swampresistant", "swordresistant", "timberresistant", 
+    "tinresistant", "torrentresistant", "trapresistant", 
+    "treeresistant", "trenchresistant", "troutresistant", 
+    "twigresistant", "vineresistant", "voiceresistant", 
+    "wadresistant", "walnutresistant", "wandresistant", 
+    "wardresistant", "waveresistant", "waxresistant", 
+    "weedresistant", "weevilresistant", "wetresistant", 
+    "whaleresistant", "wheatresistant", "wheelresistant", 
+    "whipresistant", "whirlresistant", "whirlwindresistant", 
+    "woodresistant", "woolresistant", "wormresistant", 
+    "xrayresistant", "yeastresistant", "zincresistant", 
+    "unbarbed", "unbeaded", "unberibboned", 
+    "unblindfolded", "unblockaded", "unbreeched", 
+    "uncoiffed", "uncordoned", "uncostumed", 
+    "uncravatted", "undiademed", "undiapered", 
+    "beaconed", "downlinked", "hocked", 
+    "rebated", "teleported", "telexed", 
+    "tokenised", "uplinked", "classified", 
+    "coded", "deposed", "escrowed", 
+    "issued", "keyed", "numbered", 
+    "paginated", "qrcoded", "typewritten", 
+    "bussed", "clouded", "patched", 
+    "servered", "switched", "vanned", 
+    "activatable", "addressable", "aggregable", 
+    "allocatable", "analyzable", "animatable", 
+    "approximable", "arbitrable", "assignable", 
+    "automatable", "averagable", "backupable", 
+    "batchable", "bindable", "blendable", 
+    "bundleable", "calculable", "calibratable", 
+    "cancelable", "channelable", "chargeable", 
+    "chunkable", "cipherable", "claimable", 
+    "classable", "clusterable", "codeable", 
+    "colorable", "combinable", "computable", 
+    "concatenable", "deduplicatable", "deformable", 
+    "delegable", "derivable", "detachable", 
+    "dialable", "dictable", "digestable", 
+    "digitalizable", "dimensionable", "disableable", 
+    "discardable", "discoverable", "displayable", 
+    "emulatable", "enableable", "enforceable", 
+    "enrichable", "estimable", "evaluable", 
+    "exchangeable", "executable", "exercisable", 
+    "exhaustible", "explainable", "expressable", 
+    "extendable", "fabricable", "facsimilable", 
+    "fileable", "findable", "flattenable", 
+    "fragmentable", "freezable", "fulfillable", 
+    "generatable", "governable", "gradable", 
+    "groupable", "hostable", "activated", 
+    "allocated", "analyzed", "animated", 
+    "approximated", "automated", "averaged", 
+    "batched", "blended", "calibrated", 
+    "canceled", "chunked", "ciphered", 
+    "clustered", "combined", "concatenated", 
+    "deduplicated", "deformed", "delegated", 
+    "detached", "dialed", "digested", 
+    "dimensioned", "disabled", "discarded", 
+    "emulated", "enabled", "enforced", 
+    "enriched", "exchanged", "executed", 
+    "exercised", "extended", "flattened", 
+    "fragmented", "fulfilled", "generated", 
+    "grouped", "indicated", "induced", 
+    "inferred", "inflated", "informed", 
+    "ingested", "inherited", "initiated", 
+    "injected", "inputted", "installed", 
+    "instanced", "integrated", "interfaced", 
+    "interleaved", "interrogated", "intersected", 
+    "intervened", "introduced", "invalidated", 
+    "inverted", "antiquable", "appliquable", 
+    "barbable", "beadable", "bevellable", 
+    "blotchable", "camberable", "chasable", 
+    "chisellable", "cleatable", "clinchable", 
+    "coilable", "encrustable", "featherstitchable", 
+    "ferrulable", "filigreable", "filletable", 
+    "ribbable", "scallopable", "seamable", 
+    "spanglable", "splintable", "studdable", 
+    "tassellable", "tessellatable", "thatchable", 
+    "trellisable", "tuftable", "veinable", 
+    "wattlable", "whorlable", "wingable", 
+    "zonable", "stencillable", "feltable", 
+    "spindlable", "spirallable", "annexed", 
+    "impounded", "subpoenaed", "lodged", 
+    "bandaged", "carved", "chained", 
+    "cleared", "compiled", "compressed", 
+    "delivered", "enamelled", "highlighted", 
+    "identified", "located", "bandagable", 
+    "categorizable", "chainable", "clearable", 
+    "collectable", "compilable", "compressible", 
+    "deliverable", "enamellable", "flaggable", 
+    "graphable", "highlightable", 
 )
 
 # The exact assertion words, beside the assertion roots
@@ -2242,6 +2397,42 @@ _ASSERTION_WORDS = (
     "evaporates", "evens", "everts", "evolves", 
     "expires", "explodes", "exults", 
 
+    "glimmers", "flares", "coruscates", 
+    "scintillates", "filtrates", "osmoses", 
+    "permeates", "pervades", "suffuses", 
+    "imbues", "steeps", "perspires", 
+    "respires", "transpires", "lactates", 
+    "suppurates", "ulcerates", "festers", 
+    "flakes", "cracks", "splits", 
+    "ruptures", "fractures", "shatters", 
+    "splinters", "tears", "rips", 
+    "accretes", "agglomerates", "agglutinates", 
+    "aggregates", "amalgamates", "calcifies", 
+    "caramelizes", "carbonates", "carbonizes", 
+    "catalyzes", "cauterizes", "chlorinates", 
+    "coalesces", "coheres", "composts", 
+    "concentrates", "concretes", "dehydrates", 
+    "desalinates", "desulfurizes", "detoxifies", 
+    "devitrifies", "dialyzes", "dimerizes", 
+    "emulsifies", "esterifies", "fluorinates", 
+    "fossilizes", "fractionates", "gelatinizes", 
+    "granulates", "graphitizes", "homogenizes", 
+    "hydrates", "hydrogenates", "hydrolyses", 
+    "hydrolyzes", "hydroxylates", "isomerizes", 
+    "lactonizes", "leaches", "lignifies", 
+    "lyophilizes", "macerates", "magnetizes", 
+    "melanizes", "mercerizes", "metabolizes", 
+    "mineralizes", "nitrates", "nitrifies", 
+    "oxidises", "ozonizes", "pasteurizes", 
+    "peptizes", "petrifies", "phosphates", 
+    "plastinates", "polymerises", "polymerizes", 
+    "proteolyzes", "pulverizes", "pyrolyzes", 
+    "racemizes", "recrystallizes", "saccharifies", 
+    "salinizes", "saponifies", "saturates", 
+    "sediments", "silicifies", "sinters", 
+    "solubilizes", "solvates", "sublimates", 
+    "sulfates", "sulfonates", "sulphates", 
+    "sulphonates", "vulcanises", "vulcanizes", 
 )
 
 # The assertion roots. A word beginning with one of
@@ -2641,6 +2832,21 @@ _UNCONDITIONAL_MARKERS = (
     "till the sky falls", "till time itself ends", "to the crack of doom", "to the worlds end", 
     "until the crack of doom", "until the day of judgment", "until the final judgment", "until the world ends", 
 
+    "until hell freezes over", "when hell freezes over", "while the sun shines", 
+    "while rivers run", "as long as rivers run", "in rain and shine", 
+    "for ages and ages", "as long as time endures", "till the last trumpet", 
+    "while the moon endures", "while the tides roll", "as long as the tides roll", 
+    "while the rivers flow", "till the wells run dry", "in joy and sorrow", 
+    "through tears and laughter", "for love nor money", "through foul and fair", 
+    "in foul and fair", "from kingdom come", "until the last trumpet", 
+    "till the tide turns forever", "as long as grass grows", "as long as the earth endures", 
+    "as long as the heavens endure", "as long as the seas shall last", "as long as the world shall stand", 
+    "for as long as the sun rises", "for the life of the earth", "for the whole of time", 
+    "in all the ages", "in every generation", "through the life of the earth", 
+    "through the whole of time", "till the earth ends", "till the final day", 
+    "till the heavens crumble", "till the life of the earth ends", "till the mountains fall", 
+    "until judgment day", "until the earth ends", "until the final day", 
+    "until the mountains fall", "until the oceans dry", "until time itself stops", 
 )
 
 # The wordings that carry the governed conditional form
@@ -3291,6 +3497,29 @@ _GOVERNING_CONDITION_PHRASES = (
     "under the syllabus of", "under the testament of", "under the determination of", "under the proclamation of", 
     "under the summons of", 
 
+    "under the baton of", "by the baton of", "under the whip of", 
+    "by the yoke of", "under the wand of", "under the staff of", 
+    "under the crozier of", "under the crosier of", "under the mace of", 
+    "by the mace of", "under the signet of", "under the sceptre and orb of", 
+    "under the orb of", "by the orb of", "under the fist of", 
+    "under the gauntlet of", "under the lash and rod of", "under the sword of", 
+    "by the sword of", "under the banner of", "by the banner of", 
+    "under the standard of", "under the ensign of", "under the colours of", 
+    "under the flag of", "by the flag of", "by the ion of", 
+    "by the absolution of", "by the accession of", "by the accord of", 
+    "by the adjudication of", "by the admonition of", "by the adoption of", 
+    "by the affirmation of", "by the allowance of", "by the amendment of", 
+    "by the announcement of", "by the arbitration of", "by the arrangement of", 
+    "by the assertion of", "by the assessment of", "by the assumption of", 
+    "by the assurance of", "by the attestation of", "by the authorisation of", 
+    "by the authorization of", "under the ion of", "under the absolution of", 
+    "under the accession of", "under the accord of", "under the adjudication of", 
+    "under the admonition of", "under the adoption of", "under the affirmation of", 
+    "under the allowance of", "under the amendment of", "under the announcement of", 
+    "under the arbitration of", "under the arrangement of", "under the assertion of", 
+    "under the assessment of", "under the assumption of", "under the assurance of", 
+    "under the attestation of", "under the authorisation of", "under the authorization of", 
+    "under the acquiescence of", "under the appointment of", "under the assignment of", 
 )
 
 # The wordings that carry a negated form of a claim. A
@@ -3744,6 +3973,40 @@ def _clause_claim(clause):
         "serviceberry", "sourwood", "spanishcedar", "sycamorewood", 
         "tamarindwood", "tigerwood", "tuliptree", "whiteoak", 
         "willowwood", "yewwood", 
+        "dyspro", 
+        "stibo", "vanado", "mangano", 
+        "cobalto", "mercurio", "cadmio", 
+        "baryto", "strontio", "alumino", 
+        "magneso", "calcico", "potassio", 
+        "sodico", "lithio", "germano", 
+        "gallo", "indico", "thallo", 
+        "iridio", "pallado", "rhodio", 
+        "rutheno", "niobo", "tungsto", 
+        "rhenio", "hafnio", "lanthano", 
+        "cerio", "praseo", "neodymo", 
+        "samario", "europio", "gadolino", 
+        "terbio", "holmio", "erbio", 
+        "thulio", "ytterbio", "lutetio", 
+        "actino", "adeno", "balneo", 
+        "bary", "brady", "caryo", 
+        "celo", "cerebro", "cervico", 
+        "choro", "cito", "colpo", 
+        "coreo", "costo", "cranio", 
+        "crystallo", "dextro", "dino", 
+        "dorsi", "dorso", "gnatho", 
+        "gono", "gyno", "iatro", 
+        "iono", "kero", "kinesi", 
+        "kinesio", "labio", "lamino", 
+        "leio", "leipo", "loco", 
+        "mammo", "verawood", "arganwood", 
+        "corkwood", "pumicewood", "alderwood", 
+        "gumwood", "abura", "afrormosia", 
+        "agba", "almondwood", "amendoim", 
+        "angelique", "anigre", "apitong", 
+        "avodire", "balau", "balsam", 
+        "banak", "baobab", "larchwood", 
+        "laurelwood", "lilacwood", "limewood", 
+        "sprucewood", 
     )
     verification_roots = (
         "check", "verif", "validat", "confirm", "certif",
@@ -3953,6 +4216,25 @@ def _clause_claim(clause):
         "plumbed", "plumed", "pocketed", "podded", 
         "pointed", "poled", "pommelled", "forked", 
         "leaved", "paged", 
+        "pressed", "wrung", "scoured", 
+        "iced", "sugared", "basted", 
+        "swaged", "knurled", "reamed", 
+        "planed", "chiselled", "whittled", 
+        "lathed", "cast", "extruded", 
+        "calendered", "marquetried", "spiced", 
+        "starched", "antiqued", "appliqued", 
+        "barbed", "beaded", "bevelled", 
+        "blotched", "cambered", "chased", 
+        "cleated", "clinched", "coiled", 
+        "encrusted", "featherstitched", "ferruled", 
+        "filigreed", "filleted", "ribbed", 
+        "scalloped", "scrolled", "seamed", 
+        "spangled", "splinted", "studded", 
+        "tasselled", "tessellated", "thatched", 
+        "trellised", "tufted", "veined", 
+        "wattled", "whorled", "winged", 
+        "zoned", "felted", "spindled", 
+        "spiralled", "stencilled", 
     ):
         if passive in words and "by" in words[
             words.index(passive) + 1:
@@ -4571,6 +4853,24 @@ def _clause_inability_form(clause):
     "plumbed", "plumed", "pocketed", "podded", 
     "pointed", "poled", "pommelled", "forked", 
     "leaved", "paged", 
+    "pressed", "wrung", "scoured", 
+    "iced", "sugared", "basted", 
+    "swaged", "knurled", "reamed", 
+    "planed", "chiselled", "whittled", 
+    "lathed", "cast", "extruded", 
+    "calendered", "marquetried", "antiqued", 
+    "appliqued", "barbed", "beaded", 
+    "bevelled", "blotched", "cambered", 
+    "chased", "cleated", "clinched", 
+    "coiled", "encrusted", "featherstitched", 
+    "ferruled", "filigreed", "filleted", 
+    "ribbed", "scalloped", "scrolled", 
+    "seamed", "spangled", "splinted", 
+    "studded", "tasselled", "tessellated", 
+    "thatched", "trellised", "tufted", 
+    "veined", "wattled", "whorled", 
+    "winged", "zoned", "stencilled", 
+    "spiced", "starched", 
     )
     fillers = (
         "ever", "never", "possibly", "be", "been", "not",
@@ -4928,6 +5228,57 @@ def _clause_inability_form(clause):
     "exchange", "plantation", "precinct", "ranch", 
     "refuge", "reservoir", "residence", "schoolhouse", 
     "slaughteryard", "stockade", "vineyard", "yard", 
+    "crankily", "grouchily", "churlishly", 
+    "boorishly", "rudely", "hostilely", 
+    "antagonistically", "scoffingly", "sneeringly", 
+    "jeeringly", "tauntingly", "abjectly", 
+    "abstrusely", "acerbically", "acquiescently", 
+    "acrimoniously", "adroitly", "agitatedly", 
+    "alarmingly", "ambitiously", "amorously", 
+    "amusingly", "anarchically", "angelically", 
+    "animatedly", "annoyingly", "appallingly", 
+    "appealingly", "appreciatively", "apprehensively", 
+    "approvingly", "ardently", "arguably", 
+    "arrogantly", "articulately", "artificially", 
+    "artistically", "assertively", "astoundingly", 
+    "attentively", "attractively", "austerely", 
+    "avidly", "bashfully", "beseechingly", 
+    "blissfully", "boastfully", "brightly", 
+    "brilliantly", "busily", "calculatingly", 
+    "capriciously", "ceremoniously", "challengingly", 
+    "charmingly", "cheaply", "childishly", 
+    "chirpily", "chivalrously", "circularly", 
+    "civilly", "clammily", "cleanly", 
+    "cleverly", "coarsely", "colourfully", 
+    "comfortably", "commandingly", "commonly", 
+    "compactly", "compassionately", "competitively", 
+    "complacently", "complexly", "comprehensively", 
+    "compulsively", "conceitedly", "concentratedly", 
+    "concernedly", "concertedly", "concisely", 
+    "condemnably", "condescendingly", "confidentially", 
+    "conformably", "congenially", "considerately", 
+    "consistently", "consolingly", "constantly", 
+    "constitutionally", "constructively", "contemptibly", 
+    "contentedly", "continually", "continuously", 
+    "contradictorily", "contrarily", "conveniently", 
+    "conventionally", "conversely", "convincingly", 
+    "coquettishly", "cosily", "courteously", 
+    "coweringly", "coyly", "crassly", 
+    "crazily", "creatively", "credibly", 
+    "creepily", "crisply", "critically", 
+    "crookedly", "crudely", "cryptically", 
+    "currently", "cursedly", "customarily", 
+    "cynically", "daintily", "damply", 
+    "dangerously", "dapperly", "academy", 
+    "aerodrome", "cabana", "cafe", 
+    "cafeteria", "campanile", "campus", 
+    "canteen", "capitol", "chalet", 
+    "chateau", "circus", "college", 
+    "colony", "customs", "fountain", 
+    "landing", "martello", "palazzo", 
+    "pigeonhouse", "promenade", "pyramid", 
+    "quay", "rampart", "viaduct", 
+    "wharf", 
     )
     modals = (
         "can", "could", "shall", "will", "must", "may", "might",
@@ -4971,6 +5322,48 @@ def _clause_inability_form(clause):
             cursor += 1
         if cursor < len(words) and words[cursor].startswith(targets):
             return True
+    return False
+
+
+def _split_phrase_governs(joined):
+    """Return True where a split governing phrase governs.
+
+    A governing phrase carrying and inside it stands
+    split by the clause split into two clauses, so no
+    single clause carries it whole. The rejoined text
+    governs only where such a phrase stands in it
+    whole and its own complement stands as a governed
+    condition, in the standing form of the governing
+    test: the complement standing after the phrase
+    opens with the governed subject, allowing one
+    leading article word, or the phrase itself stands
+    as the governed condition form.
+    """
+    for phrase in _GOVERNING_CONDITION_PHRASES:
+        if " and " not in phrase:
+            continue
+        if (
+            "deployment confinement fact" in phrase
+            or "signed strength" in phrase
+        ):
+            if phrase in joined:
+                return True
+            continue
+        start = 0
+        while True:
+            position = joined.find(phrase, start)
+            if position < 0:
+                break
+            complement = joined[position + len(phrase):].strip()
+            for article in ("the ", "an ", "a "):
+                if complement.startswith(article):
+                    complement = complement[len(article):]
+                    break
+            if complement.startswith(
+                "deployment confinement fact"
+            ) or complement.startswith("signed strength"):
+                return True
+            start = position + len(phrase)
     return False
 
 
@@ -5033,6 +5426,7 @@ def _seal_claim_scan(assembly_text):
             marker in statement
             for marker in _UNCONDITIONAL_MARKERS
             if " and " in marker or " or " in marker
+            or " nor " in marker
         ):
             return False
         if any(
@@ -5044,7 +5438,7 @@ def _seal_claim_scan(assembly_text):
             for clause in clauses
         ):
             return False
-        for clause in clauses:
+        for clause_index, clause in enumerate(clauses):
             if not _clause_claim(clause) and not _clause_inability_form(
                 clause
             ):
@@ -5070,6 +5464,22 @@ def _seal_claim_scan(assembly_text):
                 for marker in _UNCONDITIONAL_MARKERS
             ):
                 return False
+            if any(
+                _split_phrase_governs(
+                    " ".join(
+                        " and ".join(
+                            clauses[start:end]
+                        ).split()
+                    )
+                )
+                for start in range(
+                    max(0, clause_index - 2), clause_index + 1
+                )
+                for end in (start + 2, start + 3)
+                if end <= len(clauses)
+                and start <= clause_index < end
+            ):
+                continue
             main = _main_segment(clause)
             main_words = _clause_words(main)
             clause_words = _clause_words(clause)
@@ -5164,6 +5574,27 @@ def _seal_claim_scan(assembly_text):
                     ("in", "whatsoever", "realm"),
                     ("through", "whatsoever", "realm"),
                     ("for", "whatsoever", "span"),
+                    ("in", "whatsoever", "parish"),
+                    ("through", "whatsoever", "parish"),
+                    ("in", "whatsoever", "county"),
+                    ("through", "whatsoever", "county"),
+                    ("in", "whatsoever", "shire"),
+                    ("through", "whatsoever", "shire"),
+                    ("in", "whatsoever", "borough"),
+                    ("for", "whatsoever", "term"),
+                    ("for", "whatsoever", "duration"),
+                    ("in", "whatsoever", "era"),
+                    ("through", "whatsoever", "era"),
+                    ("by", "whatsoever", "path"),
+                    ("through", "whatsoever", "pass"),
+                    ("in", "whatsoever", "valley"),
+                    ("through", "whatsoever", "valley"),
+                    ("in", "whatsoever", "harbour"),
+                    ("in", "whatsoever", "haven"),
+                    ("for", "whatsoever", "season"),
+                    ("in", "whatsoever", "season"),
+                    ("by", "whatsoever", "channel"),
+                    ("through", "whatsoever", "channel"),
                 )
                 for position in range(
                     max(0, len(main_words) - 9), len(clause_words)
@@ -5307,7 +5738,8 @@ def _seal_claim_scan(assembly_text):
                 and any(
                     _clause_words(other)[:1]
                     in (["as"], ["howsoever"], ["whensoever"],
-                        ["wherein"], ["whithersoever"], ["whenever"])
+                        ["wherein"], ["whithersoever"], ["whenever"],
+                        ["when"], ["wherever"], ["wheresoever"])
                     and _governing_condition_holds(
                         "conditional on "
                         + " ".join(_clause_words(other)[1:])
@@ -5910,6 +6342,92 @@ def _seal_claim_scan(assembly_text):
                                          "templated", "transported", "traversed", 
                                          "triggered", "unloaded", "upgraded", 
                                          "used", "versioned", "written", 
+                                         "annexed", "impounded", "subpoenaed", 
+                                         "lodged", "bandaged", "carved", 
+                                         "chained", "cleared", "compiled", 
+                                         "compressed", "delivered", "enamelled", 
+                                         "highlighted", "identified", "located", 
+                                         "bandagable", "categorizable", "chainable", 
+                                         "clearable", "collectable", "compilable", 
+                                         "compressible", "deliverable", "enamellable", 
+                                         "flaggable", "graphable", "highlightable", 
+                                         "beaconed", "downlinked", "hocked", 
+                                         "rebated", "teleported", "telexed", 
+                                         "tokenised", "uplinked", "classified", 
+                                         "coded", "deposed", "escrowed", 
+                                         "issued", "keyed", "numbered", 
+                                         "paginated", "qrcoded", "typewritten", 
+                                         "bussed", "clouded", "patched", 
+                                         "servered", "switched", "vanned", 
+                                         "activatable", "addressable", "aggregable", 
+                                         "allocatable", "analyzable", "animatable", 
+                                         "approximable", "arbitrable", "assignable", 
+                                         "automatable", "averagable", "backupable", 
+                                         "batchable", "bindable", "blendable", 
+                                         "bundleable", "calculable", "calibratable", 
+                                         "cancelable", "channelable", "chargeable", 
+                                         "chunkable", "cipherable", "claimable", 
+                                         "classable", "clusterable", "codeable", 
+                                         "colorable", "combinable", "computable", 
+                                         "concatenable", "deduplicatable", "deformable", 
+                                         "delegable", "derivable", "detachable", 
+                                         "dialable", "dictable", "digestable", 
+                                         "digitalizable", "dimensionable", "disableable", 
+                                         "discardable", "discoverable", "displayable", 
+                                         "emulatable", "enableable", "enforceable", 
+                                         "enrichable", "estimable", "evaluable", 
+                                         "exchangeable", "executable", "exercisable", 
+                                         "exhaustible", "explainable", "expressable", 
+                                         "extendable", "fabricable", "facsimilable", 
+                                         "fileable", "findable", "flattenable", 
+                                         "fragmentable", "freezable", "fulfillable", 
+                                         "generatable", "governable", "gradable", 
+                                         "groupable", "hostable", "activated", 
+                                         "allocated", "analyzed", "animated", 
+                                         "approximated", "automated", "averaged", 
+                                         "batched", "blended", "calibrated", 
+                                         "canceled", "chunked", "ciphered", 
+                                         "clustered", "combined", "concatenated", 
+                                         "deduplicated", "deformed", "delegated", 
+                                         "detached", "dialed", "digested", 
+                                         "dimensioned", "disabled", "discarded", 
+                                         "emulated", "enabled", "enforced", 
+                                         "enriched", "exchanged", "executed", 
+                                         "exercised", "extended", "flattened", 
+                                         "fragmented", "fulfilled", "generated", 
+                                         "grouped", "indicated", "induced", 
+                                         "inferred", "inflated", "informed", 
+                                         "ingested", "inherited", "initiated", 
+                                         "injected", "inputted", "installed", 
+                                         "instanced", "integrated", "interfaced", 
+                                         "interleaved", "interrogated", "intersected", 
+                                         "intervened", "introduced", "invalidated", 
+                                         "inverted", "antiqued", "appliqued", 
+                                         "barbed", "beaded", "bevelled", 
+                                         "blotched", "cambered", "chased", 
+                                         "chiselled", "cleated", "clinched", 
+                                         "coiled", "encrusted", "featherstitched", 
+                                         "ferruled", "filigreed", "filleted", 
+                                         "ribbed", "scalloped", "scrolled", 
+                                         "seamed", "spangled", "splinted", 
+                                         "studded", "tasselled", "tessellated", 
+                                         "thatched", "trellised", "tufted", 
+                                         "veined", "wattled", "whorled", 
+                                         "winged", "zoned", "stencilled", 
+                                         "felted", "spindled", "spiralled", 
+                                         "antiquable", "appliquable", "barbable", 
+                                         "beadable", "bevellable", "blotchable", 
+                                         "camberable", "chasable", "chisellable", 
+                                         "cleatable", "clinchable", "coilable", 
+                                         "encrustable", "featherstitchable", "ferrulable", 
+                                         "filigreable", "filletable", "ribbable", 
+                                         "scallopable", "seamable", "spanglable", 
+                                         "splintable", "studdable", "tassellable", 
+                                         "tessellatable", "thatchable", "trellisable", 
+                                         "tuftable", "veinable", "wattlable", 
+                                         "whorlable", "wingable", "zonable", 
+                                         "stencillable", "feltable", "spindlable", 
+                                         "spirallable", 
                                          "wagoned")
                                     )
                                 )
