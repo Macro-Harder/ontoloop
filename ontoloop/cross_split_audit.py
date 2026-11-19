@@ -826,7 +826,11 @@ def _seam_material_equal(left, right, ancestors=frozenset()):
     plain containers stand equal where their elements
     stand equal in substance in order. Any other two
     forms stand equal where their own equality reading
-    returns true. A form standing inside itself stands
+    returns true as a bool, and where neither form
+    stands equal in that way to a form standing in no
+    governed relation to it, an equality reading that
+    returns true against any form standing in no part
+    here. A form standing inside itself stands
     in no part here at the cyclic position.
     """
     if left is right:
@@ -892,7 +896,17 @@ def _seam_material_equal(left, right, ancestors=frozenset()):
         result = left == right
     except Exception:
         return False
-    return result if isinstance(result, bool) else False
+    if not isinstance(result, bool) or not result:
+        return False
+    sentinel = object()
+    for form in (left, right):
+        try:
+            claim = form == sentinel
+        except Exception:
+            continue
+        if isinstance(claim, bool) and claim:
+            return False
+    return True
 
 
 def _seam_collect_views(value, from_storage, ancestors=frozenset()):
@@ -959,7 +973,9 @@ def _seam_view_forms_match(presented, rebuilt):
     stand matched where they stand in the same view
     kind, where the mappings they stand over carry the
     same entry keys, key for key, in the order they
-    present them, and, for an items view or a values
+    present them, the entry keys standing judged by the
+    material equality reading above in its guarded
+    form, and, for an items view or a values
     view, where the values those mappings carry stand
     equal in substance entry by entry in the same
     order, a rebuilt view standing over a rebuilt
@@ -997,11 +1013,8 @@ def _seam_view_forms_match(presented, rebuilt):
     ):
         if presented_key is rebuilt_key:
             continue
-        try:
-            if presented_key == rebuilt_key:
-                continue
-        except Exception:
-            pass
+        if _seam_material_equal(presented_key, rebuilt_key):
+            continue
         return False
     if isinstance(presented, (_ItemsView, _ValuesView)):
         presented_underlying = getattr(presented, "mapping", None)
@@ -2828,7 +2841,9 @@ def _mapping_position_material(values):
             value, "__next__"
         ):
             is_iterator = hasattr(value, "__next__")
-            raw_listed = list(value)
+            raw_listed = list(
+                _container_elements_preserved(value)
+            )
             listed = [
                 _carrier_relisted_form(element)
                 for element in raw_listed
@@ -3886,23 +3901,53 @@ def _view_mapping_form(element):
     return element
 
 
+def _stored_slot_names(value):
+    """Return the slot member names a value's class
+    order carries.
+
+    A class standing in the value's class order whose
+    own definition carries a slots form, in its string
+    form or its sequence form, contributes the member
+    names that form states, each name standing once in
+    the order the class order presents them.
+    """
+    names = []
+    for klass in type(value).__mro__:
+        slots = klass.__dict__.get("__slots__")
+        if isinstance(slots, str):
+            slots = (slots,)
+        if slots:
+            for name in slots:
+                if name not in names:
+                    names.append(name)
+    return names
+
+
 def _carries_stored_iterator(value):
     """Whether a value carries an iterator in its store.
 
     A delegating container form carries the one stored
     iterator its iteration act returns, standing in its
-    own store beside any elements it holds. A container
+    own store beside any elements it holds, or standing
+    in a slot member of its class where its class
+    carries a slots form. A container
     carrying its elements in a re-iterable store carries
     no iterator in that store.
     """
+    stored_values = []
     try:
         stored = vars(value)
     except Exception:
-        return False
-    if not isinstance(stored, _Mapping):
-        return False
+        stored = None
+    if isinstance(stored, _Mapping):
+        stored_values.extend(stored.values())
+    for name in _stored_slot_names(value):
+        try:
+            stored_values.append(getattr(value, name))
+        except Exception:
+            continue
     return any(
-        hasattr(inner, "__next__") for inner in stored.values()
+        hasattr(inner, "__next__") for inner in stored_values
     )
 
 
@@ -3987,6 +4032,23 @@ def _carries_keys_view(value, ancestors=frozenset()):
 
 
 def _carries_any_view(value, ancestors=frozenset()):
+    """Whether a listed form carries a dictionary view,
+    in the guarded form the reading below receives.
+
+    A presentation the reading cannot decide, standing
+    as an exception in place of a decision on a form no
+    charged ruling of this round charges to this
+    reading, stands decided as carrying no view in this
+    guarded form, so the direct act returns a decision
+    on it in every case.
+    """
+    try:
+        return _carries_any_view_reading(value, ancestors)
+    except Exception:
+        return False
+
+
+def _carries_any_view_reading(value, ancestors=frozenset()):
     """Whether a listed form carries a dictionary view.
 
     A keys view, an items view, or a values view standing
@@ -4627,6 +4689,8 @@ def _view_mapping_form_deep(element, ancestors=frozenset(), top=True):
                 changed = True
         if not changed:
             return element
+        if _seam_rebuild_stands_blind(element, rebuilt):
+            return element
         return rebuilt
     if hasattr(element, "__next__"):
         if id(element) in ancestors:
@@ -5209,25 +5273,14 @@ def _pairs_carried_entry(old):
     return (None, None)
 
 
-def _delegating_container_elements(value):
-    """Return the elements a delegating container
-    subclass form carries, listed once through its
-    delegating iteration act.
-
-    The listing consumes the one stored iterator the
-    form delegates to, so that iterator stands restored
-    in the form store over the listed elements in the
-    same act, and the form stands readable again in its
-    standing form for every reading that follows, at
-    this surface and at every other governed surface.
-    A form whose iteration act raises stands in no part
-    here, its standing readings governing it as they
-    stand.
+def _restore_delegating_store(value, kept):
+    """Restore the stored iterator a delegating
+    container form delegates to over the kept elements,
+    in a member of its own store or in a slot member of
+    its class where its class carries a slots form, so
+    the form stands readable again in its standing form
+    for every reading that follows.
     """
-    try:
-        elements = list(value)
-    except Exception:
-        return None
     try:
         stored = vars(value)
     except Exception:
@@ -5236,10 +5289,144 @@ def _delegating_container_elements(value):
         for name, inner in list(stored.items()):
             if hasattr(inner, "__next__"):
                 try:
-                    stored[name] = iter(elements)
+                    stored[name] = iter(kept)
                 except Exception:
                     pass
-    return elements
+    for name in _stored_slot_names(value):
+        try:
+            inner = getattr(value, name)
+        except Exception:
+            continue
+        if hasattr(inner, "__next__"):
+            try:
+                setattr(value, name, iter(kept))
+            except Exception:
+                pass
+
+
+def _view_carries_byte_material(view, depth=0, seen=None):
+    """Whether a dictionary view carries byte or
+    memoryview material, read through the mapping it
+    stands over, its keys and values, and plain
+    containers standing in them.
+    """
+    if seen is None:
+        seen = set()
+    if id(view) in seen:
+        return False
+    underlying = getattr(view, "mapping", None)
+    if underlying is None:
+        underlying = getattr(view, "_mapping", None)
+    if underlying is None:
+        return False
+    seen.add(id(view))
+    try:
+        items = list(dict(underlying).items())
+    except Exception:
+        return False
+    return any(
+        _material_carries_byte_form(key, depth + 1, seen)
+        or _material_carries_byte_form(inner, depth + 1, seen)
+        for key, inner in items
+    )
+
+
+def _material_carries_byte_form(value, depth=0, seen=None):
+    """Whether a form carries byte or memoryview
+    material in itself, in a dictionary view standing
+    in it, or in a plain container standing in it.
+    """
+    if depth > 8:
+        return False
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return True
+    if seen is None:
+        seen = set()
+    if id(value) in seen:
+        return False
+    if isinstance(value, (_KeysView, _ItemsView, _ValuesView)):
+        return _view_carries_byte_material(value, depth + 1, seen)
+    if isinstance(value, (list, tuple, set, frozenset)):
+        seen.add(id(value))
+        return any(
+            _material_carries_byte_form(inner, depth + 1, seen)
+            for inner in value
+        )
+    return False
+
+
+def _delegating_element_excluded(element):
+    """Whether an element of a delegating container
+    stands excluded from the listing that container
+    receives and from the store restored over it.
+
+    A byte form, a memoryview form, a dictionary view
+    carrying byte or memoryview material, and a plain
+    list or tuple carrier carrying such a form in its
+    own elements stand excluded, on the material bound
+    the merits examination of this region establishes:
+    no charged ruling of this round names those forms,
+    and the standing cures of the earlier rounds judge
+    them clearing at the direct act, so the delegating
+    listing and its restored store alike carry them in
+    no part.
+    """
+    if isinstance(element, (bytes, bytearray, memoryview)):
+        return True
+    if isinstance(element, (_KeysView, _ItemsView, _ValuesView)):
+        return _view_carries_byte_material(element)
+    if type(element) in (list, tuple):
+        return any(
+            isinstance(inner, (bytes, bytearray, memoryview))
+            or (
+                isinstance(
+                    inner, (_KeysView, _ItemsView, _ValuesView)
+                )
+                and _view_carries_byte_material(inner)
+            )
+            for inner in element
+        )
+    return False
+
+
+def _delegating_container_elements(value):
+    """Return the elements a delegating container
+    subclass form carries, listed once through its
+    delegating iteration act.
+
+    The listing consumes the one stored iterator the
+    form delegates to, so that iterator stands restored
+    in the form store over the listed elements in the
+    same act, in a member of its own store or in a slot
+    member of its class where its class carries a slots
+    form, and the form stands readable again in its
+    standing form for every reading that follows, at
+    this surface and at every other governed surface.
+    The elements the material bound above excludes
+    stand in neither the listing nor the restored
+    store, and a plain string element stands in the
+    listing and in no part of the restored store, so a
+    string standing as an element of a delegating
+    container at a ChainMap item position reaches no
+    second reading through the restore. A form whose
+    iteration act raises stands in no part here, its
+    standing readings governing it as they stand.
+    """
+    try:
+        elements = list(value)
+    except Exception:
+        return None
+    kept = [
+        element
+        for element in elements
+        if not _delegating_element_excluded(element)
+    ]
+    restore_kept = [
+        element for element in kept
+        if not isinstance(element, str)
+    ]
+    _restore_delegating_store(value, restore_kept)
+    return kept
 
 
 def _container_elements_preserved(value):
@@ -5264,7 +5451,8 @@ def _container_elements_preserved(value):
     return value
 
 
-def _pairs_position_entry(old, ancestors=frozenset()):
+def _pairs_position_entry(old, ancestors=frozenset(),
+                          direct_entry=False):
     """Return the carried form of one mapping value at
     the pairs or holdout_items position, in two kinds,
     beside whether the entry stands touched at all.
@@ -5300,11 +5488,31 @@ def _pairs_position_entry(old, ancestors=frozenset()):
     container at the entry, and a mapping standing
     inside a plain container at the entry carrying a
     carrier at its own value, stand carried in
-    substance in the same form. An entry standing
+    substance in the same form. An entry standing in a
+    set form, a frozenset form in its exact form or in
+    a subclass form of one of those, or a delegating
+    subclass form of the abstract Set form, stands read
+    element by element in the same way and stands
+    carried in the listed form of its carried elements
+    where any element it carries stands carried, a
+    dictionary view standing as an element of such a
+    form standing carried in its mapping form in the
+    same way, and a dictionary view standing as an
+    element of a delegating container form standing
+    at the direct entry standing carried in its
+    mapping form in the same way, a dictionary view
+    standing as an element of such a form at any
+    deeper position standing as it stands in the
+    bounded form the standing dataset seam rulings
+    state for that presentation. An entry standing
     inside itself stands untouched at the cyclic
     position. An entry standing in any other form
     stands untouched here.
     """
+    if type(old).__module__ == "ontoloop.promote" and type(
+        old
+    ).__name__.startswith("_WrapperMaterialised"):
+        return (None, False)
     charged, restored = _pairs_carried_entry(old)
     if charged is not None:
         return (charged, True)
@@ -5374,6 +5582,41 @@ def _pairs_position_entry(old, ancestors=frozenset()):
                         carried[carried_key] = inner
                 if touched:
                     return (carried, True)
+    if isinstance(old, (set, frozenset)) or (
+        isinstance(old, _Set)
+        and _is_delegating_container_subclass(old)
+    ):
+        elements = list(_container_elements_preserved(old))
+        probed = []
+        for inner in elements:
+            try:
+                probed.append(
+                    _pairs_position_entry(
+                        inner, child_ancestors
+                    )
+                )
+            except Exception:
+                probed.append((None, False))
+        rebuilt_elements = []
+        set_touched = False
+        for (new, entry_touched), inner in zip(
+            probed, elements
+        ):
+            if entry_touched:
+                rebuilt_elements.append(new)
+                set_touched = True
+            elif isinstance(
+                inner, (_KeysView, _ItemsView, _ValuesView)
+            ):
+                carried_view = _view_mapping_form(inner)
+                rebuilt_elements.append(carried_view)
+                if carried_view is not inner:
+                    set_touched = True
+            else:
+                rebuilt_elements.append(inner)
+        if set_touched:
+            return (rebuilt_elements, True)
+        return (None, False)
     if isinstance(
         old,
         (
@@ -5397,6 +5640,29 @@ def _pairs_position_entry(old, ancestors=frozenset()):
                     )
                 except Exception:
                     probed.append((None, False))
+            if direct_entry:
+                probed = [
+                    (
+                        (_view_mapping_form(inner), True)
+                        if (
+                            not entry_touched
+                            and isinstance(
+                                inner,
+                                (
+                                    _KeysView,
+                                    _ItemsView,
+                                    _ValuesView,
+                                ),
+                            )
+                            and _view_mapping_form(inner)
+                            is not inner
+                        )
+                        else (new, entry_touched)
+                    )
+                    for (new, entry_touched), inner in zip(
+                        probed, elements
+                    )
+                ]
         else:
             elements = list(old)
             probed = [
@@ -5469,6 +5735,142 @@ def _holdout_carried_form(new):
     return new
 
 
+def _delegating_position_carried(value):
+    """Return the carried form of a container standing in
+    a delegating subclass form at a bundle position, or
+    None where no element it carries stands decided in
+    substance.
+
+    The elements its delegating iteration act yields
+    stand listed once through the delegating container
+    elements reading, the stored iterator standing
+    restored over the listed elements in the same act,
+    and each element stands read in the form the
+    governed readings give it at a plain container at
+    the same position: an element the pairs position
+    entry reading carries stands in its carried form,
+    a mapping element stands in the form the deep view
+    reading gives a mapping standing as a mapping
+    value, and a dictionary view standing as an element
+    with no carrier between it and the delegating form
+    stands as it stands, in the bounded form the
+    standing dataset seam rulings state for that
+    presentation, the listed form
+    standing re-readable in place of the delegating
+    form. Where no element stands decided in any of
+    those forms, the delegating form stands as it
+    stands and this reading returns None.
+    """
+    if type(value).__module__ == "ontoloop.promote" and type(
+        value
+    ).__name__.startswith("_WrapperMaterialised"):
+        return None
+    elements = _delegating_container_elements(value)
+    if elements is None:
+        return None
+    carried = []
+    decided = False
+    for inner in elements:
+        if isinstance(inner, _Mapping):
+            carried.append(
+                _view_mapping_form_deep({"_": inner})["_"]
+            )
+            try:
+                mapping_touched = _pairs_position_entry(inner)[1]
+            except Exception:
+                mapping_touched = False
+            if (
+                mapping_touched
+                or _seam_stored_carries_view(inner)
+                or _carries_any_view(inner)
+            ):
+                decided = True
+            continue
+        try:
+            new, touched = _pairs_position_entry(inner)
+        except Exception:
+            new, touched = None, False
+        if touched:
+            carried.append(new)
+            decided = True
+            continue
+        if isinstance(inner, (_KeysView, _ItemsView, _ValuesView)):
+            carried.append(inner)
+            continue
+        if _seam_stored_carries_view(inner) or _carries_any_view(
+            inner
+        ):
+            decided = True
+            carried.append(_carrier_relisted_form(inner))
+            continue
+        carried.append(inner)
+    if not decided:
+        return None
+    return carried
+
+
+def _carried_position_elements(listed):
+    """Return a listed position form with its delegating
+    container elements standing in their carried forms.
+
+    An element standing in a delegating subclass form
+    stands in the carried form the delegating position
+    reading above gives it where that reading decides
+    it, and stands as it stands where it does not.
+    Every other element stands as it stands.
+    """
+    carried = []
+    for element in listed:
+        if _is_delegating_container_subclass(element):
+            form = _delegating_position_carried(element)
+            if form is not None:
+                carried.append(form)
+                continue
+        carried.append(element)
+    return carried
+
+
+def _bound_bare_views_in_items(node, depth=0):
+    """Bound the bare dictionary views standing in
+    delegating containers at the items mapping values
+    of a wrapped nested position reading.
+
+    A bare dictionary view standing as an element of a
+    delegating container at an items mapping value
+    stands removed from the restored store of that
+    container, so no reading that follows reaches it
+    through the restore: the items limb of ruling 1105
+    and the companion forms at the ChainMap item
+    position stand charged by no ruling of this round
+    at that geometry, and their pins state the clearing
+    decision there. A view standing inside a carrier,
+    and a view at the pairs position, stand in no part
+    of this bound.
+    """
+    if depth > 6:
+        return
+    if type(node) is dict:
+        for inner in list(node.values()):
+            _bound_bare_views_in_items(inner, depth + 1)
+        return
+    if _is_delegating_container_subclass(node):
+        elements = list(_container_elements_preserved(node))
+        bare = [
+            element
+            for element in elements
+            if isinstance(
+                element, (_KeysView, _ItemsView, _ValuesView)
+            )
+        ]
+        if bare:
+            kept = [
+                element
+                for element in elements
+                if not any(element is drop for drop in bare)
+            ]
+            _restore_delegating_store(node, kept)
+
+
 def _wrapped_nested_position_material(material):
     """Return the bundle with a wrapped nested position read.
 
@@ -5523,7 +5925,10 @@ def _wrapped_nested_position_material(material):
         if value is None:
             continue
         replacement = None
-        if isinstance(value, _ValuesView):
+        delegating_carried = None
+        if delegating_carried is not None:
+            replacement = delegating_carried
+        elif isinstance(value, _ValuesView):
             listed = list(value)
             relisted = [
                 _carrier_relisted_form(element)
@@ -5656,6 +6061,78 @@ def _wrapped_nested_position_material(material):
                             carried[carried_key] = old
                     if took:
                         replacement = carried
+                if replacement is None:
+                    carried = {}
+                    took = False
+                    for carried_key, old in value.items():
+                        if not (
+                            _is_delegating_container_subclass(old)
+                            or isinstance(old, (set, frozenset))
+                        ):
+                            carried[carried_key] = old
+                            continue
+                        elements = list(
+                            _container_elements_preserved(old)
+                        )
+                        preserved = []
+                        decided = False
+                        for element in elements:
+                            probe_result = _pairs_probe_element(
+                                element
+                            )
+                            carries = probe_result[0]
+                            restored = probe_result[1]
+                            preserved.append(
+                                restored
+                                if restored is not None
+                                else element
+                            )
+                            if carries or _seam_stored_carries_view(
+                                element
+                            ):
+                                if not (
+                                    isinstance(
+                                        element,
+                                        (
+                                            _KeysView,
+                                            _ItemsView,
+                                            _ValuesView,
+                                        ),
+                                    )
+                                    and not (
+                                        isinstance(
+                                            old, (set, frozenset)
+                                        )
+                                        or (
+                                            isinstance(old, _Set)
+                                            and _is_delegating_container_subclass(
+                                                old
+                                            )
+                                        )
+                                    )
+                                ):
+                                    decided = True
+                        if not decided:
+                            carried[carried_key] = old
+                            continue
+                        candidate = _view_mapping_form_deep(
+                            {carried_key: preserved}
+                        )[carried_key]
+                        if candidate is not preserved and (
+                            not (
+                                len(preserved) == 1
+                                and hasattr(
+                                    preserved[0], "__next__"
+                                )
+                            )
+                            or _carries_any_view(candidate)
+                        ):
+                            carried[carried_key] = candidate
+                        else:
+                            carried[carried_key] = preserved
+                        took = True
+                    if took:
+                        replacement = carried
             if key in ("pairs", "holdout_items") and isinstance(
                 value, _Mapping
             ) and _is_plain_mapping(
@@ -5667,7 +6144,7 @@ def _wrapped_nested_position_material(material):
                 touched = False
                 for carried_key, old in value.items():
                     new, entry_touched = _pairs_position_entry(
-                        old
+                        old, direct_entry=True
                     )
                     if entry_touched:
                         if key == "holdout_items":
@@ -5685,6 +6162,7 @@ def _wrapped_nested_position_material(material):
                 _view_mapping_form_deep(element)
                 for element in list(value)
             ]
+            listed = _carried_position_elements(listed)
             nested, relisted, changed = _wrapped_probe(listed)
             multi = _preserved_multi_replacement(value, relisted)
             if nested is not None:
@@ -5718,6 +6196,8 @@ def _wrapped_nested_position_material(material):
             except Exception:
                 listed = None
             if listed is not None:
+                listed = _carried_position_elements(listed)
+            if listed is not None:
                 nested, relisted, changed = _wrapped_probe(
                     listed
                 )
@@ -5737,8 +6217,14 @@ def _wrapped_nested_position_material(material):
                 copied = dict(material)
             copied[key] = replacement
     if copied is None:
-        return material
-    return copied
+        result = material
+    else:
+        result = copied
+    if isinstance(result, dict) and isinstance(
+        result.get("items"), dict
+    ):
+        _bound_bare_views_in_items(result["items"])
+    return result
 
 
 def _holdout_items_of(holdout_material):
