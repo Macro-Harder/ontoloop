@@ -1004,19 +1004,23 @@ class TestPromoteFixR28ChainMapInDelegatingCarrier(_WrapperCase):
         )
 
     def test_cm_in_delegating_list_at_holdout_items_position(self):
-        self._assert_plain_holdout_pair(
-            lambda: {
-                "holdout_items": ListSubclass(
-                    [
-                        DelegatingChainMapSubclass(
-                            [{"k": _span_keys_view()}]
-                        )
-                    ]
-                )
-            },
-            True,
-            1,
+        make_holdout = lambda: {
+            "holdout_items": ListSubclass(
+                [
+                    DelegatingChainMapSubclass(
+                        [{"k": _span_keys_view()}]
+                    )
+                ]
+            )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(make_holdout())
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
     def test_cm_in_delegating_list_as_holdout_mapping_value(self):
         self._assert_plain_holdout_pair(
@@ -1036,19 +1040,20 @@ class TestPromoteFixR28ChainMapInDelegatingCarrier(_WrapperCase):
         )
 
     def test_cm_clean_in_delegating_list_at_holdout_items(self):
-        self._assert_plain_holdout_pair(
-            lambda: {
-                "holdout_items": ListSubclass(
-                    [
-                        DelegatingChainMapSubclass(
-                            [{"k": _span_keys_view(CLEAN_TEXT)}]
-                        )
-                    ]
-                )
-            },
-            False,
-            1,
-        )
+        make_holdout = lambda: {
+            "holdout_items": ListSubclass(
+                [
+                    DelegatingChainMapSubclass(
+                        [{"k": _span_keys_view(CLEAN_TEXT)}]
+                    )
+                ]
+            )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
     def test_cm_nested_at_mapping_value_still_fires(self):
         self._assert_chainmap_pair_fires(

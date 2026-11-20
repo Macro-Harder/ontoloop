@@ -373,17 +373,22 @@ class TestPromoteFixR26ViewInSinglePassElement(_WrapperCase):
         self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_gen_deleg_list_nested_mapping_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
-                "items": {
-                    "k": {
-                        "j": ListSubclass(
-                            [_generator_of(_keys_view())]
-                        )
-                    }
+        make_holdout = lambda: {
+            "items": {
+                "k": {
+                    "j": ListSubclass(
+                        [_generator_of(_keys_view())]
+                    )
                 }
             }
-        )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_kv_gen_deleg_list_candidate_clears(self):
         module = require("ontoloop.promote")

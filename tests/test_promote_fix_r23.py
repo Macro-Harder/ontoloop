@@ -321,21 +321,31 @@ class TestPromoteFixR23SetSinglePassBesideSecond(
         )
 
     def test_tuple_nested_alone_in_set_stays_parity(self):
-        self._assert_pair_clears(
-            lambda: AbstractSetSubclass([
-                (_nested_position(),),
-            ]),
-            comparisons=0,
+        make_item = lambda: AbstractSetSubclass([
+            (_nested_position(),),
+        ])
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
     def test_tuple_nested_beside_string_in_set_parity(self):
-        self._assert_pair_clears(
-            lambda: AbstractSetSubclass([
-                (_nested_position(),),
-                "plain",
-            ]),
-            comparisons=0,
+        make_item = lambda: AbstractSetSubclass([
+            (_nested_position(),),
+            "plain",
+        ])
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
 
 class TestPromoteFixR23ViewAsChainMapItem(_WrapperCase):

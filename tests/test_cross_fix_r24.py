@@ -320,68 +320,228 @@ class Ruling1028DatasetSeamTests(unittest.TestCase):
     the plain presentations still deciding in parity."""
 
     def test_dataset_delegating_list_subclass_keys_clears(self):
-        check_dataset_clears(
+        check_dataset_fires(
             self,
             lambda: {"items": [
                 DelegatingListSubclass([keys_view()])]})
+        check_fires(
+            self,
+            lambda: {"items": [
+                DelegatingListSubclass([keys_view()])]})
+        promote = harness.require("ontoloop.promote")
+        bundle = {
+            "instruction_items": [
+                {"instruction_text": HOLDOUT_TEXT}],
+            "holdout_items": (lambda: {"items": [
+                DelegatingListSubclass([keys_view()])]})(),
+        }
+        outcome = promote.test_instruction_items_against_holdout(
+            bundle, occasion="promotion")
+        self.assertTrue(outcome["fired"])
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1)
 
     def test_dataset_delegating_list_subclass_tuple_keys_clears(
             self):
-        check_dataset_clears(
+        check_dataset_fires(
             self,
             lambda: {"items": [
                 DelegatingListSubclass([tuple_keys_view()])]})
+        check_fires(
+            self,
+            lambda: {"items": [
+                DelegatingListSubclass([tuple_keys_view()])]})
+        promote = harness.require("ontoloop.promote")
+        bundle = {
+            "instruction_items": [
+                {"instruction_text": HOLDOUT_TEXT}],
+            "holdout_items": (lambda: {"items": [
+                DelegatingListSubclass([tuple_keys_view()])]})(),
+        }
+        outcome = promote.test_instruction_items_against_holdout(
+            bundle, occasion="promotion")
+        self.assertTrue(outcome["fired"])
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1)
 
     def test_dataset_delegating_sequence_subclass_keys_clears(
             self):
-        check_dataset_clears(
+        check_dataset_fires(
             self,
             lambda: {"items": [
                 DelegatingSequenceSubclass([keys_view()])]})
+        check_fires(
+            self,
+            lambda: {"items": [
+                DelegatingSequenceSubclass([keys_view()])]})
+        promote = harness.require("ontoloop.promote")
+        bundle = {
+            "instruction_items": [
+                {"instruction_text": HOLDOUT_TEXT}],
+            "holdout_items": (lambda: {"items": [
+                DelegatingSequenceSubclass([keys_view()])]})(),
+        }
+        outcome = promote.test_instruction_items_against_holdout(
+            bundle, occasion="promotion")
+        self.assertTrue(outcome["fired"])
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1)
 
     def test_dataset_delegating_userlist_subclass_keys_clears(
             self):
-        check_dataset_clears(
+        check_dataset_fires(
             self,
             lambda: {"items": [
                 DelegatingUserListSubclass([keys_view()])]})
+        check_fires(
+            self,
+            lambda: {"items": [
+                DelegatingUserListSubclass([keys_view()])]})
+        promote = harness.require("ontoloop.promote")
+        bundle = {
+            "instruction_items": [
+                {"instruction_text": HOLDOUT_TEXT}],
+            "holdout_items": (lambda: {"items": [
+                DelegatingUserListSubclass([keys_view()])]})(),
+        }
+        outcome = promote.test_instruction_items_against_holdout(
+            bundle, occasion="promotion")
+        self.assertTrue(outcome["fired"])
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1)
 
     def test_dataset_delegating_deque_subclass_keys_clears(self):
-        check_dataset_clears(
+        check_dataset_fires(
             self,
             lambda: {"items": [
                 DelegatingDequeSubclass([keys_view()])]})
+        check_fires(
+            self,
+            lambda: {"items": [
+                DelegatingDequeSubclass([keys_view()])]})
+        promote = harness.require("ontoloop.promote")
+        bundle = {
+            "instruction_items": [
+                {"instruction_text": HOLDOUT_TEXT}],
+            "holdout_items": (lambda: {"items": [
+                DelegatingDequeSubclass([keys_view()])]})(),
+        }
+        outcome = promote.test_instruction_items_against_holdout(
+            bundle, occasion="promotion")
+        self.assertTrue(outcome["fired"])
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1)
 
     def test_dataset_delegating_tuple_subclass_keys_clears(self):
-        check_dataset_clears(
+        check_dataset_fires(
             self,
             lambda: {"items": [
                 DelegatingTupleSubclass([keys_view()])]})
+        check_fires(
+            self,
+            lambda: {"items": [
+                DelegatingTupleSubclass([keys_view()])]})
+        promote = harness.require("ontoloop.promote")
+        bundle = {
+            "instruction_items": [
+                {"instruction_text": HOLDOUT_TEXT}],
+            "holdout_items": (lambda: {"items": [
+                DelegatingTupleSubclass([keys_view()])]})(),
+        }
+        outcome = promote.test_instruction_items_against_holdout(
+            bundle, occasion="promotion")
+        self.assertTrue(outcome["fired"])
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1)
 
     def test_dataset_delegating_list_subclass_values_clears(self):
-        check_dataset_clears(
+        check_dataset_fires(
             self,
             lambda: {"items": [
                 DelegatingListSubclass([tuple_values_view()])]})
+        check_fires(
+            self,
+            lambda: {"items": [
+                DelegatingListSubclass([tuple_values_view()])]})
+        promote = harness.require("ontoloop.promote")
+        bundle = {
+            "instruction_items": [
+                {"instruction_text": HOLDOUT_TEXT}],
+            "holdout_items": (lambda: {"items": [
+                DelegatingListSubclass([tuple_values_view()])]})(),
+        }
+        outcome = promote.test_instruction_items_against_holdout(
+            bundle, occasion="promotion")
+        self.assertTrue(outcome["fired"])
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1)
 
     def test_dataset_delegating_list_subclass_items_clears(self):
-        check_dataset_clears(
+        check_dataset_fires(
             self,
             lambda: {"items": [
                 DelegatingListSubclass([items_view()])]})
+        check_fires(
+            self,
+            lambda: {"items": [
+                DelegatingListSubclass([items_view()])]})
+        promote = harness.require("ontoloop.promote")
+        bundle = {
+            "instruction_items": [
+                {"instruction_text": HOLDOUT_TEXT}],
+            "holdout_items": (lambda: {"items": [
+                DelegatingListSubclass([items_view()])]})(),
+        }
+        outcome = promote.test_instruction_items_against_holdout(
+            bundle, occasion="promotion")
+        self.assertTrue(outcome["fired"])
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1)
 
     def test_dataset_delegating_list_subclass_pairs_clears(self):
-        check_dataset_clears(
+        check_dataset_fires(
             self,
             lambda: {"pairs": [
                 DelegatingListSubclass([keys_view()])]})
+        check_fires(
+            self,
+            lambda: {"pairs": [
+                DelegatingListSubclass([keys_view()])]})
+        promote = harness.require("ontoloop.promote")
+        bundle = {
+            "instruction_items": [
+                {"instruction_text": HOLDOUT_TEXT}],
+            "holdout_items": (lambda: {"pairs": [
+                DelegatingListSubclass([keys_view()])]})(),
+        }
+        outcome = promote.test_instruction_items_against_holdout(
+            bundle, occasion="promotion")
+        self.assertTrue(outcome["fired"])
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1)
 
     def test_dataset_delegating_list_subclass_holdout_clears(
             self):
-        check_dataset_clears(
+        check_dataset_fires(
             self,
             lambda: {"holdout_items": [
                 DelegatingListSubclass([keys_view()])]})
+        check_fires(
+            self,
+            lambda: {"holdout_items": [
+                DelegatingListSubclass([keys_view()])]})
+        promote = harness.require("ontoloop.promote")
+        bundle = {
+            "instruction_items": [
+                {"instruction_text": HOLDOUT_TEXT}],
+            "holdout_items": (lambda: {"holdout_items": [
+                DelegatingListSubclass([keys_view()])]})(),
+        }
+        outcome = promote.test_instruction_items_against_holdout(
+            bundle, occasion="promotion")
+        self.assertTrue(outcome["fired"])
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1)
 
     def test_direct_and_wrapper_clear_delegating_form(self):
         module = harness.require("ontoloop.cross_split_audit")
@@ -393,8 +553,8 @@ class Ruling1028DatasetSeamTests(unittest.TestCase):
                     {"items": [
                         DelegatingListSubclass([keys_view()])]},
                     occasion=occasion)
-                self.assertFalse(result["fired"])
-                self.assertEqual(result["comparisons"], 0)
+                self.assertTrue(result["fired"])
+                self.assertEqual(result["comparisons"], 1)
         bundle = {
             "instruction_items": [
                 {"instruction_text": HOLDOUT_TEXT}],
@@ -403,7 +563,7 @@ class Ruling1028DatasetSeamTests(unittest.TestCase):
         }
         outcome = promote.test_instruction_items_against_holdout(
             bundle, occasion="promotion")
-        self.assertFalse(outcome["fired"])
+        self.assertTrue(outcome["fired"])
 
     def test_dataset_exact_two_containers_still_fires(self):
         check_dataset_fires(

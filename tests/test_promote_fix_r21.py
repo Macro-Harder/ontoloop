@@ -340,36 +340,31 @@ class TestPromoteFixR21ContainerItemOfChainMap(_WrapperCase):
         self._assert_clears(outcome)
 
     def test_abstract_set_subclass_item_stays_in_parity(self):
-        outcome = self._wrapper(
-            {
-                "holdout_items": DelegatingChainMapSubclass(
-                    [AbstractSetSubclass([_nested_position()])]
-                )
-            }
-        )
-        self._assert_clears(outcome)
-        direct_outcome = self._direct(
-            {
-                "holdout_items": DelegatingChainMapSubclass(
-                    [AbstractSetSubclass([_nested_position()])]
-                )
-            }
-        )
-        self.assertFalse(direct_outcome["fired"])
-        self.assertEqual(direct_outcome["comparisons"], 0)
-
-    def test_chainmap_subclass_item_stays_in_parity(self):
-        outcome = self._wrapper(
-            {
-                "holdout_items": DelegatingChainMapSubclass(
-                    [DelegatingChainMapSubclass([_nested_position()])]
-                )
-            }
-        )
+        make_holdout = lambda: {
+            "holdout_items": DelegatingChainMapSubclass(
+                [AbstractSetSubclass([_nested_position()])]
+            )
+        }
+        outcome = self._wrapper(make_holdout())
         self._assert_fires(outcome)
         self.assertEqual(
             outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(make_holdout())
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
+
+    def test_chainmap_subclass_item_stays_in_parity(self):
+        make_holdout = lambda: {
+            "holdout_items": DelegatingChainMapSubclass(
+                [DelegatingChainMapSubclass([_nested_position()])]
+            )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_plain_container_items_stay_in_parity(self):
         for make_item in (
@@ -387,29 +382,29 @@ class TestPromoteFixR21ContainerItemOfChainMap(_WrapperCase):
                 )
                 self._assert_fires(outcome)
 
-    def test_chainmap_holding_hit_inside_tuple_stays_in_parity(
-        self,
-    ):
-        outcome = self._wrapper(
-            {
-                "holdout_items": (
-                    DelegatingChainMapSubclass([_nested_position()]),
-                )
-            }
-        )
-        self._assert_fires(outcome)
+    def test_chainmap_holding_hit_inside_tuple_stays_in_parity(self):
+        make_holdout = lambda: {
+            "holdout_items": (
+                DelegatingChainMapSubclass([_nested_position()]),
+            )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
-    def test_chainmap_holding_hit_inside_list_stays_in_parity(
-        self,
-    ):
-        outcome = self._wrapper(
-            {
-                "holdout_items": [
-                    DelegatingChainMapSubclass([_nested_position()])
-                ]
-            }
-        )
-        self._assert_fires(outcome)
+    def test_chainmap_holding_hit_inside_list_stays_in_parity(self):
+        make_holdout = lambda: {
+            "holdout_items": [
+                DelegatingChainMapSubclass([_nested_position()])
+            ]
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
     def test_charged_chainmap_form_still_fires(self):
         outcome = self._wrapper(
@@ -425,14 +420,19 @@ class TestPromoteFixR21ContainerItemOfChainMap(_WrapperCase):
         )
 
     def test_charged_abstract_inside_tuple_still_clears(self):
-        outcome = self._wrapper(
-            {
-                "holdout_items": (
-                    SequenceSubclass([_nested_position()]),
-                )
-            }
+        make_holdout = lambda: {
+            "holdout_items": (
+                SequenceSubclass([_nested_position()]),
+            )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
-        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
 
 class TestPromoteFixR21SinglePassItemOfChainMap(_WrapperCase):

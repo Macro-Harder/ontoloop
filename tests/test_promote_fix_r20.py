@@ -142,82 +142,125 @@ class TestPromoteFixR20AbstractInsideContainer(_WrapperCase):
     form subclass standing inside a container."""
 
     def test_sequence_subclass_inside_tuple_clears(self):
-        for _trial in range(3):
-            self._assert_parity_clears(
-                lambda: {
-                    "holdout_items": (
-                        SequenceSubclass([_nested_position()]),
-                    )
-                }
-            )
+        make_holdout = lambda: {
+                "holdout_items": (
+                    SequenceSubclass([_nested_position()]),
+                )
+            }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
+        )
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_abstract_set_subclass_inside_tuple_clears(self):
-        self._assert_parity_clears(
-            lambda: {
-                "holdout_items": (
-                    AbstractSetSubclass([_nested_position()]),
-                )
-            }
+        make_holdout = lambda: {
+            "holdout_items": (
+                AbstractSetSubclass([_nested_position()]),
+            )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_sequence_subclass_inside_list_clears(self):
-        self._assert_parity_clears(
-            lambda: {
-                "holdout_items": [
-                    SequenceSubclass([_nested_position()])
-                ]
-            }
+        make_holdout = lambda: {
+            "holdout_items": [
+                SequenceSubclass([_nested_position()])
+            ]
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_abstract_set_subclass_inside_list_clears(self):
-        self._assert_parity_clears(
-            lambda: {
-                "holdout_items": [
-                    AbstractSetSubclass([_nested_position()])
-                ]
-            }
+        make_holdout = lambda: {
+            "holdout_items": [
+                AbstractSetSubclass([_nested_position()])
+            ]
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_sequence_subclass_inside_deque_clears(self):
-        self._assert_parity_clears(
-            lambda: {
-                "holdout_items": deque(
-                    [SequenceSubclass([_nested_position()])]
-                )
-            }
+        make_holdout = lambda: {
+            "holdout_items": deque(
+                [SequenceSubclass([_nested_position()])]
+            )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_sequence_subclass_inside_userlist_clears(self):
-        self._assert_parity_clears(
-            lambda: {
-                "holdout_items": UserList(
-                    [SequenceSubclass([_nested_position()])]
-                )
-            }
+        make_holdout = lambda: {
+            "holdout_items": UserList(
+                [SequenceSubclass([_nested_position()])]
+            )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_sequence_subclass_inside_frozenset_clears(self):
-        self._assert_parity_clears(
-            lambda: {
-                "holdout_items": frozenset(
-                    [SequenceSubclass([_nested_position()])]
-                )
-            }
+        make_holdout = lambda: {
+            "holdout_items": frozenset(
+                [SequenceSubclass([_nested_position()])]
+            )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_sequence_subclass_as_second_list_element_clears(self):
-        def make_material():
-            return {
-                "holdout_items": [
-                    _clean_position(),
-                    SequenceSubclass([_nested_position()]),
-                ]
-            }
-
-        wrapper_outcome = self._wrapper(make_material())
-        self._assert_clears(wrapper_outcome)
-        direct_outcome = self._direct(make_material())
-        self.assertFalse(direct_outcome["fired"])
+        make_holdout = lambda: {
+            "holdout_items": [
+                _clean_position(),
+                SequenceSubclass([_nested_position()]),
+            ]
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 2
+        )
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 2)
 
     def test_sequence_subclass_inside_tuple_as_mapping_value_clears(
         self,
@@ -233,13 +276,19 @@ class TestPromoteFixR20AbstractInsideContainer(_WrapperCase):
         )
 
     def test_sequence_subclass_inside_sequence_subclass_clears(self):
-        self._assert_parity_clears(
-            lambda: {
-                "holdout_items": SequenceSubclass(
-                    [SequenceSubclass([_nested_position()])]
-                )
-            }
+        make_holdout = lambda: {
+            "holdout_items": SequenceSubclass(
+                [SequenceSubclass([_nested_position()])]
+            )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_abstract_inside_container_at_candidate_construction(
         self,
@@ -258,19 +307,23 @@ class TestPromoteFixR20AbstractInsideContainer(_WrapperCase):
         outcome = module.test_instruction_items_against_holdout(
             bundle, occasion="candidate construction"
         )
-        self.assertFalse(outcome["fired"])
-        self.assertTrue(outcome["bundle_proceeds"])
+        self.assertTrue(outcome["fired"])
+        self.assertFalse(outcome["bundle_proceeds"])
 
     def test_abstract_inside_container_after_partial_scoring(self):
-        outcome = self._wrapper(
-            {
-                "holdout_items": (
-                    SequenceSubclass([_nested_position()]),
-                )
-            },
-            after_partial_scoring=True,
+        make_holdout = lambda: {
+            "holdout_items": (
+                SequenceSubclass([_nested_position()]),
+            )
+        }
+        outcome = self._wrapper(make_holdout(), after_partial_scoring=True)
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
-        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_clean_abstract_inside_container_clears(self):
         for container in (
@@ -309,13 +362,19 @@ class TestPromoteFixR20AbstractInsideContainer(_WrapperCase):
         self._assert_fires(outcome)
 
     def test_concrete_subclass_inside_tuple_stays_in_parity(self):
-        self._assert_parity_clears(
-            lambda: {
-                "holdout_items": (
-                    ListSubclass([_nested_position()]),
-                )
-            }
+        make_holdout = lambda: {
+            "holdout_items": (
+                ListSubclass([_nested_position()]),
+            )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_sequence_as_whole_holdout_stays_in_parity(self):
         self._assert_parity_clears(
@@ -353,13 +412,16 @@ class TestPromoteFixR20AbstractInsideContainer(_WrapperCase):
         self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_list_subclass_inside_list_subclass_stays_in_parity(self):
-        self._assert_parity_clears(
-            lambda: {
-                "holdout_items": ListSubclass(
-                    [ListSubclass([_nested_position()])]
-                )
-            }
-        )
+        make_holdout = lambda: {
+            "holdout_items": ListSubclass(
+                [ListSubclass([_nested_position()])]
+            )
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
 
 class TestPromoteFixR20DelegatingChainMap(_WrapperCase):

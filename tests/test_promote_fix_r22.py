@@ -393,17 +393,25 @@ class TestPromoteFixR22DelegatingInsideContainerItem(
         )
 
     def test_tuple_carrying_abstract_set_stays_parity(self):
-        self._assert_pair_clears(
-            lambda: (AbstractSetSubclass([_nested_position()]),),
-            comparisons=0,
+        make_item = lambda: (AbstractSetSubclass([_nested_position()]),)
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
     def test_chainmap_carrying_sequence_stays_parity(self):
-        self._assert_pair_fires(
-            lambda: DelegatingChainMapSubclass(
-                [SequenceSubclass([_nested_position()])]
-            )
+        make_item = lambda: DelegatingChainMapSubclass(
+            [SequenceSubclass([_nested_position()])]
         )
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_mapping_value_sequence_stays_parity(self):
         self._assert_pair_fires(

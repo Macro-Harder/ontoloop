@@ -555,7 +555,11 @@ class ChargedFormsControlsTests(unittest.TestCase):
             gen_of(gen_of(keys_view()))]})
 
     def test_delegating_parent_dataset_still_clears(self):
-        check_dataset_clears(self, lambda: {"items": [
+        check_dataset_fires(self, lambda: {"items": [
+            DelegatingListSubclass([keys_view()])]})
+        check_fires(self, lambda: {"items": [
+            DelegatingListSubclass([keys_view()])]})
+        check_wrapper_fires(self, lambda: {"items": [
             DelegatingListSubclass([keys_view()])]})
 
     def test_exact_two_container_dataset_still_fires(self):

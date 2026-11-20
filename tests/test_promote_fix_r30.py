@@ -194,40 +194,58 @@ class TestPromoteFixR30TextCarryingElement(_WrapperCase):
         )
 
     def test_nested_in_delegating_tuple_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass(
                 [TupleSubclass([_nested_position()])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_fires(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_nested_in_delegating_deque_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass(
                 [DequeSubclass([_nested_position()])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_fires(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_nested_in_delegating_userlist_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass(
                 [UserListSubclass([_nested_position()])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_fires(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_nested_in_delegating_set_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass(
                 [SetSubclass([_nested_position()])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_fires(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_plain_list_nested_in_delegating_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass(
                 [ListSubclass([[_nested_position()]])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_fires(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_mapping_text_value_in_delegating_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [{"x": HOLDOUT_TEXT}])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_fires(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_plain_tuple_text_in_delegating_clears(self):
         self._assert_pair_clears(
@@ -236,10 +254,13 @@ class TestPromoteFixR30TextCarryingElement(_WrapperCase):
         )
 
     def test_chainmap_beside_text_in_carrier_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [_chainmap_nested(), HOLDOUT_TEXT])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_text_carrier_in_plain_list_value_clears(self):
         self._assert_pair_clears(
@@ -398,16 +419,22 @@ class TestPromoteFixR30ChainmapInSinglePass(_WrapperCase):
         )
 
     def test_cm_in_delegating_list_in_gen_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([_generator_of(
+        make_holdout = lambda: {"k": ListSubclass([_generator_of(
                 ListSubclass([_chainmap_nested()]))])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_in_delegating_list_in_spi_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([SinglePassIterable(
+        make_holdout = lambda: {"k": ListSubclass([SinglePassIterable(
                 [ListSubclass([_chainmap_nested()])])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
 
 class TestPromoteFixR30PayloadInSinglePass(_WrapperCase):

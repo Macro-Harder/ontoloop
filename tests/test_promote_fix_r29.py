@@ -330,10 +330,16 @@ class TestPromoteFixR29ValuesViewPlainContainerNested(
         )
 
     def test_vv_delegating_nested_in_delegating_clears(self):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": ListSubclass([_values_view_of(
-                ListSubclass([_nested_position()]))])}
+        make_item = lambda: {"k": ListSubclass([_values_view_of(
+            ListSubclass([_nested_position()]))])}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
 
 class TestPromoteFixR29ItemsViewPlainContainerNested(
@@ -654,123 +660,145 @@ class TestPromoteFixR29ChainMapInComposedCarrier(
     the presentation, on hit material and on clean
     material alike."""
 
-    def test_cm_in_delegating_list_in_delegating_list_clears(
-        self,
-    ):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])])])}
-        )
+    def test_cm_in_delegating_list_in_delegating_list_clears(self):
+        make_item = lambda: {"k": ListSubclass([ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])])])}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
-    def test_cm_in_delegating_tuple_in_delegating_list_clears(
-        self,
-    ):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": ListSubclass([TupleSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])])])}
-        )
+    def test_cm_in_delegating_tuple_in_delegating_list_clears(self):
+        make_item = lambda: {"k": ListSubclass([TupleSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])])])}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
-    def test_cm_in_delegating_set_in_delegating_list_clears(
-        self,
-    ):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": ListSubclass([SetSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])])])}
-        )
+    def test_cm_in_delegating_set_in_delegating_list_clears(self):
+        make_item = lambda: {"k": ListSubclass([SetSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])])])}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
-    def test_cm_in_delegating_deque_in_delegating_list_clears(
-        self,
-    ):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": ListSubclass([DequeSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])])])}
-        )
+    def test_cm_in_delegating_deque_in_delegating_list_clears(self):
+        make_item = lambda: {"k": ListSubclass([DequeSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])])])}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
-    def test_cm_in_delegating_userlist_in_delegating_clears(
-        self,
-    ):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": ListSubclass([UserListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])])])}
-        )
+    def test_cm_in_delegating_userlist_in_delegating_clears(self):
+        make_item = lambda: {"k": ListSubclass([UserListSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])])])}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
-    def test_cm_in_delegating_list_in_delegating_tuple_clears(
-        self,
-    ):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": TupleSubclass([ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])])])}
-        )
+    def test_cm_in_delegating_list_in_delegating_tuple_clears(self):
+        make_item = lambda: {"k": TupleSubclass([ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])])])}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
-    def test_cm_in_delegating_list_in_delegating_set_clears(
-        self,
-    ):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": SetSubclass([ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])])])}
-        )
+    def test_cm_in_delegating_list_in_delegating_set_clears(self):
+        make_item = lambda: {"k": SetSubclass([ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])])])}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
-    def test_cm_in_delegating_list_in_delegating_deque_clears(
-        self,
-    ):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": DequeSubclass([ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])])])}
-        )
+    def test_cm_in_delegating_list_in_delegating_deque_clears(self):
+        make_item = lambda: {"k": DequeSubclass([ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])])])}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
-    def test_cm_in_delegating_list_in_delegating_user_clears(
-        self,
-    ):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": UserListSubclass([ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])])])}
-        )
+    def test_cm_in_delegating_list_in_delegating_user_clears(self):
+        make_item = lambda: {"k": UserListSubclass([ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])])])}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_in_delegating_list_in_plain_list_clears(self):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": [ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])])]}
-        )
+        make_item = lambda: {"k": [ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])])]}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_in_delegating_list_in_plain_tuple_clears(self):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": (ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])]),)}
-        )
+        make_item = lambda: {"k": (ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])]),)}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_in_delegating_list_in_generator_clears(self):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": _generator_of(ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])]))}
-        )
+        make_item = lambda: {"k": _generator_of(ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])]))}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
-    def test_cm_in_delegating_in_generator_in_delegating(
-        self,
-    ):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": ListSubclass([_generator_of(
-                ListSubclass([DelegatingChainMapSubclass(
-                    [_nested_position()])]))])}
-        )
+    def test_cm_in_delegating_in_generator_in_delegating(self):
+        make_item = lambda: {"k": ListSubclass([_generator_of(
+            ListSubclass([DelegatingChainMapSubclass(
+                [_nested_position()])]))])}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_in_delegating_in_delegating_one_deeper(self):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": {"j": ListSubclass([ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_nested_position()])])])}}
-        )
+        make_item = lambda: {"k": {"j": ListSubclass([ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_nested_position()])])])}}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_in_delegating_in_delegating_candidate(self):
         self._assert_candidate_clears(
@@ -786,32 +814,44 @@ class TestPromoteFixR29ChainMapInComposedCarrier(
         )
 
     def test_cm_clean_in_delegating_in_delegating_clears(self):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_clean_position()])])])}
-        )
+        make_item = lambda: {"k": ListSubclass([ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_clean_position()])])])}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_clean_in_delegating_in_plain_list_clears(self):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": [ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_clean_position()])])]}
-        )
+        make_item = lambda: {"k": [ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_clean_position()])])]}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_span_clean_in_plain_tuple_clears(self):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": (ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_clean_position()])]),)}
-        )
+        make_item = lambda: {"k": (ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_clean_position()])]),)}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_span_clean_in_generator_clears(self):
-        self._assert_chainmap_pair_clears(
-            lambda: {"k": _generator_of(ListSubclass(
-                [DelegatingChainMapSubclass(
-                    [_clean_position()])]))}
-        )
+        make_item = lambda: {"k": _generator_of(ListSubclass(
+            [DelegatingChainMapSubclass(
+                [_clean_position()])]))}
+        outcome = self._wrapper(_chainmap_item(make_item()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_item()))
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_span_in_plain_list_candidate_clears(self):
         self._assert_candidate_clears(

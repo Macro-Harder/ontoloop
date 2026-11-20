@@ -325,12 +325,14 @@ class TestPromoteFixR33ChainMapValuesViewFurtherOut(_WrapperCase):
         )
 
     def test_cm_gen_first_values_view_silent_still_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": _values_view_of(_generator_of(
+        make_holdout = lambda: {"k": _values_view_of(_generator_of(
                 ListSubclass([ListSubclass(
-                    [_chainmap_nested()])])))},
-            comparisons=0,
-        )
+                    [_chainmap_nested()])])))}
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
 
 class TestPromoteFixR33ChainMapItemsViewKeySide(_WrapperCase):
@@ -419,24 +421,37 @@ class TestPromoteFixR33SelfReferentialInMappingInCarrier(_WrapperCase):
     clean material alike."""
 
     def test_self_list_in_mapping_in_carrier_clears(self):
-        self._assert_pair_clears(
-            lambda: _carrier({"x": _self_list()})
-        )
+        make_holdout = lambda: _carrier({"x": _self_list()})
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_fires(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
     def test_self_list_clean_in_mapping_in_carrier_clears(self):
-        self._assert_pair_clears(
-            lambda: _carrier({"x": _self_list_clean()})
-        )
+        make_holdout = lambda: _carrier({"x": _self_list_clean()})
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_fires(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
     def test_self_list_via_tuple_in_mapping_in_carrier_clears(self):
-        self._assert_pair_clears(
-            lambda: _carrier({"x": _self_list_via_tuple()})
-        )
+        make_holdout = lambda: _carrier({"x": _self_list_via_tuple()})
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_fires(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
     def test_self_list_in_mapping_candidate_clears(self):
-        self._assert_candidate_clears(
-            lambda: _carrier({"x": _self_list()})
-        )
+        make_holdout = lambda: _carrier({"x": _self_list()})
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_fires(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
+        self._assert_candidate_fires(make_holdout)
 
     def test_self_list_in_carrier_still_fires(self):
         outcome = self._wrapper(_chainmap_item(
@@ -461,9 +476,12 @@ class TestPromoteFixR33SelfReferentialInMappingInCarrier(_WrapperCase):
         self.assertEqual(direct_outcome["comparisons"], 0)
 
     def test_self_mapping_in_mapping_in_carrier_still_clears(self):
-        self._assert_pair_clears(
-            lambda: _carrier({"x": _self_mapping()})
-        )
+        make_holdout = lambda: _carrier({"x": _self_mapping()})
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_fires(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
 
 if __name__ == "__main__":

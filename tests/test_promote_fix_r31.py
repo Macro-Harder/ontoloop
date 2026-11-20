@@ -468,81 +468,117 @@ class TestPromoteFixR31SinglePassInMappingInCarrier(_WrapperCase):
     wrapper where the direct act clears."""
 
     def test_cm_in_gen_at_mapping_value_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [{"x": _generator_of(_chainmap_nested())}])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_in_spi_at_mapping_value_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [{"x": SinglePassIterable(
                     [_chainmap_nested()])}])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_nested_in_gen_at_mapping_value_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [{"x": _generator_of(_nested_position())}])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_bytes_in_gen_at_mapping_value_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [{"x": _generator_of(_bytes())}])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_bytes_in_spi_at_mapping_value_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [{"x": SinglePassIterable([_bytes()])}])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_values_view_in_gen_at_mapping_value_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [{"x": _generator_of(
                     _values_view_of(_nested_position()))}])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_keys_view_wrapped_in_gen_at_value_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [{"x": _generator_of(
                     _keys_view_of(_wrapped_key()))}])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_items_view_wrapped_in_gen_at_value_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [{"x": _generator_of(_items_view_of_pair(
                     _wrapped_key(), CLEAN_TEXT))}])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 2)
 
     def test_mapping_in_tuple_in_carrier_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [({"x": _generator_of(_chainmap_nested())},)])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_mapping_in_plain_list_in_carrier_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [[{"x": _generator_of(_chainmap_nested())}]])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_mapping_carrier_in_sequence_value_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": SequenceSubclass([ListSubclass(
+        make_holdout = lambda: {"k": SequenceSubclass([ListSubclass(
                 [ListSubclass(
                     [{"x": _generator_of(_chainmap_nested())}])])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_mapping_one_mapping_deeper_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": {"j": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": {"j": ListSubclass([ListSubclass(
                 [{"x": _generator_of(_chainmap_nested())}])])}}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_gen_at_value_candidate_clears(self):
         self._assert_candidate_clears(
@@ -551,16 +587,22 @@ class TestPromoteFixR31SinglePassInMappingInCarrier(_WrapperCase):
         )
 
     def test_cm_at_mapping_value_no_pass_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [{"x": _chainmap_nested()}])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_clean_in_gen_at_mapping_value_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [{"x": _generator_of(_chainmap_clean())}])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertFalse(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_int_in_gen_at_mapping_value_clears(self):
         self._assert_pair_clears(
@@ -569,10 +611,13 @@ class TestPromoteFixR31SinglePassInMappingInCarrier(_WrapperCase):
         )
 
     def test_text_in_gen_at_mapping_value_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [{"x": _generator_of(HOLDOUT_TEXT)}])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
 
 class TestPromoteFixR31CarrierChainInView(_WrapperCase):
@@ -615,10 +660,13 @@ class TestPromoteFixR31CarrierChainInView(_WrapperCase):
         )
 
     def test_cm_chain_no_pass_in_values_view_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": _values_view_of(ListSubclass(
+        make_holdout = lambda: {"k": _values_view_of(ListSubclass(
                 [ListSubclass([_chainmap_nested()])]))}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_cm_clean_gen_chain_in_values_view_clears(self):
         self._assert_pair_clears(
@@ -654,10 +702,13 @@ class TestPromoteFixR31SelfReferentialCarrierElement(_WrapperCase):
         self.assertEqual(direct_outcome["comparisons"], 0)
 
     def test_self_mapping_in_delegating_list_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([ListSubclass(
+        make_holdout = lambda: {"k": ListSubclass([ListSubclass(
                 [_self_mapping()])])}
-        )
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_fires(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
     def test_self_list_via_tuple_in_delegating_decides(self):
         outcome = self._wrapper(_chainmap_item(
@@ -702,9 +753,12 @@ class TestPromoteFixR31SelfReferentialCarrierElement(_WrapperCase):
         self.assertFalse(outcome["bundle_proceeds"])
 
     def test_delegating_self_in_delegating_clears(self):
-        self._assert_pair_clears(
-            lambda: {"k": ListSubclass([_self_delegating()])}
-        )
+        make_holdout = lambda: {"k": ListSubclass([_self_delegating()])}
+        outcome = self._wrapper(_chainmap_item(make_holdout()))
+        self._assert_clears(outcome)
+        direct_outcome = self._direct(_chainmap_item(make_holdout()))
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 0)
 
     def test_int_in_delegating_list_clears(self):
         self._assert_pair_clears(

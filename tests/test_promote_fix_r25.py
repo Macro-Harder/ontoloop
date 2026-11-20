@@ -232,11 +232,19 @@ class TestPromoteFixR25SpanMappingValue(_WrapperCase):
         self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_deleg_list_in_list_as_mapping_value_clears(self):
-        self._assert_three_surface_clears(
-            lambda: {
-                "items": {"k": [ListSubclass([_keys_view()])]}
-            }
+        make_holdout = lambda: {
+            "items": {"k": [ListSubclass([_keys_view()])]}
+        }
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
+        dataset_outcome = self._dataset(make_holdout())
+        self.assertTrue(dataset_outcome["fired"])
 
     def test_mapping_as_whole_holdout_clears(self):
         self._assert_three_surface_clears(

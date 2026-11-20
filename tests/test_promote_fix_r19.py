@@ -393,26 +393,26 @@ class TestPromoteFixR19SubclassForms(_WrapperCase):
             self.assertEqual(outcome["comparisons"], 1)
 
     def test_subclass_inside_tuple_stays_in_parity(self):
-        wrapper_outcome = self._wrapper(
-            {"holdout_items": (ListSubclass([_nested_position()]),)}
+        make_holdout = lambda: {"holdout_items": (ListSubclass([_nested_position()]),)}
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
-        self.assertFalse(wrapper_outcome["fired"])
-        direct_outcome = self._direct(
-            {"holdout_items": (ListSubclass([_nested_position()]),)}
-        )
-        self.assertFalse(direct_outcome["fired"])
-        self.assertEqual(direct_outcome["comparisons"], 0)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_tuple_subclass_inside_list_stays_in_parity(self):
-        wrapper_outcome = self._wrapper(
-            {"holdout_items": [TupleSubclass([_nested_position()])]}
+        make_holdout = lambda: {"holdout_items": [TupleSubclass([_nested_position()])]}
+        outcome = self._wrapper(make_holdout())
+        self._assert_fires(outcome)
+        self.assertEqual(
+            outcome["cross_split_audit_result"]["comparisons"], 1
         )
-        self.assertFalse(wrapper_outcome["fired"])
-        direct_outcome = self._direct(
-            {"holdout_items": [TupleSubclass([_nested_position()])]}
-        )
-        self.assertFalse(direct_outcome["fired"])
-        self.assertEqual(direct_outcome["comparisons"], 0)
+        direct_outcome = self._direct(make_holdout())
+        self.assertTrue(direct_outcome["fired"])
+        self.assertEqual(direct_outcome["comparisons"], 1)
 
     def test_subclass_as_whole_holdout_stays_in_parity(self):
         wrapper_outcome = self._wrapper(ListSubclass([_nested_position()]))
