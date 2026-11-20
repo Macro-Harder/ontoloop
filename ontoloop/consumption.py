@@ -1702,6 +1702,8 @@ def _bundle_copy(bundle):
             vars_subscript_attr_bases = set()
             dict_subscript_attr_bases = set()
             chains3 = set()
+            chains4 = set()
+            vars_subscript_nested_bases = set()
             attr_dynamic = False
             vars_with_arg = False
 
@@ -2019,6 +2021,68 @@ def _bundle_copy(bundle):
                             seq_a.argval
                         )
                     if (
+                        seq_ins.argval == "vars"
+                        and seq_a is not None
+                        and seq_a.opname in (
+                            "LOAD_GLOBAL",
+                            "LOAD_NAME",
+                        )
+                        and isinstance(seq_a.argval, str)
+                        and seq_b is not None
+                        and seq_b.opname == "CALL"
+                        and seq_c is not None
+                        and seq_c.opname in (
+                            "LOAD_FAST",
+                            "LOAD_FAST_BORROW",
+                            "LOAD_FAST_CHECK",
+                            "LOAD_DEREF",
+                            "LOAD_GLOBAL",
+                            "LOAD_NAME",
+                            "LOAD_CLASSDEREF",
+                        )
+                        and seq_d is not None
+                        and seq_d.opname in (
+                            "LOAD_CONST",
+                            "LOAD_SMALL_INT",
+                        )
+                        and seq_e is not None
+                        and seq_e.opname in (
+                            "BINARY_OP",
+                            "BINARY_SUBSCR",
+                        )
+                    ):
+                        vars_subscript_nested_bases.add(
+                            seq_a.argval
+                        )
+                    if (
+                        seq_ins.argval == "vars"
+                        and seq_a is not None
+                        and seq_a.opname in (
+                            "LOAD_GLOBAL",
+                            "LOAD_NAME",
+                        )
+                        and isinstance(seq_a.argval, str)
+                        and seq_b is not None
+                        and seq_b.opname == "CALL"
+                        and seq_c is not None
+                        and seq_c.opname in (
+                            "LOAD_FAST",
+                            "LOAD_FAST_BORROW",
+                            "LOAD_FAST_CHECK",
+                            "LOAD_DEREF",
+                        )
+                        and seq_d is not None
+                        and seq_d.opname == "LOAD_ATTR"
+                        and seq_e is not None
+                        and seq_e.opname in (
+                            "BINARY_OP",
+                            "BINARY_SUBSCR",
+                        )
+                    ):
+                        vars_subscript_attr_bases.add(
+                            seq_a.argval
+                        )
+                    if (
                         seq_a is not None
                         and seq_a.opname == "LOAD_ATTR"
                         and seq_a.argval == "__dict__"
@@ -2026,6 +2090,28 @@ def _bundle_copy(bundle):
                         and seq_b.opname in (
                             "LOAD_GLOBAL",
                             "LOAD_NAME",
+                        )
+                        and seq_c is not None
+                        and seq_c.opname == "LOAD_ATTR"
+                        and seq_d is not None
+                        and seq_d.opname in (
+                            "BINARY_OP",
+                            "BINARY_SUBSCR",
+                        )
+                    ):
+                        dict_subscript_attr_bases.add(
+                            seq_ins.argval
+                        )
+                    if (
+                        seq_a is not None
+                        and seq_a.opname == "LOAD_ATTR"
+                        and seq_a.argval == "__dict__"
+                        and seq_b is not None
+                        and seq_b.opname in (
+                            "LOAD_FAST",
+                            "LOAD_FAST_BORROW",
+                            "LOAD_FAST_CHECK",
+                            "LOAD_DEREF",
                         )
                         and seq_c is not None
                         and seq_c.opname == "LOAD_ATTR"
@@ -2561,6 +2647,16 @@ def _bundle_copy(bundle):
                                         chain_attrs[2],
                                     )
                                 )
+                            if len(chain_attrs) == 4:
+                                chains4.add(
+                                    (
+                                        chain_base,
+                                        chain_attrs[0],
+                                        chain_attrs[1],
+                                        chain_attrs[2],
+                                        chain_attrs[3],
+                                    )
+                                )
                         if last_global is not None:
                             pairs.add(
                                 (last_global, instruction.argval)
@@ -2605,6 +2701,7 @@ def _bundle_copy(bundle):
                 vars_get_attr_bases, get_attr_bases,
                 vars_subscript_attr_bases,
                 dict_subscript_attr_bases, chains3,
+                chains4, vars_subscript_nested_bases,
             )
 
         def _built_from_consts(key, consts):
@@ -2808,6 +2905,7 @@ def _bundle_copy(bundle):
                 vars_get_attr_bases, get_attr_bases,
                 vars_subscript_attr_bases,
                 dict_subscript_attr_bases, chains3,
+                chains4, vars_subscript_nested_bases,
             ) = _code_facts(code)
             default_strs = []
             for default_value in (
@@ -3338,6 +3436,160 @@ def _bundle_copy(bundle):
                                         (list, tuple, set, frozenset),
                                     ):
                                         pending_held.extend(held)
+                        for fourth_name in _code_facts(
+                            third_code
+                        )[0]:
+                            fourth_fn = current_map.get(
+                                fourth_name
+                            )
+                            if not isinstance(
+                                fourth_fn,
+                                _types_module.FunctionType,
+                            ):
+                                continue
+                            if (
+                                getattr(
+                                    fourth_fn,
+                                    "__globals__",
+                                    None,
+                                )
+                                is not current_map
+                            ):
+                                continue
+                            fourth_code = getattr(
+                                fourth_fn, "__code__", None
+                            )
+                            if fourth_code is None:
+                                continue
+                            returned_strs |= set(
+                                _code_facts(fourth_code)[1]
+                            )
+                            for fourth_default in (
+                                getattr(
+                                    fourth_fn, "__defaults__", None
+                                )
+                                or ()
+                            ):
+                                if isinstance(fourth_default, str):
+                                    returned_strs.add(fourth_default)
+                                elif isinstance(
+                                    fourth_default, (bytes, bytearray)
+                                ):
+                                    try:
+                                        returned_strs.add(
+                                            fourth_default.decode(
+                                                "utf-8"
+                                            )
+                                        )
+                                    except Exception:
+                                        pass
+                            for fourth_default in (
+                                getattr(
+                                    fourth_fn,
+                                    "__kwdefaults__",
+                                    None,
+                                )
+                                or {}
+                            ).values():
+                                if isinstance(fourth_default, str):
+                                    returned_strs.add(fourth_default)
+                                elif isinstance(
+                                    fourth_default, (bytes, bytearray)
+                                ):
+                                    try:
+                                        returned_strs.add(
+                                            fourth_default.decode(
+                                                "utf-8"
+                                            )
+                                        )
+                                    except Exception:
+                                        pass
+                            for fourth_cell in (
+                                getattr(
+                                    fourth_fn, "__closure__", None
+                                )
+                                or ()
+                            ):
+                                try:
+                                    fourth_cell_value = (
+                                        fourth_cell.cell_contents
+                                    )
+                                except Exception:
+                                    continue
+                                if isinstance(fourth_cell_value, str):
+                                    returned_strs.add(
+                                        fourth_cell_value
+                                    )
+                                elif isinstance(
+                                    fourth_cell_value,
+                                    (bytes, bytearray),
+                                ):
+                                    try:
+                                        returned_strs.add(
+                                            fourth_cell_value.decode(
+                                                "utf-8"
+                                            )
+                                        )
+                                    except Exception:
+                                        pass
+                            for fourth_loaded in _code_facts(
+                                fourth_code
+                            )[0]:
+                                fourth_value = current_map.get(
+                                    fourth_loaded
+                                )
+                                if isinstance(fourth_value, str):
+                                    returned_strs.add(fourth_value)
+                                elif isinstance(
+                                    fourth_value, (bytes, bytearray)
+                                ):
+                                    try:
+                                        returned_strs.add(
+                                            fourth_value.decode(
+                                                "utf-8"
+                                            )
+                                        )
+                                    except Exception:
+                                        pass
+                                elif isinstance(
+                                    fourth_value,
+                                    (
+                                        dict,
+                                        list,
+                                        tuple,
+                                        set,
+                                        frozenset,
+                                    ),
+                                ):
+                                    pending_held = [fourth_value]
+                                    seen_held = set()
+                                    while pending_held:
+                                        held = pending_held.pop()
+                                        if id(held) in seen_held:
+                                            continue
+                                        seen_held.add(id(held))
+                                        if isinstance(held, str):
+                                            returned_strs.add(held)
+                                        elif isinstance(
+                                            held, (bytes, bytearray)
+                                        ):
+                                            try:
+                                                returned_strs.add(
+                                                    held.decode("utf-8")
+                                                )
+                                            except Exception:
+                                                pass
+                                        elif isinstance(held, dict):
+                                            for held_key in held:
+                                                pending_held.append(held_key)
+                                                pending_held.append(
+                                                    held[held_key]
+                                                )
+                                        elif isinstance(
+                                            held,
+                                            (list, tuple, set, frozenset),
+                                        ):
+                                            pending_held.extend(held)
                 for pair_base, pair_attr in _code_facts(
                     first_code
                 )[3]:
@@ -3497,6 +3749,168 @@ def _bundle_copy(bundle):
                                             (list, tuple, set, frozenset),
                                         ):
                                             pending_held.extend(held)
+                        if pair_code is not None:
+                            for pair_inner_name in (
+                                _code_facts(pair_code)[0]
+                            ):
+                                pair_inner_fn = (
+                                    pair_map.get(
+                                        pair_inner_name
+                                    )
+                                )
+                                if not isinstance(
+                                    pair_inner_fn,
+                                    _types_module
+                                    .FunctionType,
+                                ):
+                                    continue
+                                if (
+                                    getattr(
+                                        pair_inner_fn,
+                                        "__globals__",
+                                        None,
+                                    )
+                                    is not pair_map
+                                ):
+                                    continue
+                                inner_code = getattr(
+                                    pair_inner_fn, "__code__", None
+                                )
+                                if inner_code is not None:
+                                    returned_strs |= set(
+                                        _code_facts(inner_code)[1]
+                                    )
+                                for inner_default in (
+                                    getattr(
+                                        pair_inner_fn, "__defaults__", None
+                                    )
+                                    or ()
+                                ):
+                                    if isinstance(inner_default, str):
+                                        returned_strs.add(inner_default)
+                                    elif isinstance(
+                                        inner_default, (bytes, bytearray)
+                                    ):
+                                        try:
+                                            returned_strs.add(
+                                                inner_default.decode(
+                                                    "utf-8"
+                                                )
+                                            )
+                                        except Exception:
+                                            pass
+                                for inner_default in (
+                                    getattr(
+                                        pair_inner_fn,
+                                        "__kwdefaults__",
+                                        None,
+                                    )
+                                    or {}
+                                ).values():
+                                    if isinstance(inner_default, str):
+                                        returned_strs.add(inner_default)
+                                    elif isinstance(
+                                        inner_default, (bytes, bytearray)
+                                    ):
+                                        try:
+                                            returned_strs.add(
+                                                inner_default.decode(
+                                                    "utf-8"
+                                                )
+                                            )
+                                        except Exception:
+                                            pass
+                                for inner_cell in (
+                                    getattr(
+                                        pair_inner_fn, "__closure__", None
+                                    )
+                                    or ()
+                                ):
+                                    try:
+                                        inner_cell_value = (
+                                            inner_cell.cell_contents
+                                        )
+                                    except Exception:
+                                        continue
+                                    if isinstance(inner_cell_value, str):
+                                        returned_strs.add(
+                                            inner_cell_value
+                                        )
+                                    elif isinstance(
+                                        inner_cell_value,
+                                        (bytes, bytearray),
+                                    ):
+                                        try:
+                                            returned_strs.add(
+                                                inner_cell_value.decode(
+                                                    "utf-8"
+                                                )
+                                            )
+                                        except Exception:
+                                            pass
+                                if inner_code is not None:
+                                    for inner_loaded in _code_facts(
+                                        inner_code
+                                    )[0]:
+                                        inner_loaded_value = pair_map.get(
+                                            inner_loaded
+                                        )
+                                        if isinstance(
+                                            inner_loaded_value, str
+                                        ):
+                                            returned_strs.add(
+                                                inner_loaded_value
+                                            )
+                                        elif isinstance(
+                                            inner_loaded_value,
+                                            (bytes, bytearray),
+                                        ):
+                                            try:
+                                                returned_strs.add(
+                                                    inner_loaded_value
+                                                    .decode("utf-8")
+                                                )
+                                            except Exception:
+                                                pass
+                                        elif isinstance(
+                                            inner_loaded_value,
+                                            (
+                                                dict,
+                                                list,
+                                                tuple,
+                                                set,
+                                                frozenset,
+                                            ),
+                                        ):
+                                            pending_held = [inner_loaded_value]
+                                            seen_held = set()
+                                            while pending_held:
+                                                held = pending_held.pop()
+                                                if id(held) in seen_held:
+                                                    continue
+                                                seen_held.add(id(held))
+                                                if isinstance(held, str):
+                                                    returned_strs.add(held)
+                                                elif isinstance(
+                                                    held, (bytes, bytearray)
+                                                ):
+                                                    try:
+                                                        returned_strs.add(
+                                                            held.decode("utf-8")
+                                                        )
+                                                    except Exception:
+                                                        pass
+                                                elif isinstance(held, dict):
+                                                    for held_key in held:
+                                                        pending_held.append(held_key)
+                                                        pending_held.append(
+                                                            held[held_key]
+                                                        )
+                                                elif isinstance(
+                                                    held,
+                                                    (list, tuple, set, frozenset),
+                                                ):
+                                                    pending_held.extend(held)
             for pair_base, pair_attr in pairs:
                 if pair_base not in current_map:
                     continue
@@ -3594,12 +4008,277 @@ def _bundle_copy(bundle):
                                 )
                             except Exception:
                                 pass
+                    if pair_code is not None:
+                        for pair_loaded in _code_facts(
+                            pair_code
+                        )[0]:
+                            pair_loaded_value = pair_map.get(
+                                pair_loaded
+                            )
+                            if isinstance(
+                                pair_loaded_value, str
+                            ):
+                                returned_strs.add(
+                                    pair_loaded_value
+                                )
+                            elif isinstance(
+                                pair_loaded_value,
+                                (bytes, bytearray),
+                            ):
+                                try:
+                                    returned_strs.add(
+                                        pair_loaded_value
+                                        .decode("utf-8")
+                                    )
+                                except Exception:
+                                    pass
+                            elif isinstance(
+                                pair_loaded_value,
+                                (
+                                    dict,
+                                    list,
+                                    tuple,
+                                    set,
+                                    frozenset,
+                                ),
+                            ):
+                                pending_held = [pair_loaded_value]
+                                seen_held = set()
+                                while pending_held:
+                                    held = pending_held.pop()
+                                    if id(held) in seen_held:
+                                        continue
+                                    seen_held.add(id(held))
+                                    if isinstance(held, str):
+                                        returned_strs.add(held)
+                                    elif isinstance(
+                                        held, (bytes, bytearray)
+                                    ):
+                                        try:
+                                            returned_strs.add(
+                                                held.decode("utf-8")
+                                            )
+                                        except Exception:
+                                            pass
+                                    elif isinstance(held, dict):
+                                        for held_key in held:
+                                            pending_held.append(held_key)
+                                            pending_held.append(
+                                                held[held_key]
+                                            )
+                                    elif isinstance(
+                                        held,
+                                        (list, tuple, set, frozenset),
+                                    ):
+                                        pending_held.extend(held)
+                    if pair_code is not None:
+                        for pair_inner_name in (
+                            _code_facts(pair_code)[0]
+                        ):
+                            pair_inner_fn = (
+                                pair_map.get(
+                                    pair_inner_name
+                                )
+                            )
+                            if not isinstance(
+                                pair_inner_fn,
+                                _types_module
+                                .FunctionType,
+                            ):
+                                continue
+                            if (
+                                getattr(
+                                    pair_inner_fn,
+                                    "__globals__",
+                                    None,
+                                )
+                                is not pair_map
+                            ):
+                                continue
+                            inner_code = getattr(
+                                pair_inner_fn, "__code__", None
+                            )
+                            if inner_code is not None:
+                                returned_strs |= set(
+                                    _code_facts(inner_code)[1]
+                                )
+                            for inner_default in (
+                                getattr(
+                                    pair_inner_fn, "__defaults__", None
+                                )
+                                or ()
+                            ):
+                                if isinstance(inner_default, str):
+                                    returned_strs.add(inner_default)
+                                elif isinstance(
+                                    inner_default, (bytes, bytearray)
+                                ):
+                                    try:
+                                        returned_strs.add(
+                                            inner_default.decode(
+                                                "utf-8"
+                                            )
+                                        )
+                                    except Exception:
+                                        pass
+                            for inner_default in (
+                                getattr(
+                                    pair_inner_fn,
+                                    "__kwdefaults__",
+                                    None,
+                                )
+                                or {}
+                            ).values():
+                                if isinstance(inner_default, str):
+                                    returned_strs.add(inner_default)
+                                elif isinstance(
+                                    inner_default, (bytes, bytearray)
+                                ):
+                                    try:
+                                        returned_strs.add(
+                                            inner_default.decode(
+                                                "utf-8"
+                                            )
+                                        )
+                                    except Exception:
+                                        pass
+                            for inner_cell in (
+                                getattr(
+                                    pair_inner_fn, "__closure__", None
+                                )
+                                or ()
+                            ):
+                                try:
+                                    inner_cell_value = (
+                                        inner_cell.cell_contents
+                                    )
+                                except Exception:
+                                    continue
+                                if isinstance(inner_cell_value, str):
+                                    returned_strs.add(
+                                        inner_cell_value
+                                    )
+                                elif isinstance(
+                                    inner_cell_value,
+                                    (bytes, bytearray),
+                                ):
+                                    try:
+                                        returned_strs.add(
+                                            inner_cell_value.decode(
+                                                "utf-8"
+                                            )
+                                        )
+                                    except Exception:
+                                        pass
+                            if inner_code is not None:
+                                for inner_loaded in _code_facts(
+                                    inner_code
+                                )[0]:
+                                    inner_loaded_value = pair_map.get(
+                                        inner_loaded
+                                    )
+                                    if isinstance(
+                                        inner_loaded_value, str
+                                    ):
+                                        returned_strs.add(
+                                            inner_loaded_value
+                                        )
+                                    elif isinstance(
+                                        inner_loaded_value,
+                                        (bytes, bytearray),
+                                    ):
+                                        try:
+                                            returned_strs.add(
+                                                inner_loaded_value
+                                                .decode("utf-8")
+                                            )
+                                        except Exception:
+                                            pass
+                                    elif isinstance(
+                                        inner_loaded_value,
+                                        (
+                                            dict,
+                                            list,
+                                            tuple,
+                                            set,
+                                            frozenset,
+                                        ),
+                                    ):
+                                        pending_held = [inner_loaded_value]
+                                        seen_held = set()
+                                        while pending_held:
+                                            held = pending_held.pop()
+                                            if id(held) in seen_held:
+                                                continue
+                                            seen_held.add(id(held))
+                                            if isinstance(held, str):
+                                                returned_strs.add(held)
+                                            elif isinstance(
+                                                held, (bytes, bytearray)
+                                            ):
+                                                try:
+                                                    returned_strs.add(
+                                                        held.decode("utf-8")
+                                                    )
+                                                except Exception:
+                                                    pass
+                                            elif isinstance(held, dict):
+                                                for held_key in held:
+                                                    pending_held.append(held_key)
+                                                    pending_held.append(
+                                                        held[held_key]
+                                                    )
+                                            elif isinstance(
+                                                held,
+                                                (list, tuple, set, frozenset),
+                                            ):
+                                                pending_held.extend(held)
             act_attr_strs = set()
             for pair_base, pair_attr in pairs:
                 if pair_base not in current_map:
                     continue
                 pair_class = current_map[pair_base]
                 if not isinstance(pair_class, type):
+                    pair_inst_value = None
+                    try:
+                        pair_inst_map = vars(pair_class)
+                    except Exception:
+                        pair_inst_map = {}
+                    if isinstance(pair_inst_map, dict):
+                        pair_inst_value = pair_inst_map.get(
+                            pair_attr
+                        )
+                    if pair_inst_value is None:
+                        try:
+                            for pair_inst_klass in type(
+                                pair_class
+                            ).__mro__:
+                                pair_inst_klass_map = (
+                                    vars(pair_inst_klass)
+                                )
+                                if pair_attr in (
+                                    pair_inst_klass_map
+                                ):
+                                    pair_inst_value = (
+                                        pair_inst_klass_map
+                                        .get(pair_attr)
+                                    )
+                                    break
+                        except Exception:
+                            pair_inst_value = None
+                    if isinstance(pair_inst_value, str):
+                        act_attr_strs.add(pair_inst_value)
+                    elif isinstance(
+                        pair_inst_value, (bytes, bytearray)
+                    ):
+                        try:
+                            act_attr_strs.add(
+                                pair_inst_value.decode(
+                                    "utf-8"
+                                )
+                            )
+                        except Exception:
+                            pass
                     continue
                 pair_value = None
                 try:
@@ -4353,6 +5032,7 @@ def _bundle_copy(bundle):
                         called_facts[29],
                         called_facts[30],
                         called_facts[31],
+                        called_facts[40],
                     ):
                         for called_base in called_bases:
                             called_bv = called_map.get(
@@ -4524,6 +5204,48 @@ def _bundle_copy(bundle):
                             candidate_names.add(inner_const)
                             resolved = True
                 exec_extra_maps = list(call_returned_maps)
+                for (
+                    chain_base,
+                    first_attr,
+                    second_attr,
+                    third_attr,
+                    fourth_attr,
+                ) in chains4:
+                    if chain_base not in current_map:
+                        continue
+                    chain_value = current_map[chain_base]
+                    for chain_attr in (
+                        first_attr,
+                        second_attr,
+                        third_attr,
+                        fourth_attr,
+                    ):
+                        if not isinstance(
+                            chain_value,
+                            _types_module.ModuleType,
+                        ):
+                            break
+                        chain_map = getattr(
+                            chain_value, "__dict__", None
+                        )
+                        if not isinstance(chain_map, dict):
+                            break
+                        chain_value = chain_map.get(
+                            chain_attr
+                        )
+                    if not isinstance(
+                        chain_value, _types_module.ModuleType
+                    ):
+                        continue
+                    chain_map = getattr(
+                        chain_value, "__dict__", None
+                    )
+                    if not isinstance(chain_map, dict):
+                        continue
+                    if _map_is_stdlib(chain_map):
+                        continue
+                    if chain_map not in exec_extra_maps:
+                        exec_extra_maps.append(chain_map)
                 for vg_base in vars_get_carried_bases:
                     if vg_base not in current_map:
                         continue
@@ -5470,6 +6192,97 @@ def _bundle_copy(bundle):
                         ):
                             _append_reached(
                                 leaf_map[leaf_key]
+                            )
+                            resolved = True
+                for (
+                    chain_base,
+                    first_attr,
+                    second_attr,
+                    third_attr,
+                    fourth_attr,
+                ) in chains4:
+                    if chain_base not in current_map:
+                        continue
+                    base_value = current_map[chain_base]
+                    if not isinstance(
+                        base_value, _types_module.ModuleType
+                    ):
+                        continue
+                    first_map = getattr(
+                        base_value, "__dict__", None
+                    )
+                    if not isinstance(first_map, dict):
+                        continue
+                    inner_value = first_map.get(first_attr)
+                    if not isinstance(
+                        inner_value, _types_module.ModuleType
+                    ):
+                        continue
+                    inner_map = getattr(
+                        inner_value, "__dict__", None
+                    )
+                    if not isinstance(inner_map, dict):
+                        continue
+                    deep_value = inner_map.get(second_attr)
+                    if not isinstance(
+                        deep_value, _types_module.ModuleType
+                    ):
+                        continue
+                    deep_map = getattr(
+                        deep_value, "__dict__", None
+                    )
+                    if not isinstance(deep_map, dict):
+                        continue
+                    leaf_value = deep_map.get(third_attr)
+                    if not isinstance(
+                        leaf_value, _types_module.ModuleType
+                    ):
+                        continue
+                    leaf_map = getattr(
+                        leaf_value, "__dict__", None
+                    )
+                    if not isinstance(leaf_map, dict):
+                        continue
+                    final_value = leaf_map.get(fourth_attr)
+                    if not isinstance(
+                        final_value, _types_module.ModuleType
+                    ):
+                        continue
+                    final_map = getattr(
+                        final_value, "__dict__", None
+                    )
+                    if not isinstance(final_map, dict):
+                        continue
+                    if _map_is_stdlib(final_map):
+                        continue
+                    for const in consts:
+                        if const in final_map:
+                            _append_reached(
+                                final_map[const]
+                            )
+                            resolved = True
+                    for carried_key in (
+                        carried_names
+                        | extra_carried
+                        | returned_strs
+                        | act_attr_strs
+                    ):
+                        if carried_key in final_map:
+                            _append_reached(
+                                final_map[carried_key]
+                            )
+                            resolved = True
+                    for final_key in final_map:
+                        if (
+                            not isinstance(final_key, str)
+                            or final_key in consts
+                        ):
+                            continue
+                        if _built_from_consts(
+                            final_key, consts
+                        ):
+                            _append_reached(
+                                final_map[final_key]
                             )
                             resolved = True
                 if "getattr" in names or vars_with_arg:
