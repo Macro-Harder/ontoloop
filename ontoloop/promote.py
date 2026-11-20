@@ -2233,7 +2233,20 @@ def _wrapper_element_carries_chainmap_form(element,
     the standing of the search over the value, so the
     carrier act states its plain branch for a cyclic
     container standing at its own elements and not
-    for one standing inside a mapping among them. An
+    for one standing inside a mapping among them. A
+    delegating concrete container subclass standing
+    as a value of a mapping standing searched in this
+    same form, whose search over the value records a
+    cyclic container standing at the elements of the
+    subclass itself, stands carried in the delegating
+    list form over the carried form the carrier act
+    returned for it, in the form that act states for
+    a subclass standing in its delegating form, so
+    the wrapper decides the presentation in parity
+    with the direct act clearing on a self referential
+    plain container standing inside a delegating
+    container standing inside a mapping at this
+    position. An
     items view standing inside a single pass form
     stands in the list of its pairs in the rebuilt
     form the single pass limb states, save that a
@@ -2300,6 +2313,22 @@ def _wrapper_element_carries_chainmap_form(element,
                         events=child_events,
                     )
                 )
+                if (
+                    child_events
+                    and "cyclic_container" in child_events
+                    and _is_delegating_concrete_container_subclass(
+                        inner
+                    )
+                    and isinstance(part, list)
+                    and part is not inner
+                    and not isinstance(
+                        part,
+                        _WrapperMaterialisedDelegatingListForm,
+                    )
+                ):
+                    part = _WrapperMaterialisedDelegatingListForm(
+                        part
+                    )
                 if child_events:
                     for event in child_events:
                         events.add(
