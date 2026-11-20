@@ -113,15 +113,14 @@ class _WrapperCase(unittest.TestCase):
         self.assertTrue(direct_outcome["fired"])
         self.assertEqual(direct_outcome["comparisons"], comparisons)
 
-    def _assert_pair_clears(self, make_item, comparisons=None):
+    def _assert_pair_clears(self, make_item, comparisons):
         outcome = self._wrapper(_chainmap_item(make_item()))
         self._assert_clears(outcome)
         direct_outcome = self._direct(_chainmap_item(make_item()))
         self.assertFalse(direct_outcome["fired"])
-        if comparisons is not None:
-            self.assertEqual(
-                direct_outcome["comparisons"], comparisons
-            )
+        self.assertEqual(
+            direct_outcome["comparisons"], comparisons
+        )
 
     def _assert_wrapper_clears_direct_fires(
         self, make_item, comparisons=1
@@ -278,7 +277,8 @@ class TestPromoteFixR35ChainMapInValuesViewTwoWrappings(
                         _generator_of(_list_of(_cm_clean()))
                     )
                 )
-            }
+            },
+            comparisons=1,
         )
 
     def test_chainmap_in_gen_in_view_at_value_still_clears(self):
