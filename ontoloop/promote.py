@@ -2022,7 +2022,14 @@ def _wrapper_delegating_carrier_chainmap_form(element,
     in the form decided_cm states, a ChainMap
     subclass standing among its elements stands
     carried in the decided form the search act states
-    for that standing. Where the one element of the subclass
+    for that standing. A values view standing among
+    its elements stands carried in the form
+    _wrapper_values_view_in_delegating_carrier_form
+    states in the place of its standing form, so a
+    view whose carried forms carry the subclass
+    inside a delegating concrete container subclass
+    stands in the key form that act states. Where the
+    one element of the subclass
     stands as a dictionary view standing in its
     element form, in the form
     _wrapper_delegating_view_stands_in_element_form
@@ -2068,6 +2075,21 @@ def _wrapper_delegating_carrier_chainmap_form(element,
         )
         parts.append((inner, part, inner_found))
         found = found or inner_found
+    from collections.abc import ValuesView as _ValuesView
+
+    parts = [
+        (
+            inner,
+            _wrapper_values_view_in_delegating_carrier_form(
+                part, shared_module, nested_ancestors, depth + 1
+            )
+            if part is inner
+            and isinstance(inner, _ValuesView)
+            else part,
+            inner_found,
+        )
+        for inner, part, inner_found in parts
+    ]
     if "cyclic_container" in events:
         return (
             [part for inner, part, inner_found in parts],
@@ -2106,6 +2128,16 @@ def _wrapper_delegating_carrier_chainmap_form(element,
                         for key, carried in pairs
                     }
                     return ([rebuilt.items()], False)
+            if isinstance(sole_inner, _ValuesView):
+                return (
+                    [
+                        _wrapper_values_view_in_delegating_carrier_form(
+                            sole_inner, shared_module,
+                            nested_ancestors, depth + 1,
+                        )
+                    ],
+                    False,
+                )
             return ([sole_inner], False)
     if not found:
         if all(
@@ -2242,7 +2274,21 @@ def _wrapper_element_carries_chainmap_form(element,
     its standing at that position, so the material it
     carries reaches the wrapper reading in substance,
     in parity with the direct act firing on those
-    presentations. An element standing
+    presentations. The same rebuilt form stands for a
+    single pass form standing searched inside three
+    mappings or four mappings among them, inside a
+    tuple inside a tuple among them, inside a plain
+    list inside two mappings among them, inside two
+    plain lists inside a mapping among them, inside a
+    mapping inside a plain list inside a mapping
+    among them, inside a mapping inside a tuple
+    inside a mapping among them, inside a plain list
+    standing alone among them, or inside two mappings
+    inside a plain list among them, and for a single
+    pass form standing searched inside a mapping
+    among them whose listed elements carry a further
+    single pass form in which the subclass stands
+    carried, on the same ground. An element standing
     already among the ancestors of the search, a
     plain container or a mapping carrying itself,
     stands as it stands beside False, and a plain
@@ -2384,6 +2430,7 @@ def _wrapper_element_carries_chainmap_form(element,
         nested_ancestors = ancestors | {id(element)}
         searched = []
         found = False
+        nested_pass_found = False
         for inner in listed_once:
             if id(inner) in nested_ancestors:
                 part, inner_found = inner, False
@@ -2412,6 +2459,14 @@ def _wrapper_element_carries_chainmap_form(element,
                 )
             searched.append((inner, part))
             found = found or inner_found
+            if inner_found and (
+                (
+                    hasattr(inner, "__next__")
+                    and hasattr(inner, "__iter__")
+                )
+                or _is_single_pass_iterable(inner)
+            ):
+                nested_pass_found = True
         transformed = [
             [
                 (
@@ -2449,6 +2504,17 @@ def _wrapper_element_carries_chainmap_form(element,
                 ("mapping", "mapping"),
                 ("mapping", "list"),
                 ("tuple",),
+                ("mapping", "mapping", "mapping"),
+                ("mapping", "mapping", "mapping", "mapping"),
+                ("tuple", "tuple"),
+                ("mapping", "mapping", "list"),
+                ("mapping", "list", "list"),
+                ("mapping", "list", "mapping"),
+                ("mapping", "tuple", "mapping"),
+                ("list",),
+                ("list", "mapping", "mapping"),
+            ) and not (
+                chain == ("mapping",) and nested_pass_found
             ):
                 return (
                     {_WrapperMaterialisedKeyForm(transformed): {}},
@@ -2459,6 +2525,17 @@ def _wrapper_element_carries_chainmap_form(element,
             ("mapping", "mapping"),
             ("mapping", "list"),
             ("tuple",),
+            ("mapping", "mapping", "mapping"),
+            ("mapping", "mapping", "mapping", "mapping"),
+            ("tuple", "tuple"),
+            ("mapping", "mapping", "list"),
+            ("mapping", "list", "list"),
+            ("mapping", "list", "mapping"),
+            ("mapping", "tuple", "mapping"),
+            ("list",),
+            ("list", "mapping", "mapping"),
+        ) and not (
+            chain == ("mapping",) and nested_pass_found
         ):
             return (
                 {_WrapperMaterialisedKeyForm(transformed): {}},
@@ -2537,6 +2614,59 @@ def _wrapper_element_carries_chainmap_form(element,
     return element, False
 
 
+def _wrapper_values_view_in_delegating_carrier_form(
+        view, shared_module, ancestors, depth):
+    """Return the carried form of a values view standing
+    inside a delegating carrier whose carried forms
+    stand each as a delegating concrete container
+    subclass.
+
+    Where a delegating ChainMap subclass stands carried
+    in one of those forms, in the form the search act
+    _wrapper_element_carries_chainmap_form states, the
+    view stands carried in the key form the nested
+    materialisation states, so the material it carries
+    reaches no comparison at the wrapper reading, in
+    parity with the direct act clearing on a view
+    standing inside a delegating list form, a
+    delegating tuple form, or a delegating deque form
+    in that standing. Where no such subclass stands,
+    the view stands rebuilt over the carried forms the
+    search returns, so a plain payload standing inside
+    those forms reaches the wrapper reading in
+    substance in the same form. A view whose carried
+    forms stand in any other form stands as it stands.
+    """
+    if not all(
+        _is_delegating_concrete_container_subclass(carried)
+        for carried in list(view)
+    ):
+        return view
+    carried_parts = []
+    carried_found = False
+    for carried in list(view):
+        part, part_found = (
+            _wrapper_element_carries_chainmap_form(
+                carried, shared_module, ancestors, depth + 1,
+                position="key",
+            )
+        )
+        carried_parts.append(part)
+        carried_found = carried_found or part_found
+    if carried_found:
+        return _wrapper_materialise_chainmap_nested(
+            view, shared_module, ancestors, depth
+        )
+    rebuilt_view = {
+        index: part
+        for index, part in enumerate(carried_parts)
+    }.values()
+    return _wrapper_materialise(
+        rebuilt_view, shared_module, ancestors, depth,
+        "other",
+    )
+
+
 def _wrapper_chainmap_delegating_element(element, shared_module,
                                           ancestors, depth,
                                           delegating_carrier=False,
@@ -2577,7 +2707,14 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
     because the direct act reads a view standing
     inside a delegating deque form through the
     carrier form it carries and reaches no comparison
-    on the material beyond it. An items
+    on the material beyond it. A values view standing
+    inside the delegating carrier whose carried forms
+    stand each as a delegating concrete container
+    subclass stands carried in the form
+    _wrapper_values_view_in_delegating_carrier_form
+    states, on the same ground, inside a delegating
+    list form, a delegating tuple form, or a
+    delegating deque form alike. An items
     view carrying a nested mapping in its value
     stands in that same element form on the same
     ground. A keys view standing inside the
@@ -2691,6 +2828,17 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
         ):
             return _wrapper_materialise_chainmap_nested(
                 element, shared_module, ancestors, depth
+            )
+        if delegating_carrier and all(
+            _is_delegating_concrete_container_subclass(
+                carried
+            )
+            for carried in list(element)
+        ):
+            return (
+                _wrapper_values_view_in_delegating_carrier_form(
+                    element, shared_module, ancestors, depth
+                )
             )
         return _wrapper_materialise(
             element, shared_module, ancestors, depth, "other"
