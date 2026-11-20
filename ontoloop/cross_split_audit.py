@@ -911,6 +911,22 @@ class _SeamSentinelProbeLast:
     same standing as the probe forms above."""
 
 
+class _SeamSentinelProbeBeyond:
+    """A further bare probe form of another class, in
+    the same standing as the probe forms above: a form
+    whose equality reading withholds its bool true
+    claim against every bare form the sentinel limb
+    probes with, the bare forms of the earlier rounds
+    among them, stands reached by a probe of this form
+    in the same limb, in the form ruling 2302 of Fix
+    round 36 states."""
+
+
+class _SeamSentinelProbeFinal:
+    """A final bare probe form of another class, in the
+    same standing as the probe forms above."""
+
+
 def _seam_view_underlying_keys(view):
     """List the entry keys of the mapping a dictionary
     view stands over, or None where that mapping stands
@@ -943,7 +959,7 @@ def _seam_material_equal(left, right, ancestors=frozenset()):
     returns true against any form standing in no part
     here. The sentinel limb probes each form against a
     bare plain object and against bare probe forms of
-    four further classes standing in no governed
+    six further classes standing in no governed
     relation to any material, so a form whose equality
     reading claims equality against any form except a
     bare plain object, withholding its bool true claim
@@ -1030,6 +1046,8 @@ def _seam_material_equal(left, right, ancestors=frozenset()):
         _SeamSentinelProbeOther(),
         _SeamSentinelProbeFurther(),
         _SeamSentinelProbeLast(),
+        _SeamSentinelProbeBeyond(),
+        _SeamSentinelProbeFinal(),
     ]
     for form in (left, right):
         for probe in probes:
@@ -5849,7 +5867,13 @@ def _pairs_position_entry(old, ancestors=frozenset(),
     where any element it carries stands carried, a
     dictionary view standing as an element of such a
     form standing carried in its mapping form in the
-    same way, and a dictionary view standing as an
+    same way, a plain container standing as an element
+    of such a form and carrying a dictionary view
+    standing carried in the form the carried position
+    element reading gives it in the same way, in the
+    form ruling 2301 of Fix round 36 states for the
+    delegating set form standing as a sequence element,
+    and a dictionary view standing as an
     element of a delegating container form standing
     at the direct entry standing carried in its
     mapping form in the same way, a dictionary view
@@ -5976,6 +6000,25 @@ def _pairs_position_entry(old, ancestors=frozenset(),
                 rebuilt_elements.append(carried_view)
                 if carried_view is not inner:
                     set_touched = True
+            elif isinstance(
+                inner,
+                (
+                    list,
+                    tuple,
+                    _collections_module.deque,
+                    _collections_module.UserList,
+                ),
+            ) and not _is_delegating_container_subclass(
+                inner
+            ) and _carries_any_view(
+                inner
+            ):
+                carried_el = _carried_position_element(inner)
+                if carried_el is not inner:
+                    rebuilt_elements.append(carried_el)
+                    set_touched = True
+                else:
+                    rebuilt_elements.append(inner)
             else:
                 rebuilt_elements.append(inner)
         if set_touched:
@@ -6220,9 +6263,18 @@ def _delegating_position_carried(value):
     the carried position element reading, and stands
     carried where that reading transforms it, in the
     stacked container form rulings 2041 to 2043 state.
-    Where no element stands decided in any of those
-    forms, the delegating form stands as it stands and
-    this reading returns None.
+    A delegating container standing as an element inside
+    the delegating form whose pairs position entry form
+    still carries a dictionary view stands carried in
+    the form the carried position element reading gives
+    it where that form carries no view, in the form
+    rulings 2300 and 2301 of Fix round 36 state, so a
+    dictionary view or a carrier standing inside a plain
+    container inside the inner delegating form reaches
+    the deciding readings in substance at either sequence
+    position. Where no element stands decided in any of
+    those forms, the delegating form stands as it stands
+    and this reading returns None.
     """
     if type(value).__module__ == "ontoloop.promote" and type(
         value
@@ -6254,6 +6306,24 @@ def _delegating_position_carried(value):
         except Exception:
             new, touched = None, False
         if touched:
+            if _is_delegating_container_subclass(inner):
+                try:
+                    pairs_carries = _carries_any_view(new)
+                except Exception:
+                    pairs_carries = False
+                if pairs_carries:
+                    processed = _carried_position_element(inner)
+                    if processed is not inner:
+                        try:
+                            processed_carries = (
+                                _carries_any_view(processed)
+                            )
+                        except Exception:
+                            processed_carries = True
+                        if not processed_carries:
+                            carried.append(processed)
+                            decided = True
+                            continue
             carried.append(new)
             decided = True
             continue
