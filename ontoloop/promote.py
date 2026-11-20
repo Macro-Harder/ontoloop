@@ -1968,7 +1968,8 @@ def _wrapper_view_carries_single_pass_payload(value):
 def _wrapper_delegating_carrier_chainmap_form(element,
                                               shared_module,
                                               ancestors, depth,
-                                              events=None):
+                                              events=None,
+                                              decided_cm=False):
     """Materialise a delegating concrete container
     subclass standing as an element, in the composed
     carrier form.
@@ -2016,7 +2017,12 @@ def _wrapper_delegating_carrier_chainmap_form(element,
     over its listed elements, in parity with the
     direct act clearing on a self referential plain
     container standing inside a mapping at this
-    position. Where the one element of the subclass
+    position. Where the carrier stands inside two
+    single pass wrappings in the plain carrier path,
+    in the form decided_cm states, a ChainMap
+    subclass standing among its elements stands
+    carried in the decided form the search act states
+    for that standing. Where the one element of the subclass
     stands as a dictionary view standing in its
     element form, in the form
     _wrapper_delegating_view_stands_in_element_form
@@ -2057,6 +2063,7 @@ def _wrapper_delegating_carrier_chainmap_form(element,
                 or _is_single_pass_iterable(inner)
                 else "key",
                 events=events,
+                decided_cm=decided_cm,
             )
         )
         parts.append((inner, part, inner_found))
@@ -2140,7 +2147,8 @@ def _wrapper_element_carries_chainmap_form(element,
                                            shared_module,
                                            ancestors, depth,
                                            position="key",
-                                           events=None):
+                                           events=None, chain=(),
+                                           decided_cm=False):
     """Return the carried form of one element beside
     whether a delegating ChainMap subclass stands
     carried in it.
@@ -2154,7 +2162,12 @@ def _wrapper_element_carries_chainmap_form(element,
     subclass in key position and reaches no comparison
     on the material it carries, while a reading
     through its mapping views raises on that material
-    in place of a decision. A delegating concrete
+    in place of a decision. Where the search stands
+    inside two single pass wrappings in the plain
+    carrier path, in the form decided_cm states, the
+    subclass stands carried in the decided form
+    _wrapper_chainmap_decided_form states beside True
+    on the same ground. A delegating concrete
     container subclass stands in the composed carrier
     form _wrapper_delegating_carrier_chainmap_form
     states, beside the standing of that act. A
@@ -2220,7 +2233,16 @@ def _wrapper_element_carries_chainmap_form(element,
     value of that form, so the material it carries
     reaches no comparison at the wrapper reading, in
     parity with the direct act reaching no comparison
-    on it at that position. An element standing
+    on it at that position, save that a single pass
+    form standing searched inside a mapping standing
+    inside a mapping among them, inside a plain list
+    standing inside a mapping among them, or at the
+    elements of a tuple standing alone among them
+    stands carried in the rebuilt element form beside
+    its standing at that position, so the material it
+    carries reaches the wrapper reading in substance,
+    in parity with the direct act firing on those
+    presentations. An element standing
     already among the ancestors of the search, a
     plain container or a mapping carrying itself,
     stands as it stands beside False, and a plain
@@ -2269,6 +2291,13 @@ def _wrapper_element_carries_chainmap_form(element,
     from collections.abc import ValuesView as _ValuesView
 
     if _is_delegating_chainmap_subclass(element):
+        if decided_cm:
+            return (
+                _wrapper_chainmap_decided_form(
+                    element, shared_module, ancestors, depth
+                ),
+                True,
+            )
         return (
             {_WrapperMaterialisedKeyForm(element): {}},
             True,
@@ -2289,7 +2318,7 @@ def _wrapper_element_carries_chainmap_form(element,
     if _is_delegating_concrete_container_subclass(element):
         return _wrapper_delegating_carrier_chainmap_form(
             element, shared_module, ancestors, depth,
-            events=events,
+            events=events, decided_cm=decided_cm,
         )
     if _is_delegating_container_subclass(element):
         return element, False
@@ -2311,6 +2340,8 @@ def _wrapper_element_carries_chainmap_form(element,
                         inner, shared_module, nested_ancestors,
                         depth + 1, position=position,
                         events=child_events,
+                        chain=chain + ("mapping",),
+                        decided_cm=decided_cm,
                     )
                 )
                 if (
@@ -2376,6 +2407,7 @@ def _wrapper_element_carries_chainmap_form(element,
                         inner, shared_module, nested_ancestors,
                         depth + 1, position="element",
                         events=events,
+                        decided_cm=decided_cm,
                     )
                 )
             searched.append((inner, part))
@@ -2394,6 +2426,9 @@ def _wrapper_element_carries_chainmap_form(element,
                 for key, carried in list(inner)
             ]
             if isinstance(inner, _ItemsView)
+            else part
+            if _is_delegating_chainmap_subclass(inner)
+            and decided_cm
             else _wrapper_chainmap_plain_element(
                 inner, shared_module, nested_ancestors,
                 depth + 1,
@@ -2410,13 +2445,21 @@ def _wrapper_element_carries_chainmap_form(element,
             for key in _WRAPPER_ITEM_FIELD_KEYS
         ):
             transformed = tuple(transformed)
-            if position == "key":
+            if position == "key" and chain not in (
+                ("mapping", "mapping"),
+                ("mapping", "list"),
+                ("tuple",),
+            ):
                 return (
                     {_WrapperMaterialisedKeyForm(transformed): {}},
                     found,
                 )
             return transformed, found
-        if position == "key":
+        if position == "key" and chain not in (
+            ("mapping", "mapping"),
+            ("mapping", "list"),
+            ("tuple",),
+        ):
             return (
                 {_WrapperMaterialisedKeyForm(transformed): {}},
                 found,
@@ -2450,6 +2493,14 @@ def _wrapper_element_carries_chainmap_form(element,
                         inner, shared_module, nested_ancestors,
                         depth + 1, position=position,
                         events=events,
+                        chain=chain + (
+                            ("tuple",)
+                            if isinstance(element, tuple)
+                            else ("list",)
+                            if isinstance(element, list)
+                            else ("plain",)
+                        ),
+                        decided_cm=decided_cm,
                     )
                 )
             parts.append(part)
@@ -2488,7 +2539,9 @@ def _wrapper_element_carries_chainmap_form(element,
 
 def _wrapper_chainmap_delegating_element(element, shared_module,
                                           ancestors, depth,
-                                          delegating_carrier=False):
+                                          delegating_carrier=False,
+                                          pass_depth=0,
+                                          deque_form=False):
     """Materialise one element of a delegating concrete
     container subclass standing at a mapping value
     inside a ChainMap item, in the form
@@ -2514,7 +2567,17 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
     the element form the view reading above states, a
     single pass form or a nested mapping standing in
     its carried position, which the element position
-    reading of a view reaches in substance. An items
+    reading of a view reaches in substance, and save
+    that a view standing inside a delegating deque
+    form at a mapping value, in the form deque_form
+    states, whose carried forms stand each as a
+    delegating concrete container subclass stands
+    carried in that same key form even where an
+    iterator stands in the subtree of a carried form,
+    because the direct act reads a view standing
+    inside a delegating deque form through the
+    carrier form it carries and reaches no comparison
+    on the material beyond it. An items
     view carrying a nested mapping in its value
     stands in that same element form on the same
     ground. A keys view standing inside the
@@ -2587,9 +2650,20 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
         )
         return _WrapperMaterialisedSetForm([materialised_view])
     if isinstance(element, _ItemsView):
-        if delegating_carrier and not (
-            _wrapper_delegating_view_stands_in_element_form(
-                element
+        if delegating_carrier and (
+            not (
+                _wrapper_delegating_view_stands_in_element_form(
+                    element
+                )
+            )
+            or (
+                deque_form
+                and all(
+                    _is_delegating_concrete_container_subclass(
+                        carried
+                    )
+                    for _pair_key, carried in list(element)
+                )
             )
         ):
             return _wrapper_materialise_chainmap_nested(
@@ -2599,9 +2673,20 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
             element, shared_module, ancestors, depth, "other"
         )
     if isinstance(element, _ValuesView):
-        if delegating_carrier and not (
-            _wrapper_delegating_view_stands_in_element_form(
-                element
+        if delegating_carrier and (
+            not (
+                _wrapper_delegating_view_stands_in_element_form(
+                    element
+                )
+            )
+            or (
+                deque_form
+                and all(
+                    _is_delegating_concrete_container_subclass(
+                        carried
+                    )
+                    for carried in list(element)
+                )
             )
         ):
             return _wrapper_materialise_chainmap_nested(
@@ -2617,7 +2702,8 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
             return element
         carried_form, _chainmap_carried = (
             _wrapper_delegating_carrier_chainmap_form(
-                element, shared_module, ancestors, depth
+                element, shared_module, ancestors, depth,
+                decided_cm=(pass_depth >= 1),
             )
         )
         return carried_form
@@ -2651,6 +2737,8 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
             _wrapper_chainmap_delegating_element(
                 inner, shared_module, nested_ancestors, depth + 1,
                 delegating_carrier=delegating_carrier,
+                pass_depth=pass_depth,
+                deque_form=deque_form,
             )
             for inner in listed_once
         ]
@@ -2674,7 +2762,8 @@ def _wrapper_chainmap_delegating_element(element, shared_module,
 def _wrapper_chainmap_single_pass_value(value, shared_module,
                                         ancestors, depth,
                                         plain_carrier=False,
-                                        delegating_carrier=False):
+                                        delegating_carrier=False,
+                                        pass_depth=0):
     """Materialise a single pass form standing inside
     a mapping standing inside a ChainMap item, from
     its one listing: its elements stand in the form
@@ -2709,7 +2798,7 @@ def _wrapper_chainmap_single_pass_value(value, shared_module,
         transformed = [
             _wrapper_chainmap_plain_element(
                 element, shared_module, nested_ancestors,
-                depth + 1,
+                depth + 1, pass_depth=pass_depth,
             )
             for element in listed_once
         ]
@@ -2740,7 +2829,9 @@ def _wrapper_chainmap_single_pass_value(value, shared_module,
 
 
 def _wrapper_chainmap_delegating_value(value, shared_module,
-                                       ancestors, depth):
+                                       ancestors, depth,
+                                       pass_depth=0,
+                                       deque_form=False):
     """Materialise a delegating concrete container
     subclass standing at a mapping value inside a
     mapping standing inside a ChainMap item.
@@ -2763,6 +2854,8 @@ def _wrapper_chainmap_delegating_value(value, shared_module,
         _wrapper_chainmap_delegating_element(
             element, shared_module, nested_ancestors, depth + 1,
             delegating_carrier=True,
+            pass_depth=pass_depth,
+            deque_form=deque_form,
         )
         for element in listed_once
     ]
@@ -2816,7 +2909,8 @@ def _wrapper_chainmap_decided_form(value, shared_module,
 
 
 def _wrapper_chainmap_plain_element(element, shared_module,
-                                    ancestors, depth):
+                                    ancestors, depth,
+                                    pass_depth=0):
     """Materialise one element of a plain container
     or a single pass form standing at a mapping value
     inside a mapping standing inside a ChainMap item.
@@ -2949,7 +3043,7 @@ def _wrapper_chainmap_plain_element(element, shared_module,
         return [
             _wrapper_chainmap_mapping_value(
                 carried, shared_module, view_ancestors,
-                depth + 1,
+                depth + 1, pass_depth=pass_depth,
             )
             for carried in list(element)
         ]
@@ -2964,7 +3058,8 @@ def _wrapper_chainmap_plain_element(element, shared_module,
             return element
         carried_form, _chainmap_carried = (
             _wrapper_delegating_carrier_chainmap_form(
-                element, shared_module, ancestors, depth
+                element, shared_module, ancestors, depth,
+                decided_cm=(pass_depth >= 1),
             )
         )
         return carried_form
@@ -2973,7 +3068,7 @@ def _wrapper_chainmap_plain_element(element, shared_module,
     ) or _is_single_pass_iterable(element):
         return _wrapper_chainmap_single_pass_value(
             element, shared_module, ancestors, depth,
-            plain_carrier=True,
+            plain_carrier=True, pass_depth=pass_depth + 1,
         )
     if _is_getitem_only_form(element):
         return _wrapper_materialise_chainmap_nested(
@@ -3111,7 +3206,8 @@ def _wrapper_subtree_carries_delegating_carrier(value,
 
 
 def _wrapper_chainmap_mapping_value(inner, shared_module,
-                                    ancestors, depth):
+                                    ancestors, depth,
+                                    pass_depth=0):
     """Materialise one value of a mapping standing
     inside a ChainMap item.
 
@@ -3212,7 +3308,7 @@ def _wrapper_chainmap_mapping_value(inner, shared_module,
         return [
             _wrapper_chainmap_mapping_value(
                 carried, shared_module, view_ancestors,
-                depth + 1,
+                depth + 1, pass_depth=pass_depth,
             )
             for carried in list(inner)
         ]
@@ -3222,14 +3318,18 @@ def _wrapper_chainmap_mapping_value(inner, shared_module,
         )
     if _is_delegating_container_subclass(inner):
         return _wrapper_chainmap_delegating_value(
-            inner, shared_module, ancestors, depth
+            inner, shared_module, ancestors, depth,
+            pass_depth=pass_depth,
+            deque_form=isinstance(
+                inner, _collections_module.deque
+            ),
         )
     if (
         hasattr(inner, "__next__") and hasattr(inner, "__iter__")
     ) or _is_single_pass_iterable(inner):
         return _wrapper_chainmap_single_pass_value(
             inner, shared_module, ancestors, depth,
-            plain_carrier=True,
+            plain_carrier=True, pass_depth=pass_depth,
         )
     if isinstance(inner, _ItemsView):
         if any(
@@ -3247,7 +3347,7 @@ def _wrapper_chainmap_mapping_value(inner, shared_module,
                     ),
                     _wrapper_chainmap_mapping_value(
                         carried, shared_module, view_ancestors,
-                        depth + 1,
+                        depth + 1, pass_depth=pass_depth,
                     ),
                 )
                 for key, carried in list(inner)
