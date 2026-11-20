@@ -655,7 +655,7 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
     its core as its span, beside the fragments an
     exact resolution already carries. Where no
     consecutive joining decides, a split joining
-    stands tried in a window of twenty four stream
+    stands tried in a window of forty eight stream
     entries: a first run of fragments, intervening
     stream entries standing inside the window, and
     a second run, decided on the two runs joined
@@ -665,7 +665,7 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
     fragments after intervening entries stand tried
     as an extension of the decided joining,
     repeatedly, each extension skip standing
-    bounded by the window of twenty four stream
+    bounded by the window of forty eight stream
     entries in its own right and no total of
     intervening entries standing against the one
     assembly, the split joining skip counting
@@ -693,21 +693,25 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
         if core is not None
     ]
     hex_digits = set("0123456789abcdefABCDEF")
+    verdicts = {}
 
     def decides(joined):
-        if len(joined) < 16:
-            return False
-        viable = len(joined) % 4 == 0 or (
-            len(joined) % 2 == 0
-            and all(char in hex_digits for char in joined)
-        )
-        if not viable:
-            return False
-        resolved = _decode_candidate(joined)
-        return (
-            resolved["outcome"] == "definite hit"
-            and resolved["decoding_depth_reached"] >= 1
-        )
+        if joined in verdicts:
+            return verdicts[joined]
+        verdict = False
+        if len(joined) >= 16:
+            viable = len(joined) % 4 == 0 or (
+                len(joined) % 2 == 0
+                and all(char in hex_digits for char in joined)
+            )
+            if viable:
+                resolved = _decode_candidate(joined)
+                verdict = (
+                    resolved["outcome"] == "definite hit"
+                    and resolved["decoding_depth_reached"] >= 1
+                )
+        verdicts[joined] = verdict
+        return verdict
 
     def add_span(spans, core):
         span = (core[0], core[1], layer, class_name)
@@ -725,7 +729,7 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
                 assembly = (group, joined, pos + count)
                 break
         if assembly is None:
-            window = stream[pos:pos + 24]
+            window = stream[pos:pos + 48]
             for first in range(1, len(window)):
                 if assembly is not None:
                     break
@@ -764,7 +768,7 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
             add_span(spans, cores[i])
         while end_pos < len(stream):
             extension = None
-            for skip in range(0, 25):
+            for skip in range(0, 49):
                 start = end_pos + skip
                 if start >= len(stream):
                     break
