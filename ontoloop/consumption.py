@@ -1697,6 +1697,8 @@ def _bundle_copy(bundle):
             vars_home_bases = set()
             call_names = set()
             call_pairs = set()
+            vars_get_attr_bases = set()
+            get_attr_bases = set()
             attr_dynamic = False
             vars_with_arg = False
 
@@ -1854,6 +1856,7 @@ def _bundle_copy(bundle):
                     seq_b = _seq_at(2)
                     seq_c = _seq_at(3)
                     seq_d = _seq_at(4)
+                    seq_e = _seq_at(5)
                     if (
                         seq_a is not None
                         and seq_a.opname == "CALL"
@@ -1930,6 +1933,62 @@ def _bundle_copy(bundle):
                         vars_get_carried_bases.add(
                             seq_a.argval
                         )
+                    if (
+                        seq_ins.argval == "vars"
+                        and seq_a is not None
+                        and seq_a.opname in (
+                            "LOAD_GLOBAL",
+                            "LOAD_NAME",
+                        )
+                        and isinstance(seq_a.argval, str)
+                        and seq_b is not None
+                        and seq_b.opname == "CALL"
+                        and seq_c is not None
+                        and seq_c.opname in (
+                            "LOAD_ATTR",
+                            "LOAD_METHOD",
+                        )
+                        and seq_c.argval == "get"
+                        and seq_d is not None
+                        and seq_d.opname in (
+                            "LOAD_FAST",
+                            "LOAD_FAST_BORROW",
+                            "LOAD_FAST_CHECK",
+                            "LOAD_DEREF",
+                            "LOAD_GLOBAL",
+                            "LOAD_NAME",
+                            "LOAD_CLASSDEREF",
+                        )
+                        and seq_e is not None
+                        and seq_e.opname == "LOAD_ATTR"
+                    ):
+                        vars_get_attr_bases.add(
+                            seq_a.argval
+                        )
+                    if (
+                        seq_a is not None
+                        and seq_a.opname == "LOAD_ATTR"
+                        and seq_a.argval == "__dict__"
+                        and seq_b is not None
+                        and seq_b.opname in (
+                            "LOAD_ATTR",
+                            "LOAD_METHOD",
+                        )
+                        and seq_b.argval == "get"
+                        and seq_c is not None
+                        and seq_c.opname in (
+                            "LOAD_FAST",
+                            "LOAD_FAST_BORROW",
+                            "LOAD_FAST_CHECK",
+                            "LOAD_DEREF",
+                            "LOAD_GLOBAL",
+                            "LOAD_NAME",
+                            "LOAD_CLASSDEREF",
+                        )
+                        and seq_d is not None
+                        and seq_d.opname == "LOAD_ATTR"
+                    ):
+                        get_attr_bases.add(seq_ins.argval)
                     if (
                         seq_a is not None
                         and seq_a.opname == "LOAD_ATTR"
@@ -2203,7 +2262,10 @@ def _bundle_copy(bundle):
                             "LOAD_CLASSDEREF",
                         )
                         and scan_fourth is not None
-                        and scan_fourth.opname == "BINARY_OP"
+                        and scan_fourth.opname in (
+                            "BINARY_OP",
+                            "BINARY_SUBSCR",
+                        )
                     ):
                         vars_carried_bases.add(
                             scan_first.argval
@@ -2482,6 +2544,7 @@ def _bundle_copy(bundle):
                 getattribute_result_targets, self_attrs,
                 vars_get_carried_bases, getattr_home_bases,
                 vars_home_bases, call_names, call_pairs,
+                vars_get_attr_bases, get_attr_bases,
             )
 
         def _built_from_consts(key, consts):
@@ -2682,6 +2745,7 @@ def _bundle_copy(bundle):
                 getattribute_result_targets, self_attrs,
                 vars_get_carried_bases, getattr_home_bases,
                 vars_home_bases, call_names, call_pairs,
+                vars_get_attr_bases, get_attr_bases,
             ) = _code_facts(code)
             default_strs = []
             for default_value in (
@@ -2931,6 +2995,118 @@ def _bundle_copy(bundle):
                                 )
                             except Exception:
                                 pass
+                for second_name in _code_facts(first_code)[0]:
+                    second_fn = current_map.get(second_name)
+                    if not isinstance(
+                        second_fn,
+                        _types_module.FunctionType,
+                    ):
+                        continue
+                    if (
+                        getattr(
+                            second_fn, "__globals__", None
+                        )
+                        is not current_map
+                    ):
+                        continue
+                    second_code = getattr(
+                        second_fn, "__code__", None
+                    )
+                    if second_code is None:
+                        continue
+                    for second_cell in (
+                        getattr(
+                            second_fn, "__closure__", None
+                        )
+                        or ()
+                    ):
+                        try:
+                            second_cell_value = (
+                                second_cell.cell_contents
+                            )
+                        except Exception:
+                            continue
+                        if isinstance(second_cell_value, str):
+                            returned_strs.add(second_cell_value)
+                        elif isinstance(
+                            second_cell_value,
+                            (bytes, bytearray),
+                        ):
+                            try:
+                                returned_strs.add(
+                                    second_cell_value.decode(
+                                        "utf-8"
+                                    )
+                                )
+                            except Exception:
+                                pass
+                    for second_loaded in _code_facts(
+                        second_code
+                    )[0]:
+                        second_value = current_map.get(
+                            second_loaded
+                        )
+                        if isinstance(second_value, str):
+                            returned_strs.add(second_value)
+                        elif isinstance(
+                            second_value, (bytes, bytearray)
+                        ):
+                            try:
+                                returned_strs.add(
+                                    second_value.decode(
+                                        "utf-8"
+                                    )
+                                )
+                            except Exception:
+                                pass
+                        elif isinstance(
+                            second_value,
+                            (
+                                dict,
+                                list,
+                                tuple,
+                                set,
+                                frozenset,
+                            ),
+                        ):
+                            pending_held = [second_value]
+                            seen_held = set()
+                            while pending_held:
+                                held = pending_held.pop()
+                                if id(held) in seen_held:
+                                    continue
+                                seen_held.add(id(held))
+                                if isinstance(held, str):
+                                    returned_strs.add(held)
+                                elif isinstance(
+                                    held, (bytes, bytearray)
+                                ):
+                                    try:
+                                        returned_strs.add(
+                                            held.decode(
+                                                "utf-8"
+                                            )
+                                        )
+                                    except Exception:
+                                        pass
+                                elif isinstance(held, dict):
+                                    for held_key in held:
+                                        pending_held.append(
+                                            held_key
+                                        )
+                                        pending_held.append(
+                                            held[held_key]
+                                        )
+                                elif isinstance(
+                                    held,
+                                    (
+                                        list,
+                                        tuple,
+                                        set,
+                                        frozenset,
+                                    ),
+                                ):
+                                    pending_held.extend(held)
                 for pair_base, pair_attr in _code_facts(
                     first_code
                 )[3]:
@@ -2959,6 +3135,74 @@ def _bundle_copy(bundle):
                             returned_strs |= set(
                                 _code_facts(pair_code)[1]
                             )
+                        for pair_default in (
+                            getattr(
+                                pair_value, "__defaults__", None
+                            )
+                            or ()
+                        ):
+                            if isinstance(pair_default, str):
+                                returned_strs.add(pair_default)
+                            elif isinstance(
+                                pair_default, (bytes, bytearray)
+                            ):
+                                try:
+                                    returned_strs.add(
+                                        pair_default.decode(
+                                            "utf-8"
+                                        )
+                                    )
+                                except Exception:
+                                    pass
+                        for pair_default in (
+                            getattr(
+                                pair_value,
+                                "__kwdefaults__",
+                                None,
+                            )
+                            or {}
+                        ).values():
+                            if isinstance(pair_default, str):
+                                returned_strs.add(pair_default)
+                            elif isinstance(
+                                pair_default, (bytes, bytearray)
+                            ):
+                                try:
+                                    returned_strs.add(
+                                        pair_default.decode(
+                                            "utf-8"
+                                        )
+                                    )
+                                except Exception:
+                                    pass
+                        for pair_cell in (
+                            getattr(
+                                pair_value, "__closure__", None
+                            )
+                            or ()
+                        ):
+                            try:
+                                pair_cell_value = (
+                                    pair_cell.cell_contents
+                                )
+                            except Exception:
+                                continue
+                            if isinstance(pair_cell_value, str):
+                                returned_strs.add(
+                                    pair_cell_value
+                                )
+                            elif isinstance(
+                                pair_cell_value,
+                                (bytes, bytearray),
+                            ):
+                                try:
+                                    returned_strs.add(
+                                        pair_cell_value.decode(
+                                            "utf-8"
+                                        )
+                                    )
+                                except Exception:
+                                    pass
             for pair_base, pair_attr in pairs:
                 if pair_base not in current_map:
                     continue
@@ -3014,6 +3258,15 @@ def _bundle_copy(bundle):
                     continue
                 if isinstance(pair_value, str):
                     act_attr_strs.add(pair_value)
+                elif isinstance(
+                    pair_value, (bytes, bytearray)
+                ):
+                    try:
+                        act_attr_strs.add(
+                            pair_value.decode("utf-8")
+                        )
+                    except Exception:
+                        pass
             for chain_base, first_attr, second_attr in chains:
                 if chain_base not in current_map:
                     continue
@@ -3088,6 +3341,15 @@ def _bundle_copy(bundle):
                             owner_value = None
                         if isinstance(owner_value, str):
                             act_attr_strs.add(owner_value)
+                        elif isinstance(
+                            owner_value, (bytes, bytearray)
+                        ):
+                            try:
+                                act_attr_strs.add(
+                                    owner_value.decode("utf-8")
+                                )
+                            except Exception:
+                                pass
                     init_fn = owner_map.get("__init__")
                     if init_fn is None:
                         try:
@@ -3135,6 +3397,21 @@ def _bundle_copy(bundle):
                                     last_const = init_ins.argval
                                 elif (
                                     init_ins.opname
+                                    == "LOAD_CONST"
+                                    and isinstance(
+                                        init_ins.argval,
+                                        (bytes, bytearray),
+                                    )
+                                ):
+                                    try:
+                                        last_const = (
+                                            init_ins.argval
+                                            .decode("utf-8")
+                                        )
+                                    except Exception:
+                                        pass
+                                elif (
+                                    init_ins.opname
                                     == "STORE_ATTR"
                                     and init_ins.argval
                                     in self_attrs
@@ -3176,6 +3453,23 @@ def _bundle_copy(bundle):
                                         init_consts.append(
                                             init_ahead.argval
                                         )
+                                    elif (
+                                        init_ahead.opname
+                                        == "LOAD_CONST"
+                                        and isinstance(
+                                            init_ahead.argval,
+                                            (bytes, bytearray),
+                                        )
+                                    ):
+                                        try:
+                                            init_consts.append(
+                                                init_ahead
+                                                .argval.decode(
+                                                    "utf-8"
+                                                )
+                                            )
+                                        except Exception:
+                                            pass
                                 if (
                                     len(init_consts) >= 2
                                     and init_consts[0]
@@ -3423,6 +3717,128 @@ def _bundle_copy(bundle):
                                 called_modules.append(
                                     called_iv
                                 )
+                    called_carried = set()
+                    for called_default in (
+                        getattr(
+                            called_fn, "__defaults__", None
+                        )
+                        or ()
+                    ):
+                        if isinstance(called_default, str):
+                            called_carried.add(called_default)
+                        elif isinstance(
+                            called_default, (bytes, bytearray)
+                        ):
+                            try:
+                                called_carried.add(
+                                    called_default.decode(
+                                        "utf-8"
+                                    )
+                                )
+                            except Exception:
+                                pass
+                    for called_default in (
+                        getattr(
+                            called_fn, "__kwdefaults__", None
+                        )
+                        or {}
+                    ).values():
+                        if isinstance(called_default, str):
+                            called_carried.add(called_default)
+                        elif isinstance(
+                            called_default, (bytes, bytearray)
+                        ):
+                            try:
+                                called_carried.add(
+                                    called_default.decode(
+                                        "utf-8"
+                                    )
+                                )
+                            except Exception:
+                                pass
+                    for called_cell in (
+                        getattr(
+                            called_fn, "__closure__", None
+                        )
+                        or ()
+                    ):
+                        try:
+                            called_cell_value = (
+                                called_cell.cell_contents
+                            )
+                        except Exception:
+                            continue
+                        if isinstance(called_cell_value, str):
+                            called_carried.add(
+                                called_cell_value
+                            )
+                        elif isinstance(
+                            called_cell_value,
+                            (bytes, bytearray),
+                        ):
+                            try:
+                                called_carried.add(
+                                    called_cell_value.decode(
+                                        "utf-8"
+                                    )
+                                )
+                            except Exception:
+                                pass
+                    for called_loaded in called_facts[0]:
+                        called_loaded_value = called_map.get(
+                            called_loaded
+                        )
+                        if isinstance(called_loaded_value, str):
+                            called_carried.add(
+                                called_loaded_value
+                            )
+                        elif isinstance(
+                            called_loaded_value,
+                            (bytes, bytearray),
+                        ):
+                            try:
+                                called_carried.add(
+                                    called_loaded_value
+                                    .decode("utf-8")
+                                )
+                            except Exception:
+                                pass
+                    for called_bases in (
+                        called_facts[20],
+                        called_facts[21],
+                        called_facts[22],
+                        called_facts[24],
+                        called_facts[29],
+                        called_facts[30],
+                        called_facts[31],
+                    ):
+                        for called_base in called_bases:
+                            called_bv = called_map.get(
+                                called_base
+                            )
+                            if not isinstance(
+                                called_bv,
+                                _types_module.ModuleType,
+                            ):
+                                continue
+                            called_bmap = getattr(
+                                called_bv, "__dict__", {}
+                            )
+                            if not isinstance(
+                                called_bmap, dict
+                            ):
+                                continue
+                            for called_key in called_carried:
+                                called_iv = called_bmap.get(
+                                    called_key
+                                )
+                                if isinstance(
+                                    called_iv,
+                                    _types_module.ModuleType,
+                                ):
+                                    called_modules.append(
+                                        called_iv
+                                    )
                     for called_module in called_modules:
                         called_module_map = getattr(
                             called_module, "__dict__", None
@@ -3602,6 +4018,43 @@ def _bundle_copy(bundle):
                         ):
                             exec_extra_maps.append(
                                 vg_inner_map
+                            )
+                for ag_base in (
+                    vars_get_attr_bases | get_attr_bases
+                ):
+                    if ag_base not in current_map:
+                        continue
+                    ag_value = current_map[ag_base]
+                    if not isinstance(
+                        ag_value, _types_module.ModuleType
+                    ):
+                        continue
+                    ag_map = getattr(
+                        ag_value, "__dict__", None
+                    )
+                    if not isinstance(ag_map, dict):
+                        continue
+                    for ag_key in act_attr_strs:
+                        ag_inner = ag_map.get(ag_key)
+                        if not isinstance(
+                            ag_inner,
+                            _types_module.ModuleType,
+                        ):
+                            continue
+                        ag_inner_map = getattr(
+                            ag_inner, "__dict__", None
+                        )
+                        if not isinstance(
+                            ag_inner_map, dict
+                        ):
+                            continue
+                        if _map_is_stdlib(ag_inner_map):
+                            continue
+                        if ag_inner_map not in (
+                            exec_extra_maps
+                        ):
+                            exec_extra_maps.append(
+                                ag_inner_map
                             )
                 for exec_extra_map in exec_extra_maps:
                     exec_strs = (
@@ -4327,6 +4780,73 @@ def _bundle_copy(bundle):
                                 inner_map[carried_key]
                             )
                             resolved = True
+                for base_name, first_attr, second_attr in (
+                    chains
+                ):
+                    if base_name not in current_map:
+                        continue
+                    base_value = current_map[base_name]
+                    if not isinstance(
+                        base_value, _types_module.ModuleType
+                    ):
+                        continue
+                    first_map = getattr(
+                        base_value, "__dict__", None
+                    )
+                    if not isinstance(first_map, dict):
+                        continue
+                    inner_value = first_map.get(first_attr)
+                    if not isinstance(
+                        inner_value, _types_module.ModuleType
+                    ):
+                        continue
+                    inner_map = getattr(
+                        inner_value, "__dict__", None
+                    )
+                    if not isinstance(inner_map, dict):
+                        continue
+                    deep_value = inner_map.get(second_attr)
+                    if not isinstance(
+                        deep_value, _types_module.ModuleType
+                    ):
+                        continue
+                    deep_map = getattr(
+                        deep_value, "__dict__", None
+                    )
+                    if not isinstance(deep_map, dict):
+                        continue
+                    if _map_is_stdlib(deep_map):
+                        continue
+                    for const in consts:
+                        if const in deep_map:
+                            _append_reached(
+                                deep_map[const]
+                            )
+                            resolved = True
+                    for carried_key in (
+                        carried_names
+                        | extra_carried
+                        | returned_strs
+                        | act_attr_strs
+                    ):
+                        if carried_key in deep_map:
+                            _append_reached(
+                                deep_map[carried_key]
+                            )
+                            resolved = True
+                    for deep_key in deep_map:
+                        if (
+                            not isinstance(deep_key, str)
+                            or deep_key in consts
+                        ):
+                            continue
+                        if _built_from_consts(
+                            deep_key, consts
+                        ):
+                            _append_reached(
+                                deep_map[deep_key]
+                            )
+                            resolved = True
                 if "getattr" in names or vars_with_arg:
                     for target_name in act_targets:
                         if target_name not in current_map:
@@ -4608,6 +5128,36 @@ def _bundle_copy(bundle):
                     inner_value = carried_map.get(
                         carried_key
                     )
+                    if not isinstance(
+                        inner_value,
+                        _types_module.ModuleType,
+                    ):
+                        continue
+                    inner_map = getattr(
+                        inner_value, "__dict__", None
+                    )
+                    if not isinstance(inner_map, dict):
+                        continue
+                    if _map_is_stdlib(inner_map):
+                        continue
+                    presented_maps.append(inner_map)
+            for attr_base in (
+                vars_get_attr_bases | get_attr_bases
+            ):
+                if attr_base not in current_map:
+                    continue
+                attr_module = current_map[attr_base]
+                if not isinstance(
+                    attr_module, _types_module.ModuleType
+                ):
+                    continue
+                attr_map = getattr(
+                    attr_module, "__dict__", None
+                )
+                if not isinstance(attr_map, dict):
+                    continue
+                for attr_key in act_attr_strs:
+                    inner_value = attr_map.get(attr_key)
                     if not isinstance(
                         inner_value,
                         _types_module.ModuleType,
