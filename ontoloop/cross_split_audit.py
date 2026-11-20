@@ -895,6 +895,22 @@ class _SeamSentinelProbeOther:
     same standing as the probe form above."""
 
 
+class _SeamSentinelProbeFurther:
+    """A further bare probe form of another class, in
+    the same standing as the probe forms above: a form
+    whose equality reading withholds its bool true
+    claim against every bare form the sentinel limb
+    probes with, the bare forms of the earlier rounds
+    among them, stands reached by a probe of this form
+    in the same limb, in the form ruling 2169 of Fix
+    round 35 states."""
+
+
+class _SeamSentinelProbeLast:
+    """A last bare probe form of another class, in the
+    same standing as the probe forms above."""
+
+
 def _seam_view_underlying_keys(view):
     """List the entry keys of the mapping a dictionary
     view stands over, or None where that mapping stands
@@ -927,14 +943,19 @@ def _seam_material_equal(left, right, ancestors=frozenset()):
     returns true against any form standing in no part
     here. The sentinel limb probes each form against a
     bare plain object and against bare probe forms of
-    two further classes standing in no governed
+    four further classes standing in no governed
     relation to any material, so a form whose equality
     reading claims equality against any form except a
     bare plain object, withholding its bool true claim
     against the bare plain object by returning false
     against it or by raising against it, stands judged
     in substance as no governed equality in the same
-    way. A form standing inside itself stands
+    way, and a form withholding its bool true claim
+    against every bare form of the limb in the same
+    way stands judged in substance as no governed
+    equality by the further probe forms of the limb,
+    in the form ruling 2169 of Fix round 35 states.
+    A form standing inside itself stands
     in no part here at the cyclic position.
     """
     if left is right:
@@ -1003,7 +1024,13 @@ def _seam_material_equal(left, right, ancestors=frozenset()):
     if not isinstance(result, bool) or not result:
         return False
     sentinel = object()
-    probes = [sentinel, _SeamSentinelProbe(), _SeamSentinelProbeOther()]
+    probes = [
+        sentinel,
+        _SeamSentinelProbe(),
+        _SeamSentinelProbeOther(),
+        _SeamSentinelProbeFurther(),
+        _SeamSentinelProbeLast(),
+    ]
     for form in (left, right):
         for probe in probes:
             try:
@@ -6126,7 +6153,17 @@ def _holdout_carried_form(new):
     rebuilt in its own form over its carried elements
     in the same way, so an items view standing inside
     such a container stands counted once in the same
-    form. Any other form stands as it stands.
+    form. A mapping standing in the carried form
+    stands rebuilt over the entries its storage
+    carries, read past its presented readings in the
+    form the seam storage entries reading states, so
+    the combined clean view form of ruling 1677
+    standing inside a container at this position
+    stands carried in the governed material its
+    storage carries and in no clean form its items
+    reading presents in its place, in the form
+    ruling 2166 of Fix round 35 states. Any other
+    form stands as it stands.
     """
     if isinstance(new, _ItemsView):
         return _view_mapping_form(new)
@@ -6145,9 +6182,13 @@ def _holdout_carried_form(new):
             _holdout_carried_form(inner) for inner in new
         )
     if isinstance(new, dict):
+        storage_entries = _seam_storage_entries(new)
+        carried_entries = (
+            storage_entries if storage_entries else dict(new.items())
+        )
         return {
             key: _holdout_carried_form(inner)
-            for key, inner in new.items()
+            for key, inner in carried_entries.items()
         }
     return new
 
@@ -6262,8 +6303,16 @@ def _carried_position_element(element, ancestors=frozenset()):
     inside a plain container at a sequence position
     stands reached in the same way as the same
     delegating container standing as the element
-    itself. An element standing inside itself stands
-    as it stands at the cyclic position.
+    itself, and a dictionary view standing directly
+    inside a plain container at a sequence position
+    stands carried in the mapping form the view
+    mapping reading gives it, in parity with the same
+    view standing inside a plain container standing
+    alone at that position, in the form rulings 2167
+    and 2168 of Fix round 35 state for the plain
+    container standing inside a delegating container
+    at that position. An element standing inside
+    itself stands as it stands at the cyclic position.
     """
     if id(element) in ancestors:
         return element
@@ -6305,7 +6354,15 @@ def _carried_position_element(element, ancestors=frozenset()):
         except Exception:
             return element
         rebuilt = [
-            _carried_position_element(inner, child_ancestors)
+            (
+                _view_mapping_form(inner)
+                if isinstance(
+                    inner, (_KeysView, _ItemsView, _ValuesView)
+                )
+                else _carried_position_element(
+                    inner, child_ancestors
+                )
+            )
             for inner in elements
         ]
         if any(
