@@ -927,6 +927,23 @@ class _SeamSentinelProbeFinal:
     same standing as the probe forms above."""
 
 
+class _SeamSentinelProbeAfter:
+    """A further bare probe form of another class, in
+    the same standing as the probe forms above: a form
+    whose equality reading withholds its bool true
+    claim against every bare form the sentinel limb
+    probes with, the bare forms of the earlier rounds
+    among them, in any of the withholding forms that
+    limb reads past, stands reached by a probe of this
+    form in the same limb, in the form ruling 2440 of
+    Fix round 37 states."""
+
+
+class _SeamSentinelProbeOuter:
+    """A further bare probe form of another class, in
+    the same standing as the probe forms above."""
+
+
 def _seam_view_underlying_keys(view):
     """List the entry keys of the mapping a dictionary
     view stands over, or None where that mapping stands
@@ -959,7 +976,7 @@ def _seam_material_equal(left, right, ancestors=frozenset()):
     returns true against any form standing in no part
     here. The sentinel limb probes each form against a
     bare plain object and against bare probe forms of
-    six further classes standing in no governed
+    eight further classes standing in no governed
     relation to any material, so a form whose equality
     reading claims equality against any form except a
     bare plain object, withholding its bool true claim
@@ -1048,6 +1065,8 @@ def _seam_material_equal(left, right, ancestors=frozenset()):
         _SeamSentinelProbeLast(),
         _SeamSentinelProbeBeyond(),
         _SeamSentinelProbeFinal(),
+        _SeamSentinelProbeAfter(),
+        _SeamSentinelProbeOuter(),
     ]
     for form in (left, right):
         for probe in probes:
@@ -5873,7 +5892,13 @@ def _pairs_position_entry(old, ancestors=frozenset(),
     element reading gives it in the same way, in the
     form ruling 2301 of Fix round 36 states for the
     delegating set form standing as a sequence element,
-    and a dictionary view standing as an
+    a delegating container standing as an element of
+    such a form and carrying a dictionary view inside
+    a plain container inside it standing carried in
+    the form the carried position element reading
+    gives it in the same way, in the form ruling 2439
+    of Fix round 37 states for that presentation at
+    the dataset surface, and a dictionary view standing as an
     element of a delegating container form standing
     at the direct entry standing carried in its
     mapping form in the same way, a dictionary view
@@ -5991,6 +6016,34 @@ def _pairs_position_entry(old, ancestors=frozenset(),
             probed, elements
         ):
             if entry_touched:
+                if _is_delegating_container_subclass(
+                    inner
+                ):
+                    try:
+                        entry_carries = _carries_any_view(new)
+                    except Exception:
+                        entry_carries = False
+                    if entry_carries:
+                        processed = _carried_position_element(
+                            inner
+                        )
+                        if processed is not inner:
+                            try:
+                                processed_carries = (
+                                    _carries_any_view(processed)
+                                )
+                            except Exception:
+                                processed_carries = True
+                            if not processed_carries and not (
+                                _carries_single_pass_form(
+                                    processed
+                                )
+                            ):
+                                rebuilt_elements.append(
+                                    processed
+                                )
+                                set_touched = True
+                                continue
                 rebuilt_elements.append(new)
                 set_touched = True
             elif isinstance(
@@ -6009,6 +6062,25 @@ def _pairs_position_entry(old, ancestors=frozenset(),
                     _collections_module.UserList,
                 ),
             ) and not _is_delegating_container_subclass(
+                inner
+            ) and _carries_any_view(
+                inner
+            ):
+                carried_el = _carried_position_element(inner)
+                if carried_el is not inner:
+                    rebuilt_elements.append(carried_el)
+                    set_touched = True
+                else:
+                    rebuilt_elements.append(inner)
+            elif isinstance(
+                inner,
+                (
+                    list,
+                    tuple,
+                    _collections_module.deque,
+                    _collections_module.UserList,
+                ),
+            ) and _is_delegating_container_subclass(
                 inner
             ) and _carries_any_view(
                 inner
@@ -6236,6 +6308,53 @@ def _holdout_carried_form(new):
     return new
 
 
+def _carries_single_pass_form(value, depth=0):
+    """Whether a form carries a single pass form
+    within it, read over its plain container elements
+    and its mapping values in their standing forms.
+
+    A form standing as an iterator stands in that form
+    here. A mapping stands read through its values in
+    the same way, and a plain container stands read
+    element by element in the same way, a delegating
+    container standing read through the elements its
+    delegating reading lists, its stored iterator
+    standing restored in that act. A form standing in
+    any other form stands in no such form here. The
+    reading stands bounded in depth, a form nested
+    past the bound standing in no such form here.
+    """
+    if hasattr(value, "__next__"):
+        return True
+    if depth >= 8:
+        return False
+    if isinstance(value, _Mapping):
+        try:
+            values = list(value.values())
+        except Exception:
+            return False
+        return any(
+            _carries_single_pass_form(inner, depth + 1)
+            for inner in values
+        )
+    if isinstance(
+        value,
+        (
+            list,
+            tuple,
+            set,
+            frozenset,
+            _collections_module.deque,
+            _collections_module.UserList,
+        ),
+    ):
+        return any(
+            _carries_single_pass_form(inner, depth + 1)
+            for inner in _container_elements_preserved(value)
+        )
+    return False
+
+
 def _delegating_position_carried(value):
     """Return the carried form of a container standing in
     a delegating subclass form at a bundle position, or
@@ -6272,7 +6391,14 @@ def _delegating_position_carried(value):
     dictionary view or a carrier standing inside a plain
     container inside the inner delegating form reaches
     the deciding readings in substance at either sequence
-    position. Where no element stands decided in any of
+    position. That precedence stands only where the
+    carried form carries no single pass form within it:
+    a carrier the pairs position entry reading has
+    listed stands spent in the inner form, and a carried
+    form standing over that spent carrier carries no
+    material in substance for that precedence, in the
+    form ruling 2441 of Fix round 37 states. Where no
+    element stands decided in any of
     those forms, the delegating form stands as it stands
     and this reading returns None.
     """
@@ -6320,7 +6446,9 @@ def _delegating_position_carried(value):
                             )
                         except Exception:
                             processed_carries = True
-                        if not processed_carries:
+                        if not processed_carries and not (
+                            _carries_single_pass_form(processed)
+                        ):
                             carried.append(processed)
                             decided = True
                             continue
