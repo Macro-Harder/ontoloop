@@ -2284,7 +2284,24 @@ def _wrapper_element_carries_chainmap_form(element,
     among them, inside a mapping inside a tuple
     inside a mapping among them, inside a plain list
     standing alone among them, or inside two mappings
-    inside a plain list among them, and for a single
+    inside a plain list among them, inside five
+    mappings among them, inside three plain lists
+    among them, inside three tuples among them,
+    inside three plain lists inside a mapping among
+    them, inside three mappings inside a plain list
+    among them, inside a tuple inside two mappings
+    among them, inside two mappings inside a plain
+    list inside a mapping among them, inside a
+    mapping inside a plain list inside a tuple among
+    them, inside four mappings inside a plain list
+    among them, inside a plain list inside three
+    mappings among them, inside a tuple inside three
+    mappings among them, inside two mappings inside
+    a tuple inside a mapping among them, inside two
+    plain lists inside two mappings among them,
+    inside two tuples inside a mapping among them,
+    or inside three mappings inside a tuple among
+    them, and for a single
     pass form standing searched inside a mapping
     among them whose listed elements carry a further
     single pass form in which the subclass stands
@@ -2513,6 +2530,21 @@ def _wrapper_element_carries_chainmap_form(element,
                 ("mapping", "tuple", "mapping"),
                 ("list",),
                 ("list", "mapping", "mapping"),
+                ("mapping", "mapping", "mapping", "mapping", "mapping"),
+                ("list", "list", "list"),
+                ("tuple", "tuple", "tuple"),
+                ("mapping", "list", "list", "list"),
+                ("list", "mapping", "mapping", "mapping"),
+                ("mapping", "mapping", "tuple"),
+                ("mapping", "list", "mapping", "mapping"),
+                ("tuple", "list", "mapping"),
+                ("list", "mapping", "mapping", "mapping", "mapping"),
+                ("mapping", "mapping", "mapping", "list"),
+                ("mapping", "mapping", "mapping", "tuple"),
+                ("mapping", "tuple", "mapping", "mapping"),
+                ("mapping", "mapping", "list", "list"),
+                ("mapping", "tuple", "tuple"),
+                ("tuple", "mapping", "mapping", "mapping"),
             ) and not (
                 chain == ("mapping",) and nested_pass_found
             ):
@@ -2534,6 +2566,21 @@ def _wrapper_element_carries_chainmap_form(element,
             ("mapping", "tuple", "mapping"),
             ("list",),
             ("list", "mapping", "mapping"),
+            ("mapping", "mapping", "mapping", "mapping", "mapping"),
+            ("list", "list", "list"),
+            ("tuple", "tuple", "tuple"),
+            ("mapping", "list", "list", "list"),
+            ("list", "mapping", "mapping", "mapping"),
+            ("mapping", "mapping", "tuple"),
+            ("mapping", "list", "mapping", "mapping"),
+            ("tuple", "list", "mapping"),
+            ("list", "mapping", "mapping", "mapping", "mapping"),
+            ("mapping", "mapping", "mapping", "list"),
+            ("mapping", "mapping", "mapping", "tuple"),
+            ("mapping", "tuple", "mapping", "mapping"),
+            ("mapping", "mapping", "list", "list"),
+            ("mapping", "tuple", "tuple"),
+            ("tuple", "mapping", "mapping", "mapping"),
         ) and not (
             chain == ("mapping",) and nested_pass_found
         ):
