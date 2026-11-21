@@ -655,7 +655,7 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
     its core as its span, beside the fragments an
     exact resolution already carries. Where no
     consecutive joining decides, a split joining
-    stands tried in a window of one hundred ninety two stream
+    stands tried in a window of three hundred eighty four stream
     entries: a first run of fragments, intervening
     stream entries standing inside the window, and
     a second run, decided on the two runs joined
@@ -665,7 +665,7 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
     fragments after intervening entries stand tried
     as an extension of the decided joining,
     repeatedly, each extension skip standing
-    bounded by the window of one hundred ninety two stream
+    bounded by the window of three hundred eighty four stream
     entries in its own right and no total of
     intervening entries standing against the one
     assembly, the split joining skip counting
@@ -729,7 +729,7 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
                 assembly = (group, joined, pos + count)
                 break
         if assembly is None:
-            window = stream[pos:pos + 192]
+            window = stream[pos:pos + 384]
             for first in range(1, len(window)):
                 if assembly is not None:
                     break
@@ -768,7 +768,7 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
             add_span(spans, cores[i])
         while end_pos < len(stream):
             extension = None
-            for skip in range(0, 193):
+            for skip in range(0, 385):
                 start = end_pos + skip
                 if start >= len(stream):
                     break
