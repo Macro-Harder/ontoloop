@@ -470,7 +470,7 @@ class TestRedactFixR37Standing(unittest.TestCase):
         )
         self.assertTrue(outcome["appended"])
         self.assertFalse(outcome["refused"])
-        self.assertGreaterEqual(outcome["hits_redacted"], 1)
+        self.assertEqual(outcome["hits_redacted"], 1)
         journal = _journal_bytes(store)
         for fragment in FRAGMENTS8:
             self.assertNotIn(fragment, outcome["redacted_material"])
