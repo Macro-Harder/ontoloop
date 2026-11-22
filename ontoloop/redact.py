@@ -682,7 +682,21 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
     token standing alone still carries no span here,
     because the caller reaches this act only beside
     an exactly resolved token, in the standing
-    detection boundary form.
+    detection boundary form. One further reading
+    stands beside the joining acts: where the cores
+    of stream entries, taken in stream order with
+    intervening entries skipped, join exactly to the
+    core of an exactly resolved token, every entry so
+    taken carries its core as its span, at any count
+    of intervening entries and at any fragment count,
+    and an entry standing between the first and last
+    entries so taken, itself taken by no such joining,
+    carries no span from the joining acts inside that
+    range, so an assembly that a short first fragment
+    forms with the cores of the first intervening
+    entries stands set aside where the entries after
+    those intervening entries complete the resolved
+    value in this exact form.
     """
     cores = [
         _wrapped_fragment_core(start, end, token)
@@ -717,6 +731,90 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
         span = (core[0], core[1], layer, class_name)
         if span not in spans:
             spans.append(span)
+
+    core_owner = {}
+    for index, core in enumerate(cores):
+        if core is not None:
+            core_owner[(core[0], core[1])] = index
+
+    exact_assemblies = []
+    seen_assemblies = set()
+    for exact_index in sorted(exact):
+        if exact_index >= len(cores):
+            continue
+        exact_core = cores[exact_index]
+        if exact_core is None:
+            continue
+        target = exact_core[2]
+        if len(target) < 16:
+            continue
+        candidates = [
+            position for position, index in enumerate(stream)
+            if index not in exact
+        ]
+        matching = {}
+
+        def matches_at(offset):
+            if offset not in matching:
+                found = []
+                for scan in candidates:
+                    core_text = cores[stream[scan]][2]
+                    if target.startswith(core_text, offset):
+                        found.append(scan)
+                matching[offset] = found
+            return matching[offset]
+
+        memo = {}
+
+        def can(position, offset):
+            key = (position, offset)
+            if key in memo:
+                return memo[key]
+            result = False
+            if offset == len(target):
+                result = True
+            else:
+                for scan in matches_at(offset):
+                    if scan < position:
+                        continue
+                    core_text = cores[stream[scan]][2]
+                    if can(scan + 1, offset + len(core_text)):
+                        result = True
+                        break
+            memo[key] = result
+            return result
+
+        if not can(0, 0):
+            continue
+        taken = []
+        position = 0
+        offset = 0
+        while offset < len(target):
+            advanced = False
+            for scan in matches_at(offset):
+                if scan < position:
+                    continue
+                core_text = cores[stream[scan]][2]
+                if can(scan + 1, offset + len(core_text)):
+                    taken.append(scan)
+                    position = scan + 1
+                    offset += len(core_text)
+                    advanced = True
+                    break
+            if not advanced:
+                taken = []
+                break
+        if len(taken) < 2:
+            continue
+        members = tuple(stream[scan] for scan in taken)
+        if members in seen_assemblies:
+            continue
+        seen_assemblies.add(members)
+        exact_assemblies.append((
+            frozenset(members),
+            cores[members[0]][0],
+            cores[members[-1]][1],
+        ))
 
     spans = []
     pos = 0
@@ -790,6 +888,26 @@ def _wrapped_token_spans(tokens, exact, layer, class_name):
             for i in group:
                 add_span(spans, cores[i])
         pos = end_pos
+    if exact_assemblies:
+        kept = []
+        for span in spans:
+            drop = False
+            for members, range_start, range_end in exact_assemblies:
+                if range_start <= span[0] and span[1] <= range_end:
+                    owner = core_owner.get((span[0], span[1]))
+                    if (
+                        owner is not None
+                        and owner not in members
+                        and owner not in exact
+                    ):
+                        drop = True
+                        break
+            if not drop:
+                kept.append(span)
+        spans = kept
+        for members, range_start, range_end in exact_assemblies:
+            for index in sorted(members):
+                add_span(spans, cores[index])
     return spans
 
 
