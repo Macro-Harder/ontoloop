@@ -2359,7 +2359,42 @@ def _wrapper_element_carries_chainmap_form(element,
     six mappings inside a tuple among them, inside
     four plain lists inside a mapping among them, or
     inside five mappings inside a plain list inside a
-    mapping among them,
+    mapping among them, inside eight mappings among
+    them, inside six plain lists among them, inside
+    six tuples among them, inside four plain lists
+    inside three mappings among them, inside three
+    mappings inside four plain lists among them, inside
+    two mappings inside a plain list inside four
+    mappings among them, inside a mapping inside a
+    plain list inside four tuples among them, inside
+    four mappings inside four plain lists among them,
+    inside a plain list inside six mappings among them,
+    inside a tuple inside six mappings among them,
+    inside three mappings inside a tuple inside three
+    mappings among them, inside three plain lists
+    inside four mappings among them, inside three
+    mappings inside four tuples among them, inside
+    four mappings inside a tuple inside two mappings
+    among them, inside four tuples inside three
+    mappings among them, inside two mappings inside a
+    plain list inside a mapping inside two plain lists
+    among them, inside a mapping inside a plain list
+    inside two mappings inside a plain list inside
+    two mappings among them, inside four mappings
+    inside a plain list inside three mappings among
+    them, inside a mapping inside a tuple inside five
+    mappings among them, inside seven mappings inside
+    a plain list among them, inside seven mappings
+    inside a tuple among them, inside five plain lists
+    inside a mapping among them, inside five mappings
+    inside two plain lists among them, inside six
+    mappings inside a plain list inside a mapping
+    among them, inside three tuples inside four
+    mappings among them, inside two plain lists inside
+    five mappings among them, inside five mappings
+    inside a tuple inside a mapping among them, or
+    inside five mappings inside a plain list inside
+    two mappings among them,
     and for a single
     pass form standing searched inside a mapping
     among them whose listed elements carry a further
@@ -2651,6 +2686,34 @@ def _wrapper_element_carries_chainmap_form(element,
                 ("tuple", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping"),
                 ("mapping", "list", "list", "list", "list"),
                 ("mapping", "list", "mapping", "mapping", "mapping", "mapping", "mapping"),
+                ("mapping", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping"),
+                ("list", "list", "list", "list", "list", "list"),
+                ("tuple", "tuple", "tuple", "tuple", "tuple", "tuple"),
+                ("mapping", "mapping", "mapping", "list", "list", "list", "list"),
+                ("list", "list", "list", "list", "mapping", "mapping", "mapping"),
+                ("mapping", "mapping", "mapping", "mapping", "list", "mapping", "mapping"),
+                ("tuple", "tuple", "tuple", "tuple", "list", "mapping"),
+                ("list", "list", "list", "list", "mapping", "mapping", "mapping", "mapping"),
+                ("mapping", "mapping", "mapping", "mapping", "mapping", "mapping", "list"),
+                ("mapping", "mapping", "mapping", "mapping", "mapping", "mapping", "tuple"),
+                ("mapping", "mapping", "mapping", "tuple", "mapping", "mapping", "mapping"),
+                ("mapping", "mapping", "mapping", "mapping", "list", "list", "list"),
+                ("tuple", "tuple", "tuple", "tuple", "mapping", "mapping", "mapping"),
+                ("mapping", "mapping", "tuple", "mapping", "mapping", "mapping", "mapping"),
+                ("mapping", "mapping", "mapping", "tuple", "tuple", "tuple", "tuple"),
+                ("list", "list", "mapping", "list", "mapping", "mapping"),
+                ("mapping", "mapping", "list", "mapping", "mapping", "list", "mapping"),
+                ("mapping", "mapping", "mapping", "list", "mapping", "mapping", "mapping", "mapping"),
+                ("mapping", "mapping", "mapping", "mapping", "mapping", "tuple", "mapping"),
+                ("list", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping"),
+                ("tuple", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping"),
+                ("mapping", "list", "list", "list", "list", "list"),
+                ("list", "list", "mapping", "mapping", "mapping", "mapping", "mapping"),
+                ("mapping", "list", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping"),
+                ("mapping", "mapping", "mapping", "mapping", "tuple", "tuple", "tuple"),
+                ("mapping", "mapping", "mapping", "mapping", "mapping", "list", "list"),
+                ("mapping", "tuple", "mapping", "mapping", "mapping", "mapping", "mapping"),
+                ("mapping", "mapping", "list", "mapping", "mapping", "mapping", "mapping", "mapping"),
             ) and not (
                 chain == ("mapping",) and nested_pass_found
             ):
@@ -2734,6 +2797,34 @@ def _wrapper_element_carries_chainmap_form(element,
             ("tuple", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping"),
             ("mapping", "list", "list", "list", "list"),
             ("mapping", "list", "mapping", "mapping", "mapping", "mapping", "mapping"),
+            ("mapping", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping"),
+            ("list", "list", "list", "list", "list", "list"),
+            ("tuple", "tuple", "tuple", "tuple", "tuple", "tuple"),
+            ("mapping", "mapping", "mapping", "list", "list", "list", "list"),
+            ("list", "list", "list", "list", "mapping", "mapping", "mapping"),
+            ("mapping", "mapping", "mapping", "mapping", "list", "mapping", "mapping"),
+            ("tuple", "tuple", "tuple", "tuple", "list", "mapping"),
+            ("list", "list", "list", "list", "mapping", "mapping", "mapping", "mapping"),
+            ("mapping", "mapping", "mapping", "mapping", "mapping", "mapping", "list"),
+            ("mapping", "mapping", "mapping", "mapping", "mapping", "mapping", "tuple"),
+            ("mapping", "mapping", "mapping", "tuple", "mapping", "mapping", "mapping"),
+            ("mapping", "mapping", "mapping", "mapping", "list", "list", "list"),
+            ("tuple", "tuple", "tuple", "tuple", "mapping", "mapping", "mapping"),
+            ("mapping", "mapping", "tuple", "mapping", "mapping", "mapping", "mapping"),
+            ("mapping", "mapping", "mapping", "tuple", "tuple", "tuple", "tuple"),
+            ("list", "list", "mapping", "list", "mapping", "mapping"),
+            ("mapping", "mapping", "list", "mapping", "mapping", "list", "mapping"),
+            ("mapping", "mapping", "mapping", "list", "mapping", "mapping", "mapping", "mapping"),
+            ("mapping", "mapping", "mapping", "mapping", "mapping", "tuple", "mapping"),
+            ("list", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping"),
+            ("tuple", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping"),
+            ("mapping", "list", "list", "list", "list", "list"),
+            ("list", "list", "mapping", "mapping", "mapping", "mapping", "mapping"),
+            ("mapping", "list", "mapping", "mapping", "mapping", "mapping", "mapping", "mapping"),
+            ("mapping", "mapping", "mapping", "mapping", "tuple", "tuple", "tuple"),
+            ("mapping", "mapping", "mapping", "mapping", "mapping", "list", "list"),
+            ("mapping", "tuple", "mapping", "mapping", "mapping", "mapping", "mapping"),
+            ("mapping", "mapping", "list", "mapping", "mapping", "mapping", "mapping", "mapping"),
         ) and not (
             chain == ("mapping",) and nested_pass_found
         ):
