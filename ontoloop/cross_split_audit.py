@@ -961,6 +961,23 @@ class _SeamSentinelProbeFarther:
     the same standing as the probe forms above."""
 
 
+class _SeamSentinelProbePast:
+    """A further bare probe form of another class, in
+    the same standing as the probe forms above: a form
+    whose equality reading withholds its bool true
+    claim against every bare form the sentinel limb
+    probes with, the bare forms of the earlier rounds
+    among them, in any of the withholding forms that
+    limb reads past, stands reached by a probe of this
+    form in the same limb, in the form ruling 2743 of
+    Fix round 39 states."""
+
+
+class _SeamSentinelProbeOutermost:
+    """A further bare probe form of another class, in
+    the same standing as the probe forms above."""
+
+
 def _seam_view_underlying_keys(view):
     """List the entry keys of the mapping a dictionary
     view stands over, or None where that mapping stands
@@ -993,7 +1010,7 @@ def _seam_material_equal(left, right, ancestors=frozenset()):
     returns true against any form standing in no part
     here. The sentinel limb probes each form against a
     bare plain object and against bare probe forms of
-    ten further classes standing in no governed
+    twelve further classes standing in no governed
     relation to any material, so a form whose equality
     reading claims equality against any form except a
     bare plain object, withholding its bool true claim
@@ -1006,7 +1023,9 @@ def _seam_material_equal(left, right, ancestors=frozenset()):
     equality by the further probe forms of the limb,
     in the form ruling 2169 of Fix round 35 states,
     beside the further probe forms the limb carries
-    in the form ruling 2591 of Fix round 38 states.
+    in the form ruling 2591 of Fix round 38 states,
+    beside the further probe forms the limb carries
+    in the form ruling 2743 of Fix round 39 states.
     A form standing inside itself stands
     in no part here at the cyclic position.
     """
@@ -1088,6 +1107,8 @@ def _seam_material_equal(left, right, ancestors=frozenset()):
         _SeamSentinelProbeOuter(),
         _SeamSentinelProbeNext(),
         _SeamSentinelProbeFarther(),
+        _SeamSentinelProbePast(),
+        _SeamSentinelProbeOutermost(),
     ]
     for form in (left, right):
         for probe in probes:
